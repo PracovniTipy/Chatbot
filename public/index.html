@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<title>Demo eshop - chatbot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body{font-family:sans-serif;max-width:700px;margin:60px auto;padding:0 20px;color:#222;}
+  h1{color:#1F3864;}
+  code{background:#f2f2f2;padding:2px 6px;border-radius:4px;}
+</style>
+</head>
+<body>
+  <h1>Demo eshop</h1>
+  <p>Tohle je testovaci stranka. Vpravo dole klikni na bublinu chatu a zkus se zeptat treba:
+  "Mate zimni bundu skladem?" nebo "Kolik stoji doprava?".</p>
+  <p>Widget se stejnym kodem jde vlozit na jakykoli jiny web/eshop - staci zkopirovat
+  dva &lt;script&gt; tagy uvedene v <code>public/widget.js</code>.</p>
+
+  <script>
+    window.CHATBOT_API = "";
+  </script>
+  <script src="/widget.js"></script>
+</body>
+</html>
