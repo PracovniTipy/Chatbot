@@ -1,6 +1,7 @@
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
+const { Pool } = require("pg");
 
 const app = express();
 app.use(express.json({ limit: "32kb" }));
@@ -10,8 +11,87 @@ const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const shopTokens = new Map();
+const database = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
+let databaseReady = false;
+
+function tokenEncryptionKey() {
+  if (!SHOPIFY_CLIENT_SECRET) {
+    throw new Error("SHOPIFY_CLIENT_SECRET není nastaven.");
+  }
+  return crypto
+    .createHash("sha256")
+    .update(`eshop-assistant-token:${SHOPIFY_CLIENT_SECRET}`)
+    .digest();
+}
+
+function encryptToken(token) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", tokenEncryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]).toString("base64");
+}
+
+function decryptToken(value) {
+  const packed = Buffer.from(value, "base64");
+  if (packed.length < 29) throw new Error("Uložený Shopify token je poškozený.");
+  const iv = packed.subarray(0, 12);
+  const tag = packed.subarray(12, 28);
+  const encrypted = packed.subarray(28);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", tokenEncryptionKey(), iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+}
+
+async function initializeDatabase() {
+  if (!database) {
+    console.warn("DATABASE_URL není nastaven. Tokeny budou dočasně jen v paměti.");
+    return;
+  }
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS shop_sessions (
+      shop TEXT PRIMARY KEY,
+      access_token TEXT NOT NULL,
+      installed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  databaseReady = true;
+  console.log("Databáze Shopify připojení je připravená.");
+}
+
+async function saveShopToken(shop, accessToken) {
+  shopTokens.set(shop, accessToken);
+  if (!database) return;
+
+  await database.query(
+    `INSERT INTO shop_sessions (shop, access_token)
+     VALUES ($1, $2)
+     ON CONFLICT (shop) DO UPDATE
+     SET access_token = EXCLUDED.access_token, updated_at = NOW()`,
+    [shop, encryptToken(accessToken)],
+  );
+}
+
+async function getShopToken(shop) {
+  const cached = shopTokens.get(shop);
+  if (cached) return cached;
+  if (!database) return null;
+
+  const result = await database.query(
+    "SELECT access_token FROM shop_sessions WHERE shop = $1",
+    [shop],
+  );
+  if (!result.rowCount) return null;
+
+  const accessToken = decryptToken(result.rows[0].access_token);
+  shopTokens.set(shop, accessToken);
+  return accessToken;
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -92,14 +172,14 @@ async function exchangeForOfflineToken(shop, sessionToken) {
     throw new Error(data.error_description || data.error || "Shopify nevydal přístupový token.");
   }
 
-  shopTokens.set(shop, data.access_token);
+  await saveShopToken(shop, data.access_token);
   return data.access_token;
 }
 
 async function getAdminAccess(req) {
   const sessionToken = getBearerToken(req);
   const { shop } = verifySessionToken(sessionToken);
-  const cached = shopTokens.get(shop);
+  const cached = await getShopToken(shop);
   const accessToken = cached || await exchangeForOfflineToken(shop, sessionToken);
   return { shop, accessToken };
 }
@@ -336,7 +416,7 @@ app.post("/api/chat", async (req, res) => {
 app.post("/proxy/chat", async (req, res) => {
   try {
     const shop = verifyAppProxy(req);
-    const accessToken = shopTokens.get(shop);
+    const accessToken = await getShopToken(shop);
     if (!accessToken) {
       return res.status(503).json({
         error: "Asistent se právě připojuje. Správce obchodu musí jednou otevřít aplikaci Eshop Assistant AI v administraci.",
@@ -356,10 +436,18 @@ app.get("/health", (req, res) => {
     ok: true,
     shopifyConfigured: Boolean(SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET),
     openaiConfigured: Boolean(OPENAI_API_KEY),
+    persistentStorageConfigured: Boolean(database),
+    persistentStorageReady: databaseReady,
   });
 });
 
 const port = Number(process.env.PORT) || 3000;
-app.listen(port, "0.0.0.0", () => {
-  console.log(`Eshop Assistant AI běží na portu ${port}`);
-});
+initializeDatabase()
+  .catch((error) => {
+    console.error("Databáze se nepřipojila:", error);
+  })
+  .finally(() => {
+    app.listen(port, "0.0.0.0", () => {
+      console.log(`Eshop Assistant AI běží na portu ${port}`);
+    });
+  });
