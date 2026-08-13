@@ -62,6 +62,20 @@
     return element;
   }
 
+  async function requestHeaders() {
+    var headers = { "Content-Type": "application/json" };
+    if (api.indexOf("/api/") !== -1) {
+      for (var attempt = 0; attempt < 20; attempt++) {
+        if (window.shopify && window.shopify.idToken) {
+          headers.Authorization = "Bearer " + await window.shopify.idToken();
+          break;
+        }
+        await new Promise(function (resolve) { setTimeout(resolve, 100); });
+      }
+    }
+    return headers;
+  }
+
   addMessage(greeting, "assistant");
 
   bubble.addEventListener("click", function () {
@@ -91,7 +105,7 @@
     try {
       var response = await fetch(api, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await requestHeaders(),
         body: JSON.stringify({ message: text, history: history.slice(-10) }),
       });
       var data = await response.json().catch(function () { return {}; });
