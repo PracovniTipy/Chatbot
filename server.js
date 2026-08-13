@@ -290,19 +290,21 @@ app.get("/", (req, res) => {
   </main>
   <script>
     window.CHATBOT_API = "";
-    (function () {
+    window.addEventListener("DOMContentLoaded", function () {
       var originalFetch = window.fetch.bind(window);
-      window.fetch = async function (input, init) {
-        var url = typeof input === "string" ? input : input.url;
-        if (url && url.indexOf("/api/") === 0 && window.shopify && window.shopify.idToken) {
+      window.fetch = async function (resource, options) {
+        var url = typeof resource === "string" ? resource : (resource && resource.url) || "";
+        if (url.indexOf("/api/") !== -1 && window.shopify && window.shopify.idToken) {
           var token = await window.shopify.idToken();
-          init = init || {};
-          init.headers = Object.assign({}, init.headers || {}, { Authorization: "Bearer " + token });
+          options = options || {};
+          var headers = new Headers(options.headers || {});
+          headers.set("Authorization", "Bearer " + token);
+          options.headers = headers;
         }
-        return originalFetch(input, init);
+        return originalFetch(resource, options);
       };
       window.fetch("/api/bootstrap", { method: "POST" }).catch(function () {});
-    })();
+    });
   </script>
   <script src="/widget.js" defer></script>
 </body>
