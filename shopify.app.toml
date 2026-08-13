@@ -1,0 +1,22 @@
+client_id = "0ac9fa0dc2d28f130c073f9b0d5e843e"
+name = "Eshop Assistant AI"
+application_url = "https://chatbot-production-6b09.up.railway.app"
+embedded = true
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+scopes = "read_inventory,read_products,write_app_proxy"
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://chatbot-production-6b09.up.railway.app/auth/callback"
+]
+
+[app_proxy]
+url = "/proxy"
+prefix = "apps"
+subpath = "eshop-assistant"

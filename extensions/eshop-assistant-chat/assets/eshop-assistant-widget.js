@@ -2,8 +2,7 @@
   if (window.__ESHOP_ASSISTANT_LOADED__) return;
   window.__ESHOP_ASSISTANT_LOADED__ = true;
 
-  var api = window.ESHOP_ASSISTANT_API ||
-    (window.CHATBOT_API ? window.CHATBOT_API.replace(/\/$/, "") + "/api/chat" : "/api/chat");
+  var api = window.ESHOP_ASSISTANT_API || "/apps/eshop-assistant/chat";
   var color = window.ESHOP_ASSISTANT_COLOR || "#173b70";
   var title = window.ESHOP_ASSISTANT_TITLE || "Zeptejte se nás";
   var greeting = window.ESHOP_ASSISTANT_GREETING ||

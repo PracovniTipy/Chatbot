@@ -1,0 +1,34 @@
+<script>
+  window.ESHOP_ASSISTANT_API = "/apps/eshop-assistant/chat";
+  window.ESHOP_ASSISTANT_COLOR = {{ block.settings.color | json }};
+  window.ESHOP_ASSISTANT_TITLE = {{ block.settings.title | json }};
+  window.ESHOP_ASSISTANT_GREETING = {{ block.settings.greeting | json }};
+</script>
+<script src="{{ 'eshop-assistant-widget.js' | asset_url }}" defer="defer"></script>
+
+{% schema %}
+{
+  "name": "Eshop Assistant Chat",
+  "target": "body",
+  "settings": [
+    {
+      "type": "color",
+      "id": "color",
+      "label": "Barva chatu",
+      "default": "#173b70"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Nadpis",
+      "default": "Zeptejte se nás"
+    },
+    {
+      "type": "textarea",
+      "id": "greeting",
+      "label": "Uvítací zpráva",
+      "default": "Dobrý den, jsem asistent tohoto e-shopu. Zeptejte se na produkty nebo jejich dostupnost."
+    }
+  ]
+}
+{% endschema %}
