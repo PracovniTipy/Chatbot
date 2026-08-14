@@ -27,6 +27,11 @@ const SHOPIFY_USAGE_EVENT_HANDLE = process.env.SHOPIFY_USAGE_EVENT_HANDLE || "re
 const SHOPIFY_APP_EVENTS_API_VERSION = process.env.SHOPIFY_APP_EVENTS_API_VERSION || "unstable";
 const SHOPIFY_DEFAULT_PLAN_HANDLE = process.env.SHOPIFY_DEFAULT_PLAN_HANDLE || DEFAULT_PLAN_HANDLE;
 const MAX_MESSAGES_PER_CASE = Number(process.env.MAX_MESSAGES_PER_CASE) || 20;
+// Shopify blocks App Proxy URLs before a password-protected development store
+// has been unlocked. Keep this fallback restricted to our single test shop.
+const PASSWORD_PROTECTED_TEST_SHOP = process.env.PASSWORD_PROTECTED_TEST_SHOP ||
+  "eshop-assistant-test.myshopify.com";
+const PASSWORD_PROTECTED_TEST_ORIGIN = `https://${PASSWORD_PROTECTED_TEST_SHOP}`;
 
 const shopTokens = new Map();
 const database = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
@@ -956,6 +961,44 @@ app.post("/proxy/chat", async (req, res) => {
   } catch (error) {
     console.error("Storefront chat:", error);
     res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+function allowPasswordProtectedTestStore(req, res) {
+  const origin = req.get("Origin") || "";
+  if (origin !== PASSWORD_PROTECTED_TEST_ORIGIN) return false;
+
+  res.set({
+    "Access-Control-Allow-Origin": PASSWORD_PROTECTED_TEST_ORIGIN,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Cache-Control": "no-store",
+    Vary: "Origin",
+  });
+  return true;
+}
+
+app.options("/test-storefront/chat", (req, res) => {
+  if (!allowPasswordProtectedTestStore(req, res)) return res.sendStatus(403);
+  return res.sendStatus(204);
+});
+
+app.post("/test-storefront/chat", async (req, res) => {
+  if (!allowPasswordProtectedTestStore(req, res)) {
+    return res.status(403).json({ error: "Tento testovací přístup není pro daný obchod povolen." });
+  }
+
+  try {
+    const accessToken = await getShopToken(PASSWORD_PROTECTED_TEST_SHOP);
+    if (!accessToken) {
+      return res.status(503).json({
+        error: "Asistent se právě připojuje. Otevřete jednou aplikaci Eshop Assistant AI v administraci.",
+      });
+    }
+    return res.json(await answerChat(PASSWORD_PROTECTED_TEST_SHOP, accessToken, req.body));
+  } catch (error) {
+    console.error("Password-protected test storefront chat:", error);
+    return res.status(errorStatus(error)).json({ error: error.message });
   }
 });
 
