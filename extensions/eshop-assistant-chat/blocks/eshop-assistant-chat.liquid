@@ -3,6 +3,9 @@
   window.ESHOP_ASSISTANT_COLOR = {{ block.settings.color | json }};
   window.ESHOP_ASSISTANT_TITLE = {{ block.settings.title | json }};
   window.ESHOP_ASSISTANT_GREETING = {{ block.settings.greeting | json }};
+  {% if shop.permanent_domain == 'eshop-assistant-test.myshopify.com' %}
+    window.ESHOP_ASSISTANT_FALLBACK_API = "https://chatbot-production-6b09.up.railway.app/test-storefront/chat";
+  {% endif %}
 </script>
 <script src="{{ 'eshop-assistant-widget.js' | asset_url }}" defer="defer"></script>
 
