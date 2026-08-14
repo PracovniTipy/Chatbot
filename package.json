@@ -4,7 +4,8 @@
   "description": "Univerzalni AI chatbot pro eshopy - podpora + prodejni asistent",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"
