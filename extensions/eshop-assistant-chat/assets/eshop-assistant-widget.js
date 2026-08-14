@@ -3,6 +3,7 @@
   window.__ESHOP_ASSISTANT_LOADED__ = true;
 
   var api = window.ESHOP_ASSISTANT_API || "/apps/eshop-assistant/chat";
+  var fallbackApi = window.ESHOP_ASSISTANT_FALLBACK_API || "";
   var color = window.ESHOP_ASSISTANT_COLOR || "#173b70";
   var title = window.ESHOP_ASSISTANT_TITLE || "Zeptejte se nás";
   var greeting = window.ESHOP_ASSISTANT_GREETING ||
@@ -121,6 +122,32 @@
     input.focus();
   });
 
+  async function sendChatRequest(endpoint, payload) {
+    var response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      error.canUseFallback = true;
+      throw error;
+    }
+
+    var contentType = response.headers.get("content-type") || "";
+    if (contentType.indexOf("application/json") === -1) {
+      var invalidResponse = new Error("Chatbot právě neodpovídá.");
+      invalidResponse.canUseFallback = true;
+      throw invalidResponse;
+    }
+
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(data.error || "Chatbot právě neodpovídá.");
+    if (!data.reply) throw new Error("Chatbot vrátil neúplnou odpověď.");
+    return data;
+  }
+
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
     var text = input.value.trim();
@@ -135,17 +162,18 @@
     var waiting = addMessage("Přemýšlím…", "assistant", "ea-wait");
 
     try {
-      var response = await fetch(api, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          caseId: activeCase.id,
-          message: text,
-          history: history.slice(-10),
-        }),
-      });
-      var data = await response.json().catch(function () { return {}; });
-      if (!response.ok) throw new Error(data.error || "Chatbot právě neodpovídá.");
+      var payload = {
+        caseId: activeCase.id,
+        message: text,
+        history: history.slice(-10),
+      };
+      var data;
+      try {
+        data = await sendChatRequest(api, payload);
+      } catch (proxyError) {
+        if (!fallbackApi || !proxyError.canUseFallback) throw proxyError;
+        data = await sendChatRequest(fallbackApi, payload);
+      }
       waiting.remove();
       addMessage(data.reply, "assistant");
       history.push({ role: "assistant", content: data.reply });
