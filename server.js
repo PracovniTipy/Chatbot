@@ -3,11 +3,12 @@ const path = require("path");
 const crypto = require("crypto");
 const { Pool } = require("pg");
 const {
-  MONTHLY_USAGE_LIMIT,
+  DEFAULT_PLAN_HANDLE,
+  PLANS,
   calculateBillingPeriod,
-  calculatePriceCzk,
   calculateSubscriptionPeriod,
-  publicPricingTiers,
+  publicPlans,
+  resolvePlan,
 } = require("./billing");
 
 const app = express();
@@ -20,9 +21,12 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
 const DATABASE_URL = process.env.DATABASE_URL;
 const USAGE_METERING_ENABLED = process.env.USAGE_METERING_ENABLED !== "false";
+const SHOPIFY_SUBSCRIPTION_REQUIRED = process.env.SHOPIFY_SUBSCRIPTION_REQUIRED === "true";
 const SHOPIFY_USAGE_BILLING_ENABLED = process.env.SHOPIFY_USAGE_BILLING_ENABLED === "true";
 const SHOPIFY_USAGE_EVENT_HANDLE = process.env.SHOPIFY_USAGE_EVENT_HANDLE || "resolved_case";
 const SHOPIFY_APP_EVENTS_API_VERSION = process.env.SHOPIFY_APP_EVENTS_API_VERSION || "unstable";
+const SHOPIFY_DEFAULT_PLAN_HANDLE = process.env.SHOPIFY_DEFAULT_PLAN_HANDLE || DEFAULT_PLAN_HANDLE;
+const MAX_MESSAGES_PER_CASE = Number(process.env.MAX_MESSAGES_PER_CASE) || 20;
 
 const shopTokens = new Map();
 const database = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
@@ -31,11 +35,32 @@ let appEventsAccessToken = null;
 let appEventsAccessTokenExpiresAt = 0;
 
 class UsageLimitError extends Error {
-  constructor() {
-    super(`Měsíční limit ${MONTHLY_USAGE_LIMIT} vyřešených dotazů byl vyčerpán.`);
+  constructor(plan) {
+    super(`Měsíční limit ${plan.limit} vyřešených případů v tarifu ${plan.name} byl vyčerpán.`);
     this.name = "UsageLimitError";
     this.statusCode = 429;
   }
+}
+
+class CaseMessageLimitError extends Error {
+  constructor() {
+    super(`Tento případ dosáhl limitu ${MAX_MESSAGES_PER_CASE} zpráv. Založte prosím nový chat.`);
+    this.name = "CaseMessageLimitError";
+    this.statusCode = 429;
+  }
+}
+
+function planForSubscription(subscription) {
+  const matchedPlan = resolvePlan(subscription, "");
+  const plan = matchedPlan || (!SHOPIFY_SUBSCRIPTION_REQUIRED
+    ? resolvePlan(null, SHOPIFY_DEFAULT_PLAN_HANDLE)
+    : null);
+  if (!plan) {
+    const error = new Error("Aktivní předplatné neodpovídá žádnému nastavenému tarifu.");
+    error.statusCode = 402;
+    throw error;
+  }
+  return plan;
 }
 
 function tokenEncryptionKey() {
@@ -90,6 +115,8 @@ async function initializeDatabase() {
       shop_id TEXT NOT NULL,
       event_handle TEXT NOT NULL,
       period_start TIMESTAMPTZ NOT NULL,
+      case_id TEXT,
+      message_count INTEGER NOT NULL DEFAULT 0,
       occurred_at TIMESTAMPTZ,
       status TEXT NOT NULL,
       billing_attempts INTEGER NOT NULL DEFAULT 0,
@@ -99,9 +126,18 @@ async function initializeDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await database.query("ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS case_id TEXT");
+  await database.query(
+    "ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS message_count INTEGER NOT NULL DEFAULT 0",
+  );
   await database.query(`
     CREATE INDEX IF NOT EXISTS usage_events_shop_period_idx
     ON usage_events (shop, period_start, status)
+  `);
+  await database.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS usage_events_shop_period_case_idx
+    ON usage_events (shop, period_start, case_id)
+    WHERE case_id IS NOT NULL AND status NOT IN ('failed', 'abandoned')
   `);
   databaseReady = true;
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
@@ -172,9 +208,10 @@ async function getShopBillingPeriod(
   return calculateBillingPeriod(result.rows[0].installed_at, currentDate);
 }
 
-async function reserveUsage(shop, shopId, subscription) {
+async function reserveUsage(shop, shopId, subscription, caseId) {
   if (!USAGE_METERING_ENABLED) return null;
   requireMeteringDatabase();
+  const plan = planForSubscription(subscription);
 
   const client = await database.connect();
   try {
@@ -194,9 +231,7 @@ async function reserveUsage(shop, shopId, subscription) {
       [shop],
     );
 
-    const countedStatuses = SHOPIFY_USAGE_BILLING_ENABLED
-      ? ["reserved", "pending", "submitted"]
-      : ["reserved", "recorded"];
+    const countedStatuses = ["reserved", "recorded", "pending", "sending", "submitted"];
     const countResult = await client.query(
       `SELECT COUNT(*)::integer AS count
        FROM usage_events
@@ -205,20 +240,58 @@ async function reserveUsage(shop, shopId, subscription) {
       [shop, periodStart, countedStatuses],
     );
     const currentUsage = countResult.rows[0].count;
-    if (currentUsage >= MONTHLY_USAGE_LIMIT) throw new UsageLimitError();
+
+    const existingResult = await client.query(
+      `SELECT id, status, message_count
+       FROM usage_events
+       WHERE shop = $1 AND period_start = $2 AND case_id = $3
+         AND status NOT IN ('failed', 'abandoned')
+       LIMIT 1`,
+      [shop, periodStart, caseId],
+    );
+    const existing = existingResult.rows[0];
+    if (existing) {
+      if (existing.status === "reserved") {
+        const error = new Error("Předchozí zpráva se ještě zpracovává. Zkuste to prosím znovu.");
+        error.statusCode = 409;
+        throw error;
+      }
+      if (existing.message_count >= MAX_MESSAGES_PER_CASE) {
+        throw new CaseMessageLimitError();
+      }
+      await client.query(
+        `UPDATE usage_events
+         SET message_count = message_count + 1, updated_at = NOW()
+         WHERE id = $1`,
+        [existing.id],
+      );
+      await client.query("COMMIT");
+      return {
+        id: existing.id,
+        isNewCase: false,
+        periodStart,
+        periodEnd,
+        plan,
+        usageAfterSuccess: currentUsage,
+      };
+    }
+
+    if (currentUsage >= plan.limit) throw new UsageLimitError(plan);
 
     const id = crypto.randomUUID();
     await client.query(
       `INSERT INTO usage_events
-       (id, shop, shop_id, event_handle, period_start, status)
-       VALUES ($1, $2, $3, $4, $5, 'reserved')`,
-      [id, shop, shopId, SHOPIFY_USAGE_EVENT_HANDLE, periodStart],
+       (id, shop, shop_id, event_handle, period_start, case_id, message_count, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 1, 'reserved')`,
+      [id, shop, shopId, SHOPIFY_USAGE_EVENT_HANDLE, periodStart, caseId],
     );
     await client.query("COMMIT");
     return {
       id,
+      isNewCase: true,
       periodStart,
       periodEnd,
+      plan,
       usageAfterSuccess: currentUsage + 1,
     };
   } catch (error) {
@@ -231,6 +304,15 @@ async function reserveUsage(shop, shopId, subscription) {
 
 async function abandonUsageReservation(reservation, reason) {
   if (!reservation || !database) return;
+  if (!reservation.isNewCase) {
+    await database.query(
+      `UPDATE usage_events
+       SET message_count = GREATEST(0, message_count - 1), updated_at = NOW()
+       WHERE id = $1`,
+      [reservation.id],
+    );
+    return;
+  }
   await database.query(
     `UPDATE usage_events
      SET status = 'failed', last_error = $2, updated_at = NOW()
@@ -241,6 +323,7 @@ async function abandonUsageReservation(reservation, reason) {
 
 async function finalizeUsageReservation(reservation) {
   if (!reservation || !database) return;
+  if (!reservation.isNewCase) return;
   const nextStatus = SHOPIFY_USAGE_BILLING_ENABLED ? "pending" : "recorded";
   const result = await database.query(
     `UPDATE usage_events
@@ -253,23 +336,23 @@ async function finalizeUsageReservation(reservation) {
 }
 
 async function getUsageSummary(shop, accessToken, subscription) {
+  const activeSubscription = subscription === undefined
+    ? await loadActiveSubscription(shop, accessToken)
+    : subscription;
+  const plan = planForSubscription(activeSubscription);
   if (!USAGE_METERING_ENABLED) {
     return {
       enabled: false,
       usage: 0,
-      limit: MONTHLY_USAGE_LIMIT,
-      estimatedPriceCzk: 0,
-      tiers: publicPricingTiers(),
+      limit: plan.limit,
+      monthlyPriceCzk: plan.priceCzk,
+      plan,
+      plans: publicPlans(),
     };
   }
   requireMeteringDatabase();
-  const activeSubscription = subscription === undefined
-    ? await loadActiveSubscription(shop, accessToken)
-    : subscription;
   const { periodStart, periodEnd } = await getShopBillingPeriod(shop, activeSubscription);
-  const countedStatuses = SHOPIFY_USAGE_BILLING_ENABLED
-    ? ["pending", "submitted"]
-    : ["recorded"];
+  const countedStatuses = ["recorded", "pending", "sending", "submitted"];
   const result = await database.query(
     `SELECT COUNT(*)::integer AS count
      FROM usage_events
@@ -282,11 +365,12 @@ async function getUsageSummary(shop, accessToken, subscription) {
     enabled: true,
     billingEnabled: SHOPIFY_USAGE_BILLING_ENABLED,
     usage,
-    limit: MONTHLY_USAGE_LIMIT,
-    estimatedPriceCzk: calculatePriceCzk(usage),
+    limit: plan.limit,
+    monthlyPriceCzk: plan.priceCzk,
+    plan,
     periodStart: periodStart.toISOString(),
     periodEnd: periodEnd.toISOString(),
-    tiers: publicPricingTiers(),
+    plans: publicPlans(),
   };
 }
 
@@ -629,6 +713,15 @@ function validateChatBody(body) {
   if (!message) throw new Error("Napište prosím zprávu.");
   if (message.length > 1000) throw new Error("Zpráva je příliš dlouhá.");
 
+  const suppliedCaseId = typeof body?.caseId === "string" ? body.caseId.trim() : "";
+  if (suppliedCaseId &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(suppliedCaseId)) {
+    const error = new Error("Neplatné ID chatu. Obnovte prosím stránku.");
+    error.statusCode = 400;
+    throw error;
+  }
+  const caseId = suppliedCaseId || crypto.randomUUID();
+
   const history = Array.isArray(body?.history)
     ? body.history.slice(-10)
       .filter((item) => item && ["user", "assistant"].includes(item.role))
@@ -638,7 +731,7 @@ function validateChatBody(body) {
       }))
     : [];
 
-  return { message, history };
+  return { caseId, message, history };
 }
 
 async function generateAnswer(catalog, message, history) {
@@ -682,15 +775,16 @@ ${JSON.stringify({ shop: catalog.shop, products: catalog.products })}`;
 }
 
 async function answerChat(shop, accessToken, body) {
-  const { message, history } = validateChatBody(body);
+  const { caseId, message, history } = validateChatBody(body);
   const catalog = await loadCatalog(shop, accessToken);
-  if (SHOPIFY_USAGE_BILLING_ENABLED && !catalog.subscription) {
+  if (SHOPIFY_SUBSCRIPTION_REQUIRED && !catalog.subscription) {
     const error = new Error("Obchod nemá aktivní předplatné Eshop Assistant AI.");
     error.statusCode = 402;
     throw error;
   }
   await saveShopIdentity(shop, catalog.shop.id);
-  const reservation = await reserveUsage(shop, catalog.shop.id, catalog.subscription);
+  const plan = planForSubscription(catalog.subscription);
+  const reservation = await reserveUsage(shop, catalog.shop.id, catalog.subscription, caseId);
   try {
     const reply = await generateAnswer(catalog, message, history);
     await finalizeUsageReservation(reservation);
@@ -698,9 +792,11 @@ async function answerChat(shop, accessToken, body) {
       console.error("Shopify Billing fronta:", error);
     }));
     return {
+      caseId,
       reply,
       usage: reservation ? reservation.usageAfterSuccess : null,
-      usageLimit: MONTHLY_USAGE_LIMIT,
+      usageLimit: plan.limit,
+      plan: plan.handle,
     };
   } catch (error) {
     await abandonUsageReservation(reservation, error.message).catch((databaseError) => {
@@ -752,14 +848,14 @@ app.get("/", (req, res) => {
           <div class="usage-value" id="usage-count">Načítám…</div>
         </div>
         <div>
-          <strong>Průběžná cena</strong>
+          <strong id="plan-name">Cena tarifu</strong>
           <div class="usage-value" id="usage-price">—</div>
         </div>
       </div>
-      <progress id="usage-progress" max="4000" value="0"></progress>
-      <div class="muted" id="usage-period">Počítají se pouze úspěšné odpovědi.</div>
+      <progress id="usage-progress" max="70" value="0"></progress>
+      <div class="muted" id="usage-period">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
       <table>
-        <thead><tr><th>Úspěšná odpověď</th><th>Cena za odpověď</th></tr></thead>
+        <thead><tr><th>Tarif</th><th>Případů / měsíc</th><th>Cena / měsíc</th></tr></thead>
         <tbody id="pricing-tiers"></tbody>
       </table>
     </section>
@@ -788,18 +884,20 @@ app.get("/", (req, res) => {
           }
           var usage = data.usage;
           document.getElementById("usage-count").textContent = usage.usage + " / " + usage.limit;
+          document.getElementById("plan-name").textContent = "Tarif " + usage.plan.name;
           document.getElementById("usage-price").textContent = new Intl.NumberFormat("cs-CZ", {
-            style: "currency", currency: "CZK", maximumFractionDigits: 2
-          }).format(usage.estimatedPriceCzk);
+            style: "currency", currency: "CZK", maximumFractionDigits: 0
+          }).format(usage.monthlyPriceCzk);
           document.getElementById("usage-progress").max = usage.limit;
           document.getElementById("usage-progress").value = usage.usage;
           var start = new Date(usage.periodStart).toLocaleDateString("cs-CZ");
           var end = new Date(usage.periodEnd).toLocaleDateString("cs-CZ");
           document.getElementById("usage-period").textContent = "Období " + start + " – " + end +
-            ". Počítají se pouze úspěšné odpovědi.";
-          document.getElementById("pricing-tiers").innerHTML = usage.tiers.map(function (tier) {
-            return "<tr><td>" + tier.from + ".–" + tier.to + ".</td><td>" +
-              tier.unitPriceCzk.toLocaleString("cs-CZ", { minimumFractionDigits: 2 }) + " Kč</td></tr>";
+            ". Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.";
+          document.getElementById("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
+            return "<tr><td>" + plan.name + "</td><td>" +
+              plan.limit.toLocaleString("cs-CZ") + "</td><td>" +
+              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td></tr>";
           }).join("");
         })
         .catch(function () {
@@ -816,7 +914,7 @@ app.get("/", (req, res) => {
 
 app.post("/api/bootstrap", async (req, res) => {
   try {
-    const { shop } = await getAdminAccess(req);
+    const { shop, accessToken } = await getAdminAccess(req);
     const usage = await getUsageSummary(shop, accessToken);
     res.json({ ok: true, shop, usage });
   } catch (error) {
@@ -869,8 +967,10 @@ app.get("/health", (req, res) => {
     persistentStorageConfigured: Boolean(database),
     persistentStorageReady: databaseReady,
     usageMeteringEnabled: USAGE_METERING_ENABLED,
+    shopifySubscriptionRequired: SHOPIFY_SUBSCRIPTION_REQUIRED,
     shopifyUsageBillingEnabled: SHOPIFY_USAGE_BILLING_ENABLED,
-    monthlyUsageLimit: MONTHLY_USAGE_LIMIT,
+    defaultPlan: SHOPIFY_DEFAULT_PLAN_HANDLE,
+    availablePlanHandles: PLANS.map((plan) => plan.handle),
   });
 });
 

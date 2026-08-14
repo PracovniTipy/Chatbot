@@ -1,30 +1,45 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
-  MONTHLY_USAGE_LIMIT,
-  PRICING_TIERS,
+  PLANS,
   calculateBillingPeriod,
-  calculatePriceCzk,
   calculateSubscriptionPeriod,
+  getPlan,
+  publicPlans,
+  resolvePlan,
 } = require("../billing");
 
-test("graduated pricing matches all six agreed checkpoints", () => {
-  assert.equal(calculatePriceCzk(0), 0);
-  assert.equal(calculatePriceCzk(40), 380);
-  assert.equal(calculatePriceCzk(100), 782);
-  assert.equal(calculatePriceCzk(250), 1457);
-  assert.equal(calculatePriceCzk(600), 2682);
-  assert.equal(calculatePriceCzk(1500), 5202);
-  assert.equal(calculatePriceCzk(4000), 10202);
+test("fixed monthly plans match the agreed price list", () => {
+  assert.deepEqual(
+    PLANS.map(({ limit, priceCzk }) => [limit, priceCzk]),
+    [
+      [70, 379],
+      [150, 779],
+      [400, 1270],
+      [1000, 2490],
+      [5000, 7990],
+      [12000, 14990],
+      [30000, 29990],
+      [80000, 59990],
+      [200000, 119990],
+      [500000, 249990],
+    ],
+  );
 });
 
-test("usage is capped at the agreed maximum", () => {
-  assert.equal(MONTHLY_USAGE_LIMIT, 4000);
-  assert.equal(calculatePriceCzk(4001), calculatePriceCzk(4000));
+test("the five self-service plans are public", () => {
+  assert.deepEqual(publicPlans().map((plan) => plan.limit), [70, 150, 400, 1000, 5000]);
 });
 
-test("no tier is cheaper than two crowns per successful answer", () => {
-  assert.ok(PRICING_TIERS.every((tier) => tier.unitPriceHalere >= 200));
+test("every plan has a unique handle and limit", () => {
+  assert.equal(new Set(PLANS.map((plan) => plan.handle)).size, PLANS.length);
+  assert.equal(new Set(PLANS.map((plan) => plan.limit)).size, PLANS.length);
+});
+
+test("plans resolve from Shopify names and handles", () => {
+  assert.equal(getPlan("growth-400").limit, 400);
+  assert.equal(resolvePlan({ name: "Business 5000" }).priceCzk, 7990);
+  assert.equal(resolvePlan({ planHandle: "scale-12000" }).limit, 12000);
 });
 
 test("billing periods are consecutive 30-day windows", () => {

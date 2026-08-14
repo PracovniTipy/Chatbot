@@ -1,0 +1,40 @@
+# Eshop Assistant AI
+
+Shopify chatbot s napojením na produkty a sklad obchodu. Backend běží na Railway, připojení obchodů a spotřeba se ukládají do PostgreSQL.
+
+## Tarify
+
+Pět samoobslužných tarifů má být v Shopify nastaveno přesně pod těmito názvy:
+
+| Název v Shopify | Vyřešených případů / měsíc | Cena / měsíc |
+|---|---:|---:|
+| Start 70 | 70 | 379 Kč |
+| Basic 150 | 150 | 779 Kč |
+| Growth 400 | 400 | 1 270 Kč |
+| Pro 1000 | 1 000 | 2 490 Kč |
+| Business 5000 | 5 000 | 7 990 Kč |
+
+Vyšší tarify jsou v kódu připravené jako soukromé nabídky: Scale 12000, Scale 30000, Scale 80000, Enterprise 200000 a Enterprise 500000.
+
+Jeden případ je jedno chatové vlákno, ve kterém chatbot úspěšně odpověděl. Stejné vlákno se nepočítá znovu při každé zprávě. Po 24 hodinách neaktivity nebo po kliknutí na „Nový chat“ začne nový případ. Jeden případ má nejvýše 20 zpráv.
+
+## Proměnné Railway
+
+- `DATABASE_URL` – PostgreSQL databáze.
+- `OPENAI_API_KEY` – klíč OpenAI.
+- `OPENAI_MODEL` – používaný model.
+- `SHOPIFY_CLIENT_ID` a `SHOPIFY_CLIENT_SECRET` – údaje Shopify aplikace.
+- `USAGE_METERING_ENABLED=true` – zapne bezpečné počítání případů.
+- `SHOPIFY_DEFAULT_PLAN_HANDLE=start-70` – testovací tarif, dokud není zapnuté placení.
+- `SHOPIFY_SUBSCRIPTION_REQUIRED=false` – ponechat `false` během testování; změnit na `true` až po vytvoření a ověření plánů v Shopify.
+- `SHOPIFY_USAGE_BILLING_ENABLED=false` – u pevných měsíčních tarifů musí zůstat `false`, aby se každý případ navíc neúčtoval jako samostatná položka.
+- `MAX_MESSAGES_PER_CASE=20` – ochrana proti nekonečnému vláknu.
+
+## Kontrola a nasazení
+
+```sh
+npm test
+npx --yes @shopify/cli@latest app deploy
+```
+
+Po pushnutí backendu do `main` Railway vytvoří nový deploy. Shopify CLI je potřeba spustit při změně Theme App Extension.
