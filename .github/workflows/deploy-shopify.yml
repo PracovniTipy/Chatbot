@@ -1,0 +1,42 @@
+name: Deploy Shopify app
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "extensions/**"
+      - "shopify.app.toml"
+      - "shopify.app.*.toml"
+      - ".github/workflows/deploy-shopify.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: shopify-production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Shopify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Shopify CLI
+        run: npm install --global @shopify/cli@latest
+
+      - name: Deploy app configuration and extensions
+        env:
+          SHOPIFY_APP_AUTOMATION_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
+        run: shopify app deploy --allow-updates
