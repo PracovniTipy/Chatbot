@@ -10,9 +10,15 @@ const {
   publicPlans,
   resolvePlan,
 } = require("./billing");
+const { COMPLIANCE_TOPICS, verifyShopifyWebhook } = require("./webhooks");
 
 const app = express();
-app.use(express.json({ limit: "32kb" }));
+app.use(express.json({
+  limit: "32kb",
+  verify(req, _res, buffer) {
+    req.rawBody = Buffer.from(buffer);
+  },
+}));
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
@@ -185,6 +191,27 @@ async function saveShopIdentity(shop, shopId) {
      WHERE shop = $1 AND shop_id IS DISTINCT FROM $2`,
     [shop, shopId],
   );
+}
+
+async function deleteShopData(shop, deleteUsage) {
+  shopTokens.delete(shop);
+  if (!database) return;
+  if (!databaseReady) throw new Error("Databáze zatím není připravená.");
+
+  const client = await database.connect();
+  try {
+    await client.query("BEGIN");
+    if (deleteUsage) {
+      await client.query("DELETE FROM usage_events WHERE shop = $1", [shop]);
+    }
+    await client.query("DELETE FROM shop_sessions WHERE shop = $1", [shop]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function requireMeteringDatabase() {
@@ -510,6 +537,41 @@ function isValidShop(shop) {
   return typeof shop === "string" &&
     /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
 }
+
+app.post("/webhooks", async (req, res) => {
+  const isAuthentic = verifyShopifyWebhook(
+    req.rawBody,
+    req.get("x-shopify-hmac-sha256"),
+    SHOPIFY_CLIENT_SECRET,
+  );
+  if (!isAuthentic) return res.status(401).send("Unauthorized");
+
+  const topic = String(req.get("x-shopify-topic") || "").toLowerCase();
+  const headerShop = String(req.get("x-shopify-shop-domain") || "").toLowerCase();
+  const payloadShop = String(req.body?.shop_domain || "").toLowerCase();
+  const shop = headerShop || payloadShop;
+  if (!isValidShop(shop)) return res.status(400).send("Invalid shop");
+
+  try {
+    if (topic === "app/uninstalled") {
+      await deleteShopData(shop, false);
+    } else if (topic === "shop/redact") {
+      await deleteShopData(shop, true);
+    } else if (!COMPLIANCE_TOPICS.includes(topic)) {
+      return res.status(400).send("Unsupported topic");
+    }
+
+    console.log("Shopify webhook zpracován:", {
+      topic,
+      shop,
+      webhookId: req.get("x-shopify-webhook-id") || null,
+    });
+    return res.status(200).send("OK");
+  } catch (error) {
+    console.error("Shopify webhook:", error);
+    return res.status(503).send("Retry later");
+  }
+});
 
 function base64UrlDecode(value) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
