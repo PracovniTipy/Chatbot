@@ -2,6 +2,8 @@
 
 Shopify chatbot s napojením na produkty a sklad obchodu. Backend běží na Railway, připojení obchodů a spotřeba se ukládají do PostgreSQL.
 
+Povinné Shopify compliance webhooky (`customers/data_request`, `customers/redact`, `shop/redact`) a odinstalační webhook jsou deklarované v `shopify.app.toml`. Endpoint `/webhooks` ověřuje podpis HMAC. Aplikace neukládá zákaznické údaje; při `shop/redact` odstraní uložené připojení a spotřebu obchodu.
+
 ## Tarify
 
 Pět samoobslužných tarifů má být v Shopify nastaveno přesně pod těmito názvy:
