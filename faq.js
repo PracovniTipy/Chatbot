@@ -40,11 +40,11 @@ const FAQ = [
   },
   {
     question: "Musím appku programovat nebo upravovat šablonu obchodu?",
-    answer: "Ne. Po instalaci ze Shopify App Store appka sama přidá chat widget do vašeho obchodu, žádný zásah do kódu šablony není potřeba.",
+    answer: "Ne. Na Shopify appka sama přidá chat widget do vašeho obchodu po instalaci ze Shopify App Store. Mimo Shopify stačí vložit jeden řádek se <script> kódem, který dostanete po registraci v řídicím panelu — žádný zásah do kódu šablony ani programování není potřeba.",
   },
   {
     question: "Jak appku nasadím na web mimo Shopify?",
-    answer: "Zaregistrujete se na /store/dashboard, dostanete jednorázově ID obchodu a přístupové klíče. Produkty a pravidla obchodu (doprava, vrácení, platba) vyplníte v řídicím panelu a jeden řádek se <script> kódem vložíte do svého webu. Fakturace pro tuto variantu zatím běží mimo appku, dokud nedoplníme platební bránu.",
+    answer: "Zaregistrujete se přímo na /store/dashboard (formulář na stránce, žádné volání API), dostanete jednorázově ID obchodu a přístupové klíče. Produkty a pravidla obchodu (doprava, vrácení, platba) vyplníte v řídicím panelu a jeden řádek se <script> kódem vložíte do svého webu. Tarif zvolíte a zaplatíte přímo v panelu přes Stripe.",
   },
   {
     question: "Jsou data zákazníků v bezpečí?",
