@@ -1,6 +1,11 @@
 # Eshop Assistant AI
 
-Shopify chatbot s napojením na produkty a sklad obchodu. Backend běží na Railway, připojení obchodů a spotřeba se ukládají do PostgreSQL.
+Univerzální AI chatbot pro e-shopy s napojením na produkty a sklad obchodu. Backend běží na Railway, připojení obchodů a spotřeba se ukládají do PostgreSQL.
+
+Appka funguje ve dvou variantách:
+
+1. **Shopify** – appka ze Shopify App Store, přihlášení přes OAuth, produkty a sklad se čtou přímo ze Shopify Admin API, platby jdou přes Shopify Billing.
+2. **Univerzální (mimo Shopify)** – pro jakýkoli web. Obchodník se zaregistruje na `/store/dashboard` (backend: `POST /store/signup`), dostane ID obchodu a přístupové klíče (`apiKey`, `adminKey`), produkty a pravidla obchodu (doprava, vrácení, platba) vyplní v řídicím panelu (`GET/PUT /store/:id`, `/store/:id/catalog`) a vloží jeden `<script>` řádek (`public/embed.js`) do svého webu. Chat běží přes `POST /widget/chat`, ověřený `storeId` + `apiKey`. Logika mimo endpointy je ve `stores.js`. Fakturace pro tuto variantu zatím běží mimo appku (žádná platební brána není napojená) — nový obchod dostane výchozí tarif Start 70 bez vynucení platby.
 
 Povinné Shopify compliance webhooky (`customers/data_request`, `customers/redact`, `shop/redact`) a odinstalační webhook jsou deklarované v `shopify.app.toml`. Endpoint `/webhooks` ověřuje podpis HMAC. Aplikace neukládá zákaznické údaje; při `shop/redact` odstraní uložené připojení a spotřebu obchodu.
 

@@ -12,6 +12,15 @@ const {
 } = require("./billing");
 const { COMPLIANCE_TOPICS, verifyShopifyWebhook } = require("./webhooks");
 const { HOW_IT_WORKS, FAQ } = require("./faq");
+const {
+  buildEmbedSnippet,
+  buildGenericSystemPrompt,
+  generateSecretKey,
+  generateStoreId,
+  safeEqual,
+  validateCatalogInput,
+  validateSignupInput,
+} = require("./stores");
 
 const app = express();
 app.set("trust proxy", true);
@@ -45,6 +54,9 @@ const shopTokens = new Map();
 const marketingChatRateLimit = new Map();
 const MARKETING_CHAT_RATE_LIMIT = 20;
 const MARKETING_CHAT_RATE_WINDOW_MS = 60 * 60 * 1000;
+const signupRateLimit = new Map();
+const SIGNUP_RATE_LIMIT = 5;
+const SIGNUP_RATE_WINDOW_MS = 60 * 60 * 1000;
 const database = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
 let databaseReady = false;
 let appEventsAccessToken = null;
@@ -155,6 +167,49 @@ async function initializeDatabase() {
     ON usage_events (shop, period_start, case_id)
     WHERE case_id IS NOT NULL AND status NOT IN ('failed', 'abandoned')
   `);
+
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS generic_stores (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      api_key TEXT NOT NULL UNIQUE,
+      admin_key TEXT NOT NULL UNIQUE,
+      plan_handle TEXT NOT NULL DEFAULT '${DEFAULT_PLAN_HANDLE}',
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS generic_catalog (
+      store_id TEXT PRIMARY KEY REFERENCES generic_stores (id) ON DELETE CASCADE,
+      products JSONB NOT NULL DEFAULT '[]',
+      rules JSONB NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS generic_usage_events (
+      id TEXT PRIMARY KEY,
+      store_id TEXT NOT NULL REFERENCES generic_stores (id) ON DELETE CASCADE,
+      period_start TIMESTAMPTZ NOT NULL,
+      case_id TEXT NOT NULL,
+      message_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await database.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS generic_usage_events_store_period_case_idx
+    ON generic_usage_events (store_id, period_start, case_id)
+    WHERE status NOT IN ('failed', 'abandoned')
+  `);
+  await database.query(`
+    CREATE INDEX IF NOT EXISTS generic_usage_events_store_period_idx
+    ON generic_usage_events (store_id, period_start, status)
+  `);
+
   databaseReady = true;
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
 }
@@ -409,6 +464,250 @@ async function getUsageSummary(shop, accessToken, subscription) {
     periodEnd: periodEnd.toISOString(),
     plans: publicPlans(),
   };
+}
+
+async function findStoreById(id) {
+  if (!database || !id) return null;
+  const result = await database.query(
+    "SELECT id, name, email, api_key, admin_key, plan_handle, active FROM generic_stores WHERE id = $1",
+    [id],
+  );
+  return result.rows[0] || null;
+}
+
+async function requireStoreAdmin(req) {
+  requireMeteringDatabase();
+  const id = String(req.params.id || "").trim();
+  const authHeader = req.get("Authorization") || "";
+  const adminKey = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const store = await findStoreById(id);
+  if (!store || !adminKey || !safeEqual(store.admin_key, adminKey)) {
+    const error = new Error("Neplatné přihlašovací údaje obchodu.");
+    error.statusCode = 401;
+    throw error;
+  }
+  return store;
+}
+
+async function requireStoreApiKey(body) {
+  requireMeteringDatabase();
+  const id = typeof body?.storeId === "string" ? body.storeId.trim() : "";
+  const apiKey = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
+  const store = await findStoreById(id);
+  if (!store || !apiKey || !safeEqual(store.api_key, apiKey)) {
+    const error = new Error("Neplatné přihlašovací údaje widgetu.");
+    error.statusCode = 401;
+    throw error;
+  }
+  if (!store.active) {
+    const error = new Error("Tento obchod je momentálně neaktivní.");
+    error.statusCode = 403;
+    throw error;
+  }
+  return store;
+}
+
+async function getStoreCatalog(storeId) {
+  const result = await database.query(
+    "SELECT products, rules FROM generic_catalog WHERE store_id = $1",
+    [storeId],
+  );
+  if (!result.rowCount) return { products: [], rules: {} };
+  return { products: result.rows[0].products || [], rules: result.rows[0].rules || {} };
+}
+
+async function saveStoreCatalog(storeId, { products, rules }) {
+  await database.query(
+    `INSERT INTO generic_catalog (store_id, products, rules, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (store_id) DO UPDATE
+     SET products = EXCLUDED.products, rules = EXCLUDED.rules, updated_at = NOW()`,
+    [storeId, JSON.stringify(products), JSON.stringify(rules)],
+  );
+}
+
+async function getStoreBillingPeriod(storeId, currentDate = new Date()) {
+  const result = await database.query(
+    "SELECT created_at FROM generic_stores WHERE id = $1",
+    [storeId],
+  );
+  if (!result.rowCount) throw new Error("Obchod nebyl nalezen.");
+  return calculateBillingPeriod(result.rows[0].created_at, currentDate);
+}
+
+function planForStore(store) {
+  return resolvePlan(null, store.plan_handle) || resolvePlan(null, DEFAULT_PLAN_HANDLE);
+}
+
+async function reserveGenericUsage(store, caseId) {
+  if (!USAGE_METERING_ENABLED) return null;
+  requireMeteringDatabase();
+  const plan = planForStore(store);
+
+  const client = await database.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [store.id]);
+    const { periodStart, periodEnd } = await getStoreBillingPeriod(store.id);
+
+    await client.query(
+      `UPDATE generic_usage_events
+       SET status = 'abandoned', updated_at = NOW()
+       WHERE store_id = $1 AND status = 'reserved' AND created_at < NOW() - INTERVAL '15 minutes'`,
+      [store.id],
+    );
+
+    const countResult = await client.query(
+      `SELECT COUNT(*)::integer AS count
+       FROM generic_usage_events
+       WHERE store_id = $1 AND period_start = $2 AND status IN ('reserved', 'recorded')`,
+      [store.id, periodStart],
+    );
+    const currentUsage = countResult.rows[0].count;
+
+    const existingResult = await client.query(
+      `SELECT id, status, message_count
+       FROM generic_usage_events
+       WHERE store_id = $1 AND period_start = $2 AND case_id = $3
+         AND status NOT IN ('failed', 'abandoned')
+       LIMIT 1`,
+      [store.id, periodStart, caseId],
+    );
+    const existing = existingResult.rows[0];
+    if (existing) {
+      if (existing.status === "reserved") {
+        const error = new Error("Předchozí zpráva se ještě zpracovává. Zkuste to prosím znovu.");
+        error.statusCode = 409;
+        throw error;
+      }
+      if (existing.message_count >= MAX_MESSAGES_PER_CASE) {
+        throw new CaseMessageLimitError();
+      }
+      await client.query(
+        `UPDATE generic_usage_events
+         SET message_count = message_count + 1, updated_at = NOW()
+         WHERE id = $1`,
+        [existing.id],
+      );
+      await client.query("COMMIT");
+      return {
+        id: existing.id,
+        isNewCase: false,
+        periodStart,
+        periodEnd,
+        plan,
+        usageAfterSuccess: currentUsage,
+      };
+    }
+
+    if (currentUsage >= plan.limit) throw new UsageLimitError(plan);
+
+    const id = crypto.randomUUID();
+    await client.query(
+      `INSERT INTO generic_usage_events (id, store_id, period_start, case_id, message_count, status)
+       VALUES ($1, $2, $3, $4, 1, 'reserved')`,
+      [id, store.id, periodStart, caseId],
+    );
+    await client.query("COMMIT");
+    return {
+      id,
+      isNewCase: true,
+      periodStart,
+      periodEnd,
+      plan,
+      usageAfterSuccess: currentUsage + 1,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function abandonGenericUsageReservation(reservation) {
+  if (!reservation || !database) return;
+  if (!reservation.isNewCase) {
+    await database.query(
+      `UPDATE generic_usage_events
+       SET message_count = GREATEST(0, message_count - 1), updated_at = NOW()
+       WHERE id = $1`,
+      [reservation.id],
+    );
+    return;
+  }
+  await database.query(
+    `UPDATE generic_usage_events
+     SET status = 'failed', updated_at = NOW()
+     WHERE id = $1 AND status = 'reserved'`,
+    [reservation.id],
+  );
+}
+
+async function finalizeGenericUsageReservation(reservation) {
+  if (!reservation || !database) return;
+  if (!reservation.isNewCase) return;
+  const result = await database.query(
+    `UPDATE generic_usage_events
+     SET status = 'recorded', updated_at = NOW()
+     WHERE id = $1 AND status = 'reserved'
+     RETURNING id`,
+    [reservation.id],
+  );
+  if (!result.rowCount) throw new Error("Spotřebu se nepodařilo bezpečně uložit.");
+}
+
+async function getGenericUsageSummary(store) {
+  const plan = planForStore(store);
+  if (!USAGE_METERING_ENABLED) {
+    return {
+      enabled: false,
+      usage: 0,
+      limit: plan.limit,
+      monthlyPriceCzk: plan.priceCzk,
+      plan,
+      plans: publicPlans(),
+    };
+  }
+  requireMeteringDatabase();
+  const { periodStart, periodEnd } = await getStoreBillingPeriod(store.id);
+  const result = await database.query(
+    `SELECT COUNT(*)::integer AS count
+     FROM generic_usage_events
+     WHERE store_id = $1 AND period_start = $2 AND status = 'recorded'`,
+    [store.id, periodStart],
+  );
+  return {
+    enabled: true,
+    usage: result.rows[0].count,
+    limit: plan.limit,
+    monthlyPriceCzk: plan.priceCzk,
+    plan,
+    periodStart: periodStart.toISOString(),
+    periodEnd: periodEnd.toISOString(),
+    plans: publicPlans(),
+  };
+}
+
+async function answerGenericChat(store, body) {
+  const { caseId, message, history } = validateChatBody(body);
+  const catalog = await getStoreCatalog(store.id);
+  const reservation = await reserveGenericUsage(store, caseId);
+  try {
+    const reply = await generateGenericAnswer(store, catalog, message, history);
+    await finalizeGenericUsageReservation(reservation);
+    return {
+      caseId,
+      reply,
+      usage: reservation ? reservation.usageAfterSuccess : null,
+      usageLimit: planForStore(store).limit,
+    };
+  } catch (error) {
+    await abandonGenericUsageReservation(reservation).catch((databaseError) => {
+      console.error("Zrušení rezervace spotřeby (univerzální obchod):", databaseError);
+    });
+    throw error;
+  }
 }
 
 async function getAppEventsAccessToken() {
@@ -806,17 +1105,8 @@ function validateChatBody(body) {
   return { caseId, message, history };
 }
 
-async function generateAnswer(catalog, message, history) {
+async function callOpenAiChat(system, message, history) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY není nastaven.");
-
-  const system = `Jsi ochotný nákupní asistent e-shopu ${catalog.shop.name}.
-Odpovídej česky, stručně a konkrétně.
-Používej pouze fakta z poskytnutých dat Shopify. Nevymýšlej sklad, ceny, slevy ani vlastnosti.
-Za skladem považuj variantu jen pokud availableForSale je true a inventoryQuantity je větší než 0.
-Pokud informace v datech není, řekni to otevřeně.
-Částky uváděj v měně ${catalog.shop.currencyCode}.
-Data Shopify:
-${JSON.stringify({ shop: catalog.shop, products: catalog.products })}`;
 
   const messages = [
     { role: "system", content: system },
@@ -844,6 +1134,29 @@ ${JSON.stringify({ shop: catalog.shop, products: catalog.products })}`;
     throw new Error(data.error?.message || "AI služba neodpověděla.");
   }
   return data.choices?.[0]?.message?.content?.trim() || "Omlouvám se, odpověď se nepodařilo vytvořit.";
+}
+
+function shopifySystemPrompt(catalog) {
+  return `Jsi ochotný nákupní asistent e-shopu ${catalog.shop.name}.
+Odpovídej česky, stručně a konkrétně.
+Používej pouze fakta z poskytnutých dat Shopify. Nevymýšlej sklad, ceny, slevy ani vlastnosti.
+Za skladem považuj variantu jen pokud availableForSale je true a inventoryQuantity je větší než 0.
+Pokud informace v datech není, řekni to otevřeně.
+Částky uváděj v měně ${catalog.shop.currencyCode}.
+Data Shopify:
+${JSON.stringify({ shop: catalog.shop, products: catalog.products })}`;
+}
+
+async function generateAnswer(catalog, message, history) {
+  return callOpenAiChat(shopifySystemPrompt(catalog), message, history);
+}
+
+async function generateGenericAnswer(store, catalog, message, history) {
+  return callOpenAiChat(
+    buildGenericSystemPrompt(store.name, catalog.products, catalog.rules),
+    message,
+    history,
+  );
 }
 
 function isMarketingChatRateLimited(ip) {
@@ -857,43 +1170,29 @@ function isMarketingChatRateLimited(ip) {
   return entry.count > MARKETING_CHAT_RATE_LIMIT;
 }
 
-async function generateMarketingAnswer(message, history) {
-  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY není nastaven.");
+function isSignupRateLimited(ip) {
+  const now = Date.now();
+  const entry = signupRateLimit.get(ip);
+  if (!entry || now - entry.windowStart > SIGNUP_RATE_WINDOW_MS) {
+    signupRateLimit.set(ip, { windowStart: now, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > SIGNUP_RATE_LIMIT;
+}
 
-  const system = `Jsi asistent na marketingové stránce aplikace Eshop Assistant AI (AI chatbot pro Shopify e-shopy).
-Odpovídáš potenciálním obchodníkům, kteří zvažují instalaci appky, ne zákazníkům konkrétního e-shopu.
+function marketingSystemPrompt() {
+  return `Jsi asistent na marketingové stránce aplikace Eshop Assistant AI (univerzální AI chatbot pro e-shopy, funguje na Shopify i mimo něj).
+Odpovídáš potenciálním obchodníkům, kteří zvažují nasazení appky, ne zákazníkům konkrétního e-shopu.
 Odpovídej česky, stručně a přátelsky.
 Používej pouze fakta z poskytnutých informací o appce níže. Nevymýšlej si funkce, ceny ani podmínky, které tam nejsou.
 Pokud se někdo zeptá na něco, co v datech není, řekni to otevřeně a nasměruj ho na podporu.
 Informace o appce:
 ${JSON.stringify({ jakToFunguje: HOW_IT_WORKS, faq: FAQ })}`;
+}
 
-  const messages = [
-    { role: "system", content: system },
-    ...history,
-  ];
-  if (history.at(-1)?.role !== "user" || history.at(-1)?.content !== message) {
-    messages.push({ role: "user", content: message });
-  }
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      temperature: 0.1,
-      messages,
-    }),
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error?.message || "AI služba neodpověděla.");
-  }
-  return data.choices?.[0]?.message?.content?.trim() || "Omlouvám se, odpověď se nepodařilo vytvořit.";
+async function generateMarketingAnswer(message, history) {
+  return callOpenAiChat(marketingSystemPrompt(), message, history);
 }
 
 async function answerChat(shop, accessToken, body) {
@@ -931,6 +1230,10 @@ async function answerChat(shop, accessToken, body) {
 function errorStatus(error) {
   if (error?.statusCode) return error.statusCode;
   return /token|podpis|doména|Session/i.test(error.message) ? 401 : 500;
+}
+
+function appBaseUrl(req) {
+  return `${req.protocol}://${req.get("host")}`;
 }
 
 app.get("/", (req, res) => {
@@ -1189,6 +1492,192 @@ app.post("/marketing/chat", async (req, res) => {
     res.json({ reply });
   } catch (error) {
     console.error("Marketing chat:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+app.post("/store/signup", async (req, res) => {
+  try {
+    requireMeteringDatabase();
+    if (isSignupRateLimited(req.ip)) {
+      return res.status(429).json({ error: "Příliš mnoho registrací, zkuste to prosím za chvíli znovu." });
+    }
+    const { name, email } = validateSignupInput(req.body);
+    const id = generateStoreId();
+    const apiKey = generateSecretKey();
+    const adminKey = generateSecretKey();
+
+    await database.query(
+      `INSERT INTO generic_stores (id, name, email, api_key, admin_key, plan_handle)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, name, email, apiKey, adminKey, DEFAULT_PLAN_HANDLE],
+    );
+    await database.query(
+      "INSERT INTO generic_catalog (store_id, products, rules) VALUES ($1, '[]', '{}')",
+      [id],
+    );
+
+    const baseUrl = appBaseUrl(req);
+    res.status(201).json({
+      storeId: id,
+      apiKey,
+      adminKey,
+      dashboardUrl: `${baseUrl}/store/dashboard`,
+      embedSnippet: buildEmbedSnippet(baseUrl, id, apiKey),
+      note: "Uložte si adminKey bezpečně, znovu se nezobrazí. Slouží ke správě katalogu na řídicím panelu.",
+    });
+  } catch (error) {
+    console.error("Store signup:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+app.get("/store/dashboard", (req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Eshop Assistant AI — Řídicí panel</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
+    main{max-width:760px;margin:40px auto;padding:0 20px 60px}
+    h1{color:#173b70}
+    section{background:#fff;border-radius:14px;box-shadow:0 1px 4px #00000012;padding:24px;margin-bottom:22px}
+    label{display:block;font-weight:600;margin:14px 0 6px}
+    input,textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font:inherit}
+    textarea{min-height:220px;font-family:ui-monospace,Consolas,monospace;font-size:.85rem}
+    button{margin-top:14px;padding:10px 18px;border:none;border-radius:8px;background:#173b70;color:#fff;font-weight:600;cursor:pointer}
+    button:disabled{opacity:.6;cursor:default}
+    .muted{color:#637381;font-size:.9rem}
+    .error{color:#b42318;margin-top:10px}
+    .ok{color:#0f7b3f;margin-top:10px}
+    pre{white-space:pre-wrap;word-break:break-all;background:#f6f7fb;padding:12px;border-radius:8px;font-size:.85rem}
+    #app-section{display:none}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Řídicí panel obchodu</h1>
+    <section id="login-section">
+      <p class="muted">Zadejte ID obchodu a adminKey, které jste dostali při registraci.</p>
+      <label for="store-id">ID obchodu</label>
+      <input id="store-id" autocomplete="off">
+      <label for="admin-key">adminKey</label>
+      <input id="admin-key" type="password" autocomplete="off">
+      <button id="login-btn" type="button">Přihlásit</button>
+      <div id="login-error" class="error"></div>
+    </section>
+    <section id="app-section">
+      <h2 id="store-name"></h2>
+      <p class="muted">Vložte tento kód do HTML svého webu (např. před &lt;/body&gt;):</p>
+      <pre id="embed-snippet"></pre>
+      <p class="muted" id="usage-summary"></p>
+    </section>
+    <section id="app-section2" style="display:none">
+      <h2>Katalog produktů a pravidla obchodu</h2>
+      <p class="muted">Pole products je pole objektů s klíči id, nazev, cena, mena, sklad, popis. Pole rules může obsahovat doprava, vraceni, platba.</p>
+      <label for="catalog-json">Katalog (JSON)</label>
+      <textarea id="catalog-json" spellcheck="false"></textarea>
+      <button id="save-btn" type="button">Uložit katalog</button>
+      <div id="save-message"></div>
+    </section>
+  </main>
+  <script>
+    var storeId = "";
+    var adminKey = "";
+
+    function authHeaders() {
+      return { "Content-Type": "application/json", Authorization: "Bearer " + adminKey };
+    }
+
+    document.getElementById("login-btn").addEventListener("click", async function () {
+      storeId = document.getElementById("store-id").value.trim();
+      adminKey = document.getElementById("admin-key").value.trim();
+      document.getElementById("login-error").textContent = "";
+      try {
+        var response = await fetch("/store/" + encodeURIComponent(storeId), { headers: authHeaders() });
+        var data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Přihlášení se nezdařilo.");
+        document.getElementById("login-section").style.display = "none";
+        document.getElementById("app-section").style.display = "block";
+        document.getElementById("app-section2").style.display = "block";
+        document.getElementById("store-name").textContent = data.name;
+        document.getElementById("embed-snippet").textContent = data.embedSnippet;
+        if (data.usage.enabled) {
+          document.getElementById("usage-summary").textContent =
+            "Spotřeba: " + data.usage.usage + " / " + data.usage.limit + " (tarif " + data.usage.plan.name + ")";
+        }
+        document.getElementById("catalog-json").value = JSON.stringify(data.catalog, null, 2);
+      } catch (error) {
+        document.getElementById("login-error").textContent = error.message;
+      }
+    });
+
+    document.getElementById("save-btn").addEventListener("click", async function () {
+      var messageEl = document.getElementById("save-message");
+      messageEl.className = "";
+      messageEl.textContent = "Ukládám…";
+      try {
+        var catalog = JSON.parse(document.getElementById("catalog-json").value);
+        var response = await fetch("/store/" + encodeURIComponent(storeId) + "/catalog", {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify(catalog),
+        });
+        var data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Uložení se nezdařilo.");
+        messageEl.className = "ok";
+        messageEl.textContent = "Katalog uložen.";
+      } catch (error) {
+        messageEl.className = "error";
+        messageEl.textContent = error.message;
+      }
+    });
+  </script>
+</body>
+</html>`);
+});
+
+app.get("/store/:id", async (req, res) => {
+  try {
+    const store = await requireStoreAdmin(req);
+    const catalog = await getStoreCatalog(store.id);
+    const usage = await getGenericUsageSummary(store);
+    const baseUrl = appBaseUrl(req);
+    res.json({
+      storeId: store.id,
+      name: store.name,
+      email: store.email,
+      active: store.active,
+      catalog,
+      usage,
+      embedSnippet: buildEmbedSnippet(baseUrl, store.id, store.api_key),
+    });
+  } catch (error) {
+    console.error("Store detail:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+app.put("/store/:id/catalog", async (req, res) => {
+  try {
+    const store = await requireStoreAdmin(req);
+    const catalog = validateCatalogInput(req.body);
+    await saveStoreCatalog(store.id, catalog);
+    res.json({ ok: true, catalog });
+  } catch (error) {
+    console.error("Store catalog update:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+app.post("/widget/chat", async (req, res) => {
+  try {
+    const store = await requireStoreApiKey(req.body);
+    res.json(await answerGenericChat(store, req.body));
+  } catch (error) {
+    console.error("Widget chat:", error);
     res.status(errorStatus(error)).json({ error: error.message });
   }
 });

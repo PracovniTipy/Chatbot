@@ -24,7 +24,7 @@ const FAQ = [
   },
   {
     question: "Funguje appka i mimo Shopify?",
-    answer: "Ne. Eshop Assistant AI teď funguje výhradně pro obchody na Shopify — přihlášení, čtení produktů i platby jdou přes Shopify.",
+    answer: "Ano. Kromě instalace ze Shopify App Store nabízíme i univerzální variantu pro jakýkoli web: po registraci na /store/dashboard dostanete embed kód s data-store a data-key, který vložíte do svých stránek, a produkty spravujete přes řídicí panel.",
   },
   {
     question: "Odkud chatbot bere informace o produktech?",
@@ -41,6 +41,10 @@ const FAQ = [
   {
     question: "Musím appku programovat nebo upravovat šablonu obchodu?",
     answer: "Ne. Po instalaci ze Shopify App Store appka sama přidá chat widget do vašeho obchodu, žádný zásah do kódu šablony není potřeba.",
+  },
+  {
+    question: "Jak appku nasadím na web mimo Shopify?",
+    answer: "Zaregistrujete se na /store/dashboard, dostanete jednorázově ID obchodu a přístupové klíče. Produkty a pravidla obchodu (doprava, vrácení, platba) vyplníte v řídicím panelu a jeden řádek se <script> kódem vložíte do svého webu. Fakturace pro tuto variantu zatím běží mimo appku, dokud nedoplníme platební bránu.",
   },
   {
     question: "Jsou data zákazníků v bezpečí?",
