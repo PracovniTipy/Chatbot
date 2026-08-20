@@ -1469,6 +1469,7 @@ app.get("/marketing", (req, res) => {
     </section>
     <section>
       <h2>Ceník</h2>
+      <p class="muted">Pevná měsíční cena za tarif, ne platba za jednotlivou zprávu. Víte tedy dopředu, kolik appka bude stát, i v měsíci, kdy dorazí jen pár dotazů.</p>
       <table>
         <thead><tr><th>Tarif</th><th>Případů / měsíc</th><th>Cena / měsíc</th></tr></thead>
         <tbody>${pricingHtml}
