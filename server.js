@@ -1619,8 +1619,25 @@ app.get("/store/dashboard", (req, res) => {
 <body>
   <main>
     <h1>Řídicí panel obchodu</h1>
+    <section id="signup-section">
+      <p class="muted">Nemáte ještě obchod? Zaregistrujte se — je to zdarma, tarif zvolíte a zaplatíte později.</p>
+      <label for="signup-name">Název obchodu</label>
+      <input id="signup-name" autocomplete="off">
+      <label for="signup-email">E-mail</label>
+      <input id="signup-email" type="email" autocomplete="off">
+      <button id="signup-btn" type="button">Zaregistrovat obchod</button>
+      <div id="signup-error" class="error"></div>
+      <div id="signup-result" style="display:none">
+        <p class="ok">Obchod je zaregistrovaný. <strong>Uložte si adminKey níže bezpečně — znovu se nezobrazí.</strong></p>
+        <label>ID obchodu</label>
+        <pre id="signup-store-id"></pre>
+        <label>adminKey</label>
+        <pre id="signup-admin-key"></pre>
+        <button id="signup-continue-btn" type="button">Pokračovat do panelu</button>
+      </div>
+    </section>
     <section id="login-section">
-      <p class="muted">Zadejte ID obchodu a adminKey, které jste dostali při registraci.</p>
+      <p class="muted">Už máte obchod? Zadejte ID obchodu a adminKey, které jste dostali při registraci.</p>
       <label for="store-id">ID obchodu</label>
       <input id="store-id" autocomplete="off">
       <label for="admin-key">adminKey</label>
@@ -1657,14 +1674,13 @@ app.get("/store/dashboard", (req, res) => {
       return { "Content-Type": "application/json", Authorization: "Bearer " + adminKey };
     }
 
-    document.getElementById("login-btn").addEventListener("click", async function () {
-      storeId = document.getElementById("store-id").value.trim();
-      adminKey = document.getElementById("admin-key").value.trim();
-      document.getElementById("login-error").textContent = "";
+    async function enterDashboard(errorElementId) {
+      document.getElementById(errorElementId).textContent = "";
       try {
         var response = await fetch("/store/" + encodeURIComponent(storeId), { headers: authHeaders() });
         var data = await response.json();
         if (!response.ok) throw new Error(data.error || "Přihlášení se nezdařilo.");
+        document.getElementById("signup-section").style.display = "none";
         document.getElementById("login-section").style.display = "none";
         document.getElementById("app-section").style.display = "block";
         document.getElementById("app-section2").style.display = "block";
@@ -1677,8 +1693,44 @@ app.get("/store/dashboard", (req, res) => {
         document.getElementById("catalog-json").value = JSON.stringify(data.catalog, null, 2);
         renderBilling(data);
       } catch (error) {
-        document.getElementById("login-error").textContent = error.message;
+        document.getElementById(errorElementId).textContent = error.message;
       }
+    }
+
+    document.getElementById("login-btn").addEventListener("click", function () {
+      storeId = document.getElementById("store-id").value.trim();
+      adminKey = document.getElementById("admin-key").value.trim();
+      enterDashboard("login-error");
+    });
+
+    document.getElementById("signup-btn").addEventListener("click", async function () {
+      var errorEl = document.getElementById("signup-error");
+      errorEl.textContent = "";
+      try {
+        var response = await fetch("/store/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: document.getElementById("signup-name").value.trim(),
+            email: document.getElementById("signup-email").value.trim(),
+          }),
+        });
+        var data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Registrace se nezdařila.");
+        document.getElementById("signup-store-id").textContent = data.storeId;
+        document.getElementById("signup-admin-key").textContent = data.adminKey;
+        document.getElementById("signup-result").style.display = "block";
+        document.getElementById("signup-continue-btn").dataset.storeId = data.storeId;
+        document.getElementById("signup-continue-btn").dataset.adminKey = data.adminKey;
+      } catch (error) {
+        errorEl.textContent = error.message;
+      }
+    });
+
+    document.getElementById("signup-continue-btn").addEventListener("click", function () {
+      storeId = this.dataset.storeId;
+      adminKey = this.dataset.adminKey;
+      enterDashboard("signup-error");
     });
 
     function renderBilling(data) {
