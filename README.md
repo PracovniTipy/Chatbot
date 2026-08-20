@@ -5,7 +5,7 @@ Univerzální AI chatbot pro e-shopy s napojením na produkty a sklad obchodu. B
 Appka funguje ve dvou variantách:
 
 1. **Shopify** – appka ze Shopify App Store, přihlášení přes OAuth, produkty a sklad se čtou přímo ze Shopify Admin API, platby jdou přes Shopify Billing.
-2. **Univerzální (mimo Shopify)** – pro jakýkoli web. Obchodník se zaregistruje na `/store/dashboard` (backend: `POST /store/signup`), dostane ID obchodu a přístupové klíče (`apiKey`, `adminKey`), produkty a pravidla obchodu (doprava, vrácení, platba) vyplní v řídicím panelu (`GET/PUT /store/:id`, `/store/:id/catalog`) a vloží jeden `<script>` řádek (`public/embed.js`) do svého webu. Chat běží přes `POST /widget/chat`, ověřený `storeId` + `apiKey`. Logika mimo endpointy je ve `stores.js`. Fakturace pro tuto variantu zatím běží mimo appku (žádná platební brána není napojená) — nový obchod dostane výchozí tarif Start 70 bez vynucení platby.
+2. **Univerzální (mimo Shopify)** – pro jakýkoli web. Obchodník se zaregistruje na `/store/dashboard` (backend: `POST /store/signup`), dostane ID obchodu a přístupové klíče (`apiKey`, `adminKey`), produkty a pravidla obchodu (doprava, vrácení, platba) vyplní v řídicím panelu (`GET/PUT /store/:id`, `/store/:id/catalog`) a vloží jeden `<script>` řádek (`public/embed.js`) do svého webu. Chat běží přes `POST /widget/chat`, ověřený `storeId` + `apiKey`. Logika mimo endpointy je ve `stores.js`. Nový obchod dostane výchozí tarif Start 70 bez vynucení platby, dokud v řídicím panelu nezvolí tarif a nezaplatí přes Stripe (`POST /store/:id/checkout`, webhook `POST /stripe/webhook`) — bez nastavených `STRIPE_*` proměnných běží tarif dál v testovacím režimu.
 
 Povinné Shopify compliance webhooky (`customers/data_request`, `customers/redact`, `shop/redact`) a odinstalační webhook jsou deklarované v `shopify.app.toml`. Endpoint `/webhooks` ověřuje podpis HMAC. Aplikace neukládá zákaznické údaje; při `shop/redact` odstraní uložené připojení a spotřebu obchodu.
 
@@ -36,6 +36,10 @@ Jeden případ je jedno chatové vlákno, ve kterém chatbot úspěšně odpově
 - `SHOPIFY_SUBSCRIPTION_REQUIRED=false` – ponechat `false` během testování; změnit na `true` až po vytvoření a ověření plánů v Shopify.
 - `SHOPIFY_USAGE_BILLING_ENABLED=false` – u pevných měsíčních tarifů musí zůstat `false`, aby se každý případ navíc neúčtoval jako samostatná položka.
 - `MAX_MESSAGES_PER_CASE=20` – ochrana proti nekonečnému vláknu.
+- `STRIPE_SECRET_KEY` – tajný klíč Stripe účtu; bez něj běží univerzální (mimo Shopify) tarify jen v testovacím režimu.
+- `STRIPE_WEBHOOK_SECRET` – podpisový klíč webhooku `POST /stripe/webhook`, který ve Stripe napojte na eventy `checkout.session.completed`, `customer.subscription.updated` a `customer.subscription.deleted`.
+- `STRIPE_PRICE_<TARIF>` – Stripe Price ID pro každý samoobslužný tarif, např. `STRIPE_PRICE_START_70`, `STRIPE_PRICE_BASIC_150`, `STRIPE_PRICE_GROWTH_400`, `STRIPE_PRICE_PRO_1000`, `STRIPE_PRICE_BUSINESS_5000` (název proměnné = handle tarifu velkými písmeny s podtržítky). Tarif bez nastavené ceny nejde v checkoutu vybrat.
+- `GENERIC_SUBSCRIPTION_REQUIRED=false` – ponechat `false` během testování univerzálních obchodů; změnit na `true`, až bude Stripe checkout ověřený, aby `/widget/chat` vyžadoval aktivní platbu.
 
 ## Kontrola a nasazení
 

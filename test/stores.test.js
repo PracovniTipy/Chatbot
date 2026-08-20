@@ -5,6 +5,7 @@ const {
   buildGenericSystemPrompt,
   generateSecretKey,
   generateStoreId,
+  planHandleToEnvSuffix,
   safeEqual,
   validateCatalogInput,
   validateSignupInput,
@@ -85,4 +86,10 @@ test("generic system prompt embeds the store name, products and rules", () => {
   assert.match(prompt, /Můj obchod/);
   assert.match(prompt, /sku-1/);
   assert.match(prompt, /Zdarma/);
+});
+
+test("plan handles map to predictable Stripe price env var suffixes", () => {
+  assert.equal(planHandleToEnvSuffix("start-70"), "START_70");
+  assert.equal(planHandleToEnvSuffix("business-5000"), "BUSINESS_5000");
+  assert.equal(planHandleToEnvSuffix(""), "");
 });

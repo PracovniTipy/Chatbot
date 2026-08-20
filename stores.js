@@ -80,6 +80,10 @@ function validateCatalogInput(body) {
   return { products, rules };
 }
 
+function planHandleToEnvSuffix(handle) {
+  return String(handle || "").trim().toUpperCase().replace(/-/g, "_");
+}
+
 function buildEmbedSnippet(baseUrl, storeId, apiKey) {
   return `<script src="${baseUrl}/embed.js" data-store="${storeId}" data-key="${apiKey}" async></script>`;
 }
@@ -101,6 +105,7 @@ module.exports = {
   buildGenericSystemPrompt,
   generateSecretKey,
   generateStoreId,
+  planHandleToEnvSuffix,
   safeEqual,
   validateCatalogInput,
   validateSignupInput,

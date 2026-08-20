@@ -2,11 +2,13 @@ const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+const Stripe = require("stripe");
 const {
   DEFAULT_PLAN_HANDLE,
   PLANS,
   calculateBillingPeriod,
   calculateSubscriptionPeriod,
+  getPlan,
   publicPlans,
   resolvePlan,
 } = require("./billing");
@@ -17,6 +19,7 @@ const {
   buildGenericSystemPrompt,
   generateSecretKey,
   generateStoreId,
+  planHandleToEnvSuffix,
   safeEqual,
   validateCatalogInput,
   validateSignupInput,
@@ -44,6 +47,20 @@ const SHOPIFY_USAGE_EVENT_HANDLE = process.env.SHOPIFY_USAGE_EVENT_HANDLE || "re
 const SHOPIFY_APP_EVENTS_API_VERSION = process.env.SHOPIFY_APP_EVENTS_API_VERSION || "unstable";
 const SHOPIFY_DEFAULT_PLAN_HANDLE = process.env.SHOPIFY_DEFAULT_PLAN_HANDLE || DEFAULT_PLAN_HANDLE;
 const MAX_MESSAGES_PER_CASE = Number(process.env.MAX_MESSAGES_PER_CASE) || 20;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
+const GENERIC_SUBSCRIPTION_REQUIRED = process.env.GENERIC_SUBSCRIPTION_REQUIRED === "true";
+const stripeClient = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
+
+function stripePriceIdForPlan(planHandle) {
+  return process.env[`STRIPE_PRICE_${planHandleToEnvSuffix(planHandle)}`] || null;
+}
+
+function planHandleForStripePriceId(priceId) {
+  if (!priceId) return null;
+  const plan = PLANS.find((candidate) => stripePriceIdForPlan(candidate.handle) === priceId);
+  return plan ? plan.handle : null;
+}
 // Shopify blocks App Proxy URLs before a password-protected development store
 // has been unlocked. Keep this fallback restricted to our single test shop.
 const PASSWORD_PROTECTED_TEST_SHOP = process.env.PASSWORD_PROTECTED_TEST_SHOP ||
@@ -180,6 +197,9 @@ async function initializeDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT");
+  await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT");
+  await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS subscription_status TEXT");
   await database.query(`
     CREATE TABLE IF NOT EXISTS generic_catalog (
       store_id TEXT PRIMARY KEY REFERENCES generic_stores (id) ON DELETE CASCADE,
@@ -469,7 +489,9 @@ async function getUsageSummary(shop, accessToken, subscription) {
 async function findStoreById(id) {
   if (!database || !id) return null;
   const result = await database.query(
-    "SELECT id, name, email, api_key, admin_key, plan_handle, active FROM generic_stores WHERE id = $1",
+    `SELECT id, name, email, api_key, admin_key, plan_handle, active,
+            stripe_customer_id, stripe_subscription_id, subscription_status
+     FROM generic_stores WHERE id = $1`,
     [id],
   );
   return result.rows[0] || null;
@@ -502,6 +524,11 @@ async function requireStoreApiKey(body) {
   if (!store.active) {
     const error = new Error("Tento obchod je momentálně neaktivní.");
     error.statusCode = 403;
+    throw error;
+  }
+  if (GENERIC_SUBSCRIPTION_REQUIRED && store.subscription_status !== "active") {
+    const error = new Error("Obchod nemá aktivní předplatné Eshop Assistant AI.");
+    error.statusCode = 402;
     throw error;
   }
   return store;
@@ -707,6 +734,39 @@ async function answerGenericChat(store, body) {
       console.error("Zrušení rezervace spotřeby (univerzální obchod):", databaseError);
     });
     throw error;
+  }
+}
+
+async function handleStripeEvent(event) {
+  if (!database) return;
+  const object = event.data.object;
+
+  if (event.type === "checkout.session.completed") {
+    const storeId = object.metadata?.storeId || object.client_reference_id;
+    const planHandle = object.metadata?.planHandle;
+    if (!storeId) return;
+    await database.query(
+      `UPDATE generic_stores
+       SET stripe_customer_id = $2, stripe_subscription_id = $3,
+           subscription_status = 'active', plan_handle = COALESCE($4, plan_handle), active = TRUE
+       WHERE id = $1`,
+      [storeId, object.customer, object.subscription, planHandle || null],
+    );
+    return;
+  }
+
+  if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") {
+    const storeId = object.metadata?.storeId;
+    if (!storeId) return;
+    const priceId = object.items?.data?.[0]?.price?.id;
+    const planHandle = planHandleForStripePriceId(priceId);
+    const status = event.type === "customer.subscription.deleted" ? "canceled" : object.status;
+    await database.query(
+      `UPDATE generic_stores
+       SET subscription_status = $2, plan_handle = COALESCE($3, plan_handle)
+       WHERE id = $1 AND stripe_subscription_id = $4`,
+      [storeId, status, planHandle, object.id],
+    );
   }
 }
 
@@ -1574,6 +1634,12 @@ app.get("/store/dashboard", (req, res) => {
       <pre id="embed-snippet"></pre>
       <p class="muted" id="usage-summary"></p>
     </section>
+    <section id="billing-section" style="display:none">
+      <h2>Tarif a platba</h2>
+      <p class="muted" id="billing-status"></p>
+      <div id="plan-list"></div>
+      <div id="billing-error" class="error"></div>
+    </section>
     <section id="app-section2" style="display:none">
       <h2>Katalog produktů a pravidla obchodu</h2>
       <p class="muted">Pole products je pole objektů s klíči id, nazev, cena, mena, sklad, popis. Pole rules může obsahovat doprava, vraceni, platba.</p>
@@ -1609,10 +1675,61 @@ app.get("/store/dashboard", (req, res) => {
             "Spotřeba: " + data.usage.usage + " / " + data.usage.limit + " (tarif " + data.usage.plan.name + ")";
         }
         document.getElementById("catalog-json").value = JSON.stringify(data.catalog, null, 2);
+        renderBilling(data);
       } catch (error) {
         document.getElementById("login-error").textContent = error.message;
       }
     });
+
+    function renderBilling(data) {
+      var section = document.getElementById("billing-section");
+      var status = document.getElementById("billing-status");
+      var list = document.getElementById("plan-list");
+      list.innerHTML = "";
+      document.getElementById("billing-error").textContent = "";
+
+      if (!data.billingConfigured) {
+        status.textContent = "Aktuální tarif: " + data.usage.plan.name +
+          ". Platby zatím nejsou nastavené, tarif běží v testovacím režimu.";
+        section.style.display = "block";
+        return;
+      }
+      status.textContent = "Aktuální tarif: " + data.usage.plan.name +
+        (data.subscriptionStatus ? " (stav platby: " + data.subscriptionStatus + ")" : " (zatím bez platby)");
+
+      data.usage.plans.forEach(function (plan) {
+        var row = document.createElement("div");
+        row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee";
+        var label = document.createElement("span");
+        label.textContent = plan.name + " — " + plan.limit.toLocaleString("cs-CZ") + " případů / měsíc — " +
+          plan.priceCzk.toLocaleString("cs-CZ") + " Kč";
+        var button = document.createElement("button");
+        var isCurrent = plan.handle === data.planHandle && data.subscriptionStatus === "active";
+        button.textContent = isCurrent ? "Aktivní tarif" : "Vybrat";
+        button.disabled = isCurrent;
+        button.style.marginTop = "0";
+        button.addEventListener("click", async function () {
+          button.disabled = true;
+          try {
+            var response = await fetch("/store/" + encodeURIComponent(storeId) + "/checkout", {
+              method: "POST",
+              headers: authHeaders(),
+              body: JSON.stringify({ planHandle: plan.handle }),
+            });
+            var checkoutData = await response.json();
+            if (!response.ok) throw new Error(checkoutData.error || "Platbu se nepodařilo spustit.");
+            window.location = checkoutData.url;
+          } catch (error) {
+            document.getElementById("billing-error").textContent = error.message;
+            button.disabled = isCurrent;
+          }
+        });
+        row.appendChild(label);
+        row.appendChild(button);
+        list.appendChild(row);
+      });
+      section.style.display = "block";
+    }
 
     document.getElementById("save-btn").addEventListener("click", async function () {
       var messageEl = document.getElementById("save-message");
@@ -1650,6 +1767,9 @@ app.get("/store/:id", async (req, res) => {
       name: store.name,
       email: store.email,
       active: store.active,
+      planHandle: store.plan_handle,
+      subscriptionStatus: store.subscription_status,
+      billingConfigured: Boolean(stripeClient),
       catalog,
       usage,
       embedSnippet: buildEmbedSnippet(baseUrl, store.id, store.api_key),
@@ -1657,6 +1777,69 @@ app.get("/store/:id", async (req, res) => {
   } catch (error) {
     console.error("Store detail:", error);
     res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+app.post("/store/:id/checkout", async (req, res) => {
+  try {
+    const store = await requireStoreAdmin(req);
+    if (!stripeClient) {
+      const error = new Error("Platby zatím nejsou nakonfigurované.");
+      error.statusCode = 503;
+      throw error;
+    }
+    const planHandle = typeof req.body?.planHandle === "string" ? req.body.planHandle.trim() : "";
+    const plan = getPlan(planHandle);
+    if (!plan || !plan.public) {
+      const error = new Error("Neplatný tarif.");
+      error.statusCode = 400;
+      throw error;
+    }
+    const priceId = stripePriceIdForPlan(plan.handle);
+    if (!priceId) {
+      const error = new Error(`Tarif ${plan.name} zatím nemá nastavenou platbu.`);
+      error.statusCode = 503;
+      throw error;
+    }
+
+    const baseUrl = appBaseUrl(req);
+    const session = await stripeClient.checkout.sessions.create({
+      mode: "subscription",
+      customer: store.stripe_customer_id || undefined,
+      customer_email: store.stripe_customer_id ? undefined : store.email,
+      client_reference_id: store.id,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${baseUrl}/store/dashboard?checkout=success`,
+      cancel_url: `${baseUrl}/store/dashboard?checkout=cancelled`,
+      metadata: { storeId: store.id, planHandle: plan.handle },
+      subscription_data: { metadata: { storeId: store.id, planHandle: plan.handle } },
+    });
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error("Store checkout:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+app.post("/stripe/webhook", async (req, res) => {
+  if (!stripeClient || !STRIPE_WEBHOOK_SECRET) return res.sendStatus(404);
+  let event;
+  try {
+    event = stripeClient.webhooks.constructEvent(
+      req.rawBody,
+      req.get("stripe-signature"),
+      STRIPE_WEBHOOK_SECRET,
+    );
+  } catch (error) {
+    console.error("Stripe webhook signature:", error.message);
+    return res.sendStatus(400);
+  }
+  try {
+    await handleStripeEvent(event);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error("Stripe webhook handling:", error);
+    res.sendStatus(500);
   }
 });
 
@@ -1772,6 +1955,8 @@ app.get("/health", (req, res) => {
     ok: true,
     shopifyConfigured: Boolean(SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET),
     openaiConfigured: Boolean(OPENAI_API_KEY),
+    stripeConfigured: Boolean(stripeClient),
+    genericSubscriptionRequired: GENERIC_SUBSCRIPTION_REQUIRED,
     persistentStorageConfigured: Boolean(database),
     persistentStorageReady: databaseReady,
     usageMeteringEnabled: USAGE_METERING_ENABLED,
