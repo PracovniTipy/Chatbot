@@ -11,8 +11,10 @@ const {
   resolvePlan,
 } = require("./billing");
 const { COMPLIANCE_TOPICS, verifyShopifyWebhook } = require("./webhooks");
+const { HOW_IT_WORKS, FAQ } = require("./faq");
 
 const app = express();
+app.set("trust proxy", true);
 app.use(express.json({
   limit: "32kb",
   verify(req, _res, buffer) {
@@ -40,6 +42,9 @@ const PASSWORD_PROTECTED_TEST_SHOP = process.env.PASSWORD_PROTECTED_TEST_SHOP ||
 const PASSWORD_PROTECTED_TEST_ORIGIN = `https://${PASSWORD_PROTECTED_TEST_SHOP}`;
 
 const shopTokens = new Map();
+const marketingChatRateLimit = new Map();
+const MARKETING_CHAT_RATE_LIMIT = 20;
+const MARKETING_CHAT_RATE_WINDOW_MS = 60 * 60 * 1000;
 const database = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
 let databaseReady = false;
 let appEventsAccessToken = null;
@@ -841,6 +846,56 @@ ${JSON.stringify({ shop: catalog.shop, products: catalog.products })}`;
   return data.choices?.[0]?.message?.content?.trim() || "Omlouvám se, odpověď se nepodařilo vytvořit.";
 }
 
+function isMarketingChatRateLimited(ip) {
+  const now = Date.now();
+  const entry = marketingChatRateLimit.get(ip);
+  if (!entry || now - entry.windowStart > MARKETING_CHAT_RATE_WINDOW_MS) {
+    marketingChatRateLimit.set(ip, { windowStart: now, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > MARKETING_CHAT_RATE_LIMIT;
+}
+
+async function generateMarketingAnswer(message, history) {
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY není nastaven.");
+
+  const system = `Jsi asistent na marketingové stránce aplikace Eshop Assistant AI (AI chatbot pro Shopify e-shopy).
+Odpovídáš potenciálním obchodníkům, kteří zvažují instalaci appky, ne zákazníkům konkrétního e-shopu.
+Odpovídej česky, stručně a přátelsky.
+Používej pouze fakta z poskytnutých informací o appce níže. Nevymýšlej si funkce, ceny ani podmínky, které tam nejsou.
+Pokud se někdo zeptá na něco, co v datech není, řekni to otevřeně a nasměruj ho na podporu.
+Informace o appce:
+${JSON.stringify({ jakToFunguje: HOW_IT_WORKS, faq: FAQ })}`;
+
+  const messages = [
+    { role: "system", content: system },
+    ...history,
+  ];
+  if (history.at(-1)?.role !== "user" || history.at(-1)?.content !== message) {
+    messages.push({ role: "user", content: message });
+  }
+
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      temperature: 0.1,
+      messages,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error?.message || "AI služba neodpověděla.");
+  }
+  return data.choices?.[0]?.message?.content?.trim() || "Omlouvám se, odpověď se nepodařilo vytvořit.";
+}
+
 async function answerChat(shop, accessToken, body) {
   const { caseId, message, history } = validateChatBody(body);
   const catalog = await loadCatalog(shop, accessToken);
@@ -977,6 +1032,165 @@ app.get("/", (req, res) => {
   <script src="/widget.js" defer></script>
 </body>
 </html>`);
+});
+
+app.get("/marketing", (req, res) => {
+  const stepsHtml = HOW_IT_WORKS.map((step, index) => `
+        <li>
+          <span class="step-number">${index + 1}</span>
+          <div>
+            <h3>${escapeHtml(step.title)}</h3>
+            <p>${escapeHtml(step.text)}</p>
+          </div>
+        </li>`).join("");
+
+  const pricingHtml = publicPlans().map((plan) => `
+        <tr>
+          <td>${escapeHtml(plan.name)}</td>
+          <td>${plan.limit.toLocaleString("cs-CZ")}</td>
+          <td>${plan.priceCzk.toLocaleString("cs-CZ")} Kč</td>
+        </tr>`).join("");
+
+  const faqHtml = FAQ.map((item) => `
+        <details>
+          <summary>${escapeHtml(item.question)}</summary>
+          <p>${escapeHtml(item.answer)}</p>
+        </details>`).join("");
+
+  res.type("html").send(`<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Eshop Assistant AI — chatbot pro váš Shopify obchod</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.5}
+    header{background:#173b70;color:#fff;padding:56px 24px;text-align:center}
+    header h1{margin:0 0 12px;font-size:2rem}
+    header p{margin:0;opacity:.9;font-size:1.1rem}
+    main{max-width:900px;margin:0 auto;padding:40px 24px}
+    section{margin-bottom:48px}
+    h2{color:#173b70}
+    ol.steps{list-style:none;padding:0;display:grid;gap:20px}
+    ol.steps li{display:flex;gap:16px;align-items:flex-start}
+    .step-number{flex:none;width:32px;height:32px;border-radius:50%;background:#173b70;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+    ol.steps h3{margin:0 0 4px}
+    ol.steps p{margin:0;color:#4b5563}
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px #00000012}
+    th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #dfe3e8}
+    th{background:#fafbfb;color:#637381}
+    details{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:10px;box-shadow:0 1px 4px #00000012}
+    summary{font-weight:600;cursor:pointer}
+    details p{margin:10px 0 0;color:#4b5563}
+    #marketing-chat{background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012;padding:24px}
+    #marketing-chat-log{min-height:120px;max-height:320px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+    .msg{padding:10px 14px;border-radius:10px;max-width:80%}
+    .msg.user{align-self:flex-end;background:#173b70;color:#fff}
+    .msg.assistant{align-self:flex-start;background:#f1f2f4}
+    #marketing-chat-form{display:flex;gap:8px}
+    #marketing-chat-input{flex:1;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font-size:1rem}
+    #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:#173b70;color:#fff;font-weight:600;cursor:pointer}
+    #marketing-chat-form button:disabled{opacity:.6;cursor:default}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Eshop Assistant AI</h1>
+    <p>AI chatbot, který za vás na Shopify obchodě odpovídá zákazníkům — podle reálných produktů a skladu.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Jak to funguje</h2>
+      <ol class="steps">${stepsHtml}
+      </ol>
+    </section>
+    <section>
+      <h2>Ceník</h2>
+      <table>
+        <thead><tr><th>Tarif</th><th>Případů / měsíc</th><th>Cena / měsíc</th></tr></thead>
+        <tbody>${pricingHtml}
+        </tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Časté dotazy</h2>
+      ${faqHtml}
+    </section>
+    <section>
+      <h2>Zeptejte se rovnou chatbota</h2>
+      <div id="marketing-chat">
+        <div id="marketing-chat-log"></div>
+        <form id="marketing-chat-form">
+          <input id="marketing-chat-input" maxlength="500" autocomplete="off" placeholder="Např. Jak dlouho trvá instalace?">
+          <button type="submit">Odeslat</button>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script>
+    (function () {
+      var log = document.getElementById("marketing-chat-log");
+      var form = document.getElementById("marketing-chat-form");
+      var input = document.getElementById("marketing-chat-input");
+      var button = form.querySelector("button");
+      var history = [];
+
+      function addMessage(role, text) {
+        var el = document.createElement("div");
+        el.className = "msg " + role;
+        el.textContent = text;
+        log.appendChild(el);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        var message = input.value.trim();
+        if (!message) return;
+        addMessage("user", message);
+        history.push({ role: "user", content: message });
+        input.value = "";
+        input.disabled = true;
+        button.disabled = true;
+
+        fetch("/marketing/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: message, history: history.slice(0, -1) }),
+        })
+          .then(function (response) { return response.json(); })
+          .then(function (data) {
+            if (data.error) throw new Error(data.error);
+            addMessage("assistant", data.reply);
+            history.push({ role: "assistant", content: data.reply });
+          })
+          .catch(function (error) {
+            addMessage("assistant", "Omlouvám se, teď se mi nedaří odpovědět (" + error.message + "). Zkuste to prosím znovu.");
+          })
+          .finally(function () {
+            input.disabled = false;
+            button.disabled = false;
+            input.focus();
+          });
+      });
+    })();
+  </script>
+</body>
+</html>`);
+});
+
+app.post("/marketing/chat", async (req, res) => {
+  try {
+    if (isMarketingChatRateLimited(req.ip)) {
+      return res.status(429).json({ error: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu." });
+    }
+    const { message, history } = validateChatBody(req.body);
+    const reply = await generateMarketingAnswer(message, history);
+    res.json({ reply });
+  } catch (error) {
+    console.error("Marketing chat:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
+  }
 });
 
 app.post("/api/bootstrap", async (req, res) => {
