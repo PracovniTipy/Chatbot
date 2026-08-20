@@ -1907,7 +1907,20 @@ app.put("/store/:id/catalog", async (req, res) => {
   }
 });
 
+// The embed widget runs on the merchant's own site, a different origin
+// from this backend, so /widget/chat must allow cross-origin requests.
+// The security boundary here is the per-store apiKey, not Origin.
+app.options("/widget/chat", (req, res) => {
+  res.set({
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  });
+  res.sendStatus(204);
+});
+
 app.post("/widget/chat", async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
   try {
     const store = await requireStoreApiKey(req.body);
     res.json(await answerGenericChat(store, req.body));
