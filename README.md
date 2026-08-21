@@ -1,4 +1,4 @@
-# Eshop Assistant AI
+# Chatnelo
 
 Univerzální AI chatbot pro e-shopy s napojením na produkty a sklad obchodu. Backend běží na Railway, připojení obchodů a spotřeba se ukládají do PostgreSQL.
 

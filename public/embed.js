@@ -10,7 +10,7 @@
   var storeId = scriptTag.getAttribute("data-store") || "";
   var apiKey = scriptTag.getAttribute("data-key") || "";
   if (!storeId || !apiKey) {
-    console.error("Eshop Assistant AI: chybí data-store nebo data-key ve <script> tagu embed.js.");
+    console.error("Chatnelo: chybí data-store nebo data-key ve <script> tagu embed.js.");
     return;
   }
 
