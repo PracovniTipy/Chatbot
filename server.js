@@ -14,6 +14,7 @@ const {
 } = require("./billing");
 const { COMPLIANCE_TOPICS, verifyShopifyWebhook } = require("./webhooks");
 const { HOW_IT_WORKS, FAQ } = require("./faq");
+const { OPERATOR_PLACEHOLDER, renderPrivacyText } = require("./privacy");
 const {
   buildEmbedSnippet,
   buildGenericSystemPrompt,
@@ -1491,6 +1492,9 @@ app.get("/marketing", (req, res) => {
       </div>
     </section>
   </main>
+  <footer style="text-align:center;padding:24px;color:#637381;font-size:.85rem">
+    <a href="/privacy" style="color:#637381">Zásady ochrany osobních údajů</a>
+  </footer>
   <script>
     (function () {
       var log = document.getElementById("marketing-chat-log");
@@ -1555,6 +1559,47 @@ app.post("/marketing/chat", async (req, res) => {
     console.error("Marketing chat:", error);
     res.status(errorStatus(error)).json({ error: error.message });
   }
+});
+
+app.get("/privacy", (req, res) => {
+  const operator = {
+    name: process.env.PRIVACY_OPERATOR_NAME || OPERATOR_PLACEHOLDER.name,
+    contactEmail: process.env.PRIVACY_CONTACT_EMAIL || OPERATOR_PLACEHOLDER.contactEmail,
+    address: process.env.PRIVACY_OPERATOR_ADDRESS || OPERATOR_PLACEHOLDER.address,
+  };
+  const sectionsHtml = renderPrivacyText(operator).map((section) => `
+        <section>
+          <h2>${escapeHtml(section.title)}</h2>
+          <p>${escapeHtml(section.body)}</p>
+        </section>`).join("");
+
+  res.type("html").send(`<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Eshop Assistant AI — Zásady ochrany osobních údajů</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}
+    header{background:#173b70;color:#fff;padding:40px 24px;text-align:center}
+    header h1{margin:0;font-size:1.6rem}
+    main{max-width:760px;margin:0 auto;padding:32px 24px 60px}
+    section{background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:20px 24px;margin-bottom:16px}
+    h2{color:#173b70;font-size:1.1rem;margin-top:0}
+    p{margin:0;color:#3c4149}
+    .updated{text-align:center;color:#637381;font-size:.85rem;margin-bottom:24px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Zásady ochrany osobních údajů</h1>
+  </header>
+  <main>
+    <p class="updated">Poslední aktualizace: ${new Date().toISOString().slice(0, 10)}</p>
+    ${sectionsHtml}
+  </main>
+</body>
+</html>`);
 });
 
 app.post("/store/signup", async (req, res) => {
