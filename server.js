@@ -528,7 +528,7 @@ async function requireStoreApiKey(body) {
     throw error;
   }
   if (GENERIC_SUBSCRIPTION_REQUIRED && store.subscription_status !== "active") {
-    const error = new Error("Obchod nemá aktivní předplatné Eshop Assistant AI.");
+    const error = new Error("Obchod nemá aktivní předplatné Chatnelo.");
     error.statusCode = 402;
     throw error;
   }
@@ -1243,7 +1243,7 @@ function isSignupRateLimited(ip) {
 }
 
 function marketingSystemPrompt() {
-  return `Jsi asistent na marketingové stránce aplikace Eshop Assistant AI (univerzální AI chatbot pro e-shopy, funguje na Shopify i mimo něj).
+  return `Jsi asistent na marketingové stránce aplikace Chatnelo (univerzální AI chatbot pro e-shopy, funguje na Shopify i mimo něj).
 Odpovídáš potenciálním obchodníkům, kteří zvažují nasazení appky, ne zákazníkům konkrétního e-shopu.
 Odpovídej česky, stručně a přátelsky.
 Používej pouze fakta z poskytnutých informací o appce níže. Nevymýšlej si funkce, ceny ani podmínky, které tam nejsou.
@@ -1260,7 +1260,7 @@ async function answerChat(shop, accessToken, body) {
   const { caseId, message, history } = validateChatBody(body);
   const catalog = await loadCatalog(shop, accessToken);
   if (SHOPIFY_SUBSCRIPTION_REQUIRED && !catalog.subscription) {
-    const error = new Error("Obchod nemá aktivní předplatné Eshop Assistant AI.");
+    const error = new Error("Obchod nemá aktivní předplatné Chatnelo.");
     error.statusCode = 402;
     throw error;
   }
@@ -1307,7 +1307,7 @@ app.get("/", (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="shopify-api-key" content="${apiKey}">
   <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-  <title>Eshop Assistant AI</title>
+  <title>Chatnelo</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
     main{max-width:900px;margin:48px auto;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012}
@@ -1325,7 +1325,7 @@ app.get("/", (req, res) => {
 </head>
 <body>
   <main>
-    <h1>Eshop Assistant AI</h1>
+    <h1>Chatnelo</h1>
     <p>Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
     <section class="usage-card" aria-live="polite">
       <div class="usage-row">
@@ -1426,7 +1426,7 @@ app.get("/marketing", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Eshop Assistant AI — chatbot pro váš Shopify obchod</title>
+  <title>Chatnelo — chatbot pro váš Shopify obchod</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.5}
     header{background:#173b70;color:#fff;padding:56px 24px;text-align:center}
@@ -1459,7 +1459,7 @@ app.get("/marketing", (req, res) => {
 </head>
 <body>
   <header>
-    <h1>Eshop Assistant AI</h1>
+    <h1>Chatnelo</h1>
     <p>AI chatbot, který za vás na Shopify obchodě odpovídá zákazníkům — podle reálných produktů a skladu.</p>
   </header>
   <main>
@@ -1578,7 +1578,7 @@ app.get("/privacy", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Eshop Assistant AI — Zásady ochrany osobních údajů</title>
+  <title>Chatnelo — Zásady ochrany osobních údajů</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}
     header{background:#173b70;color:#fff;padding:40px 24px;text-align:center}
@@ -1644,7 +1644,7 @@ app.get("/store/dashboard", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Eshop Assistant AI — Řídicí panel</title>
+  <title>Chatnelo — Řídicí panel</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
     main{max-width:760px;margin:40px auto;padding:0 20px 60px}
@@ -2013,7 +2013,7 @@ app.post("/proxy/chat", async (req, res) => {
     const accessToken = await getShopToken(shop);
     if (!accessToken) {
       return res.status(503).json({
-        error: "Asistent se právě připojuje. Správce obchodu musí jednou otevřít aplikaci Eshop Assistant AI v administraci.",
+        error: "Asistent se právě připojuje. Správce obchodu musí jednou otevřít aplikaci Chatnelo v administraci.",
       });
     }
     res.json(await answerChat(shop, accessToken, req.body));
@@ -2051,7 +2051,7 @@ app.post("/test-storefront/chat", async (req, res) => {
     const accessToken = await getShopToken(PASSWORD_PROTECTED_TEST_SHOP);
     if (!accessToken) {
       return res.status(503).json({
-        error: "Asistent se právě připojuje. Otevřete jednou aplikaci Eshop Assistant AI v administraci.",
+        error: "Asistent se právě připojuje. Otevřete jednou aplikaci Chatnelo v administraci.",
       });
     }
     return res.json(await answerChat(PASSWORD_PROTECTED_TEST_SHOP, accessToken, req.body));
@@ -2085,7 +2085,7 @@ initializeDatabase()
   })
   .finally(() => {
     app.listen(port, "0.0.0.0", () => {
-      console.log(`Eshop Assistant AI běží na portu ${port}`);
+      console.log(`Chatnelo běží na portu ${port}`);
     });
     if (SHOPIFY_USAGE_BILLING_ENABLED) {
       setInterval(() => {

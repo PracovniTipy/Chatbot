@@ -1,7 +1,7 @@
 const HOW_IT_WORKS = [
   {
     title: "Nainstalujete appku",
-    text: "Přidáte Eshop Assistant AI ze Shopify App Store na svůj obchod. Appka se připojí přes standardní Shopify přihlášení, žádné heslo ani API klíč nikam nekopírujete.",
+    text: "Přidáte Chatnelo ze Shopify App Store na svůj obchod. Appka se připojí přes standardní Shopify přihlášení, žádné heslo ani API klíč nikam nekopírujete.",
   },
   {
     title: "Chatbot se sám naučí váš sortiment",
@@ -19,7 +19,7 @@ const HOW_IT_WORKS = [
 
 const FAQ = [
   {
-    question: "Pro koho je Eshop Assistant AI určený?",
+    question: "Pro koho je Chatnelo určené?",
     answer: "Pro obchodníky, kteří mají e-shop na platformě Shopify a chtějí zákazníkům automaticky odpovídat na dotazy o produktech, skladu, dopravě a vrácení zboží.",
   },
   {

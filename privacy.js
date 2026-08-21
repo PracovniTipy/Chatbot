@@ -8,7 +8,7 @@ const SECTIONS = [
   {
     title: "Kdo appku provozuje",
     body:
-      "Eshop Assistant AI provozuje {{name}} (kontakt: {{contactEmail}}, {{address}}). " +
+      "Chatnelo provozuje {{name}} (kontakt: {{contactEmail}}, {{address}}). " +
       "Tento dokument popisuje, jaká data appka při provozu zpracovává a proč.",
   },
   {
