@@ -41,6 +41,7 @@ Jeden případ je jedno chatové vlákno, ve kterém chatbot úspěšně odpově
 - `STRIPE_PRICE_<TARIF>` – Stripe Price ID pro každý samoobslužný tarif, např. `STRIPE_PRICE_START_70`, `STRIPE_PRICE_BASIC_150`, `STRIPE_PRICE_GROWTH_400`, `STRIPE_PRICE_PRO_1000`, `STRIPE_PRICE_BUSINESS_5000` (název proměnné = handle tarifu velkými písmeny s podtržítky). Tarif bez nastavené ceny nejde v checkoutu vybrat.
 - `GENERIC_SUBSCRIPTION_REQUIRED=false` – ponechat `false` během testování univerzálních obchodů; změnit na `true`, až bude Stripe checkout ověřený, aby `/widget/chat` vyžadoval aktivní platbu.
 - `PRIVACY_OPERATOR_NAME`, `PRIVACY_CONTACT_EMAIL`, `PRIVACY_OPERATOR_ADDRESS` – identifikace provozovatele na `/privacy`. Bez nastavení se zobrazí placeholdery „[DOPLŇTE: ...]“ – před odesláním appky na Shopify App Store review je nutné je vyplnit.
+- `SOCIAL_AUTOMATION_KEY` – sdílený tajný klíč pro `POST /social/reply` (Bearer token), určený pro automatizace typu Make.com odpovídající na komentáře/DM na sociálních sítích. Bez nastavení endpoint vrací 503. Odpovídá ze stejné znalostní báze jako `/marketing/chat`, ale bez per-IP limitu (má vlastní sdílený limit 300 dotazů/hodinu).
 
 ## Kontrola a nasazení
 
