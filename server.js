@@ -51,6 +51,7 @@ const MAX_MESSAGES_PER_CASE = Number(process.env.MAX_MESSAGES_PER_CASE) || 20;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
 const GENERIC_SUBSCRIPTION_REQUIRED = process.env.GENERIC_SUBSCRIPTION_REQUIRED === "true";
+const SOCIAL_AUTOMATION_KEY = process.env.SOCIAL_AUTOMATION_KEY;
 const stripeClient = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
 
 function stripePriceIdForPlan(planHandle) {
@@ -75,6 +76,9 @@ const MARKETING_CHAT_RATE_WINDOW_MS = 60 * 60 * 1000;
 const signupRateLimit = new Map();
 const SIGNUP_RATE_LIMIT = 5;
 const SIGNUP_RATE_WINDOW_MS = 60 * 60 * 1000;
+let socialAutomationCount = { windowStart: 0, count: 0 };
+const SOCIAL_AUTOMATION_RATE_LIMIT = 300;
+const SOCIAL_AUTOMATION_RATE_WINDOW_MS = 60 * 60 * 1000;
 const database = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
 let databaseReady = false;
 let appEventsAccessToken = null;
@@ -1557,6 +1561,42 @@ app.post("/marketing/chat", async (req, res) => {
     res.json({ reply });
   } catch (error) {
     console.error("Marketing chat:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
+  }
+});
+
+function isSocialAutomationRateLimited() {
+  const now = Date.now();
+  if (now - socialAutomationCount.windowStart > SOCIAL_AUTOMATION_RATE_WINDOW_MS) {
+    socialAutomationCount = { windowStart: now, count: 1 };
+    return false;
+  }
+  socialAutomationCount.count += 1;
+  return socialAutomationCount.count > SOCIAL_AUTOMATION_RATE_LIMIT;
+}
+
+app.post("/social/reply", async (req, res) => {
+  try {
+    if (!SOCIAL_AUTOMATION_KEY) {
+      const error = new Error("Automatizace pro sociální sítě zatím není nakonfigurovaná.");
+      error.statusCode = 503;
+      throw error;
+    }
+    const authHeader = req.get("Authorization") || "";
+    const providedKey = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!providedKey || !safeEqual(SOCIAL_AUTOMATION_KEY, providedKey)) {
+      const error = new Error("Neplatný klíč automatizace.");
+      error.statusCode = 401;
+      throw error;
+    }
+    if (isSocialAutomationRateLimited()) {
+      return res.status(429).json({ error: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu." });
+    }
+    const { message, history } = validateChatBody(req.body);
+    const reply = await generateMarketingAnswer(message, history);
+    res.json({ reply });
+  } catch (error) {
+    console.error("Social automation reply:", error);
     res.status(errorStatus(error)).json({ error: error.message });
   }
 });
