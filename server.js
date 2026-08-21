@@ -1311,15 +1311,19 @@ app.get("/", (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="shopify-api-key" content="${apiKey}">
   <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
   <title>Chatnelo</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
-    main{max-width:900px;margin:48px auto;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012}
-    h1{margin-top:0;color:#173b70}
+    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;gap:14px;padding:20px 32px;color:#fff}
+    .brand-header img{width:44px;height:44px}
+    .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+    main{max-width:900px;margin:32px auto 48px;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012}
+    h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
     .usage-card{margin-top:28px;padding:22px;border:1px solid #dfe3e8;border-radius:12px;background:#fafbfb}
     .usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
-    .usage-value{font-size:1.5rem;font-weight:700;color:#173b70}
-    progress{width:100%;height:14px;margin:14px 0;accent-color:#173b70}
+    .usage-value{font-size:1.5rem;font-weight:700;color:#7e22ce}
+    progress{width:100%;height:14px;margin:14px 0;accent-color:#a855f7}
     .muted{color:#637381;font-size:.92rem}
     table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
     th,td{padding:9px;border-bottom:1px solid #dfe3e8;text-align:left}
@@ -1328,6 +1332,7 @@ app.get("/", (req, res) => {
   </style>
 </head>
 <body>
+  <div class="brand-header"><img src="/mascot.svg" alt="Chatnelo"><span>Chatnelo</span></div>
   <main>
     <h1>Chatnelo</h1>
     <p>Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
@@ -1430,41 +1435,48 @@ app.get("/marketing", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
   <title>Chatnelo — chatbot pro váš Shopify obchod</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.5}
-    header{background:#173b70;color:#fff;padding:56px 24px;text-align:center}
-    header h1{margin:0 0 12px;font-size:2rem}
-    header p{margin:0;opacity:.9;font-size:1.1rem}
+    header{background:radial-gradient(circle at 20% 20%,#1e1b4b 0%,#0b1020 55%,#05060d 100%);color:#fff;padding:64px 24px 72px;text-align:center;position:relative;overflow:hidden}
+    header::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 0%,rgba(168,85,247,.35),transparent 55%),radial-gradient(circle at 10% 90%,rgba(34,211,238,.25),transparent 50%);pointer-events:none}
+    header .brand-mark{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px}
+    header img{width:96px;height:96px;filter:drop-shadow(0 0 24px rgba(168,85,247,.55))}
+    header h1{margin:0;font-size:2.3rem;background:linear-gradient(90deg,#67e8f9,#e9d5ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+    header p{margin:10px 0 0;opacity:.85;font-size:1.1rem;max-width:560px}
     main{max-width:900px;margin:0 auto;padding:40px 24px}
     section{margin-bottom:48px}
-    h2{color:#173b70}
+    h2{background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block}
     ol.steps{list-style:none;padding:0;display:grid;gap:20px}
     ol.steps li{display:flex;gap:16px;align-items:flex-start}
-    .step-number{flex:none;width:32px;height:32px;border-radius:50%;background:#173b70;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .step-number{flex:none;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
     ol.steps h3{margin:0 0 4px}
     ol.steps p{margin:0;color:#4b5563}
     table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px #00000012}
     th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #dfe3e8}
-    th{background:#fafbfb;color:#637381}
-    details{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:10px;box-shadow:0 1px 4px #00000012}
+    th{background:#171335;color:#e9d5ff}
+    details{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:10px;box-shadow:0 1px 4px #00000012;border-left:3px solid #a855f7}
     summary{font-weight:600;cursor:pointer}
     details p{margin:10px 0 0;color:#4b5563}
     #marketing-chat{background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012;padding:24px}
     #marketing-chat-log{min-height:120px;max-height:320px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
     .msg{padding:10px 14px;border-radius:10px;max-width:80%}
-    .msg.user{align-self:flex-end;background:#173b70;color:#fff}
+    .msg.user{align-self:flex-end;background:linear-gradient(135deg,#0891b2,#7e22ce);color:#fff}
     .msg.assistant{align-self:flex-start;background:#f1f2f4}
     #marketing-chat-form{display:flex;gap:8px}
     #marketing-chat-input{flex:1;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font-size:1rem}
-    #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:#173b70;color:#fff;font-weight:600;cursor:pointer}
+    #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
     #marketing-chat-form button:disabled{opacity:.6;cursor:default}
   </style>
 </head>
 <body>
   <header>
-    <h1>Chatnelo</h1>
-    <p>AI chatbot, který za vás na Shopify obchodě odpovídá zákazníkům — podle reálných produktů a skladu.</p>
+    <div class="brand-mark">
+      <img src="/mascot.svg" alt="Chatnelo maskot">
+      <h1>Chatnelo</h1>
+      <p>AI chatbot, který za vás na Shopify obchodě odpovídá zákazníkům — podle reálných produktů a skladu.</p>
+    </div>
   </header>
   <main>
     <section>
@@ -1618,20 +1630,23 @@ app.get("/privacy", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
   <title>Chatnelo — Zásady ochrany osobních údajů</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}
-    header{background:#173b70;color:#fff;padding:40px 24px;text-align:center}
+    header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);color:#fff;padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+    header img{width:52px;height:52px}
     header h1{margin:0;font-size:1.6rem}
     main{max-width:760px;margin:0 auto;padding:32px 24px 60px}
-    section{background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:20px 24px;margin-bottom:16px}
-    h2{color:#173b70;font-size:1.1rem;margin-top:0}
+    section{background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:20px 24px;margin-bottom:16px;border-left:3px solid #a855f7}
+    h2{background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.1rem;margin-top:0;display:inline-block}
     p{margin:0;color:#3c4149}
     .updated{text-align:center;color:#637381;font-size:.85rem;margin-bottom:24px}
   </style>
 </head>
 <body>
   <header>
+    <img src="/mascot.svg" alt="Chatnelo maskot">
     <h1>Zásady ochrany osobních údajů</h1>
   </header>
   <main>
@@ -1684,17 +1699,21 @@ app.get("/store/dashboard", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
   <title>Chatnelo — Řídicí panel</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
-    main{max-width:760px;margin:40px auto;padding:0 20px 60px}
-    h1{color:#173b70}
-    section{background:#fff;border-radius:14px;box-shadow:0 1px 4px #00000012;padding:24px;margin-bottom:22px}
+    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;gap:14px;padding:20px 32px;color:#fff}
+    .brand-header img{width:44px;height:44px}
+    .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+    main{max-width:760px;margin:32px auto 60px;padding:0 20px 60px}
+    h1{background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
+    section{background:#fff;border-radius:14px;box-shadow:0 1px 4px #00000012;padding:24px;margin-bottom:22px;border-left:3px solid #a855f7}
     label{display:block;font-weight:600;margin:14px 0 6px}
     input,textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font:inherit}
     textarea{min-height:220px;font-family:ui-monospace,Consolas,monospace;font-size:.85rem}
-    button{margin-top:14px;padding:10px 18px;border:none;border-radius:8px;background:#173b70;color:#fff;font-weight:600;cursor:pointer}
-    button:disabled{opacity:.6;cursor:default}
+    button{margin-top:14px;padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
+    button:disabled{opacity:.6;cursor:default;box-shadow:none}
     .muted{color:#637381;font-size:.9rem}
     .error{color:#b42318;margin-top:10px}
     .ok{color:#0f7b3f;margin-top:10px}
@@ -1703,6 +1722,7 @@ app.get("/store/dashboard", (req, res) => {
   </style>
 </head>
 <body>
+  <div class="brand-header"><img src="/mascot.svg" alt="Chatnelo"><span>Chatnelo</span></div>
   <main>
     <h1>Řídicí panel obchodu</h1>
     <section id="signup-section">

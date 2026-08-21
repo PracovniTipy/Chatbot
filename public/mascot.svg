@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <defs>
+    <radialGradient id="orbFill" cx="38%" cy="28%" r="75%">
+      <stop offset="0%" stop-color="#3a3f5c"/>
+      <stop offset="35%" stop-color="#14172b"/>
+      <stop offset="100%" stop-color="#05060d"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="smileGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <radialGradient id="eyeGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f3e8ff"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <circle cx="120" cy="130" r="86" fill="url(#rim)" opacity="0.28" filter="url(#glow)"/>
+
+  <ellipse cx="120" cy="55" rx="92" ry="24" fill="none" stroke="url(#rim)" stroke-width="2" opacity="0.5" transform="rotate(-10 120 55)"/>
+  <rect x="45" y="35" width="26" height="20" rx="6" fill="#0b1020" stroke="url(#rim)" stroke-width="2"/>
+  <circle cx="53" cy="45" r="2.2" fill="#67e8f9"/>
+  <circle cx="61" cy="45" r="2.2" fill="#67e8f9"/>
+  <circle cx="195" cy="48" r="7" fill="url(#rim)"/>
+  <circle cx="170" cy="25" r="4" fill="#a855f7"/>
+
+  <rect x="20" y="105" width="26" height="55" rx="13" fill="url(#orbFill)" stroke="url(#rim)" stroke-width="3"/>
+  <circle cx="33" cy="132" r="6" fill="url(#rim)"/>
+  <rect x="194" y="105" width="26" height="55" rx="13" fill="url(#orbFill)" stroke="url(#rim)" stroke-width="3"/>
+  <circle cx="207" cy="132" r="6" fill="url(#rim)"/>
+
+  <circle cx="120" cy="130" r="78" fill="url(#orbFill)" stroke="url(#rim)" stroke-width="4"/>
+  <ellipse cx="95" cy="100" rx="34" ry="20" fill="#ffffff" opacity="0.08" transform="rotate(-25 95 100)"/>
+
+  <path d="M130,125 Q155,105 180,125 Q155,140 130,125 Z" fill="url(#eyeGrad)" opacity="0.92"/>
+
+  <path d="M90,160 Q120,180 155,158" fill="none" stroke="url(#smileGrad)" stroke-width="7" stroke-linecap="round"/>
+
+  <rect x="60" y="148" width="46" height="32" rx="10" fill="#0b1020" stroke="url(#rim)" stroke-width="2"/>
+  <path d="M75,180 L85,180 L78,190 Z" fill="#0b1020" stroke="url(#rim)" stroke-width="2"/>
+  <circle cx="72" cy="164" r="3" fill="#67e8f9"/>
+  <circle cx="83" cy="164" r="3" fill="#67e8f9"/>
+  <circle cx="94" cy="164" r="3" fill="#67e8f9"/>
+</svg>
