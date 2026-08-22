@@ -1687,6 +1687,48 @@ app.get("/privacy", (req, res) => {
 </html>`);
 });
 
+app.get("/widget-preview", (req, res) => {
+  const storeId = escapeHtml(typeof req.query.store === "string" ? req.query.store : "");
+  const apiKey = escapeHtml(typeof req.query.key === "string" ? req.query.key : "");
+  if (!storeId || !apiKey) {
+    res.status(400).type("html").send(
+      "<p>Chybí parametry <code>store</code> a <code>key</code> v URL, např. " +
+      "<code>/widget-preview?store=ID&amp;key=KLIC</code>. Oba dostanete z /store/dashboard po registraci obchodu.</p>"
+    );
+    return;
+  }
+  res.type("html").send(`<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Chatnelo — ukázka widgetu</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
+    header{background:#173b70;color:#fff;padding:32px 24px}
+    header h1{margin:0 0 8px}
+    main{max-width:800px;margin:40px auto;padding:0 24px}
+    .product{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px #00000012}
+    .note{background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;padding:14px 18px;margin-bottom:24px;font-size:.92rem}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Testovací e-shop</h1>
+    <p>Simulace toho, jak by widget vypadal na reálném webu. Klikněte na chat bublinu vpravo dole.</p>
+  </header>
+  <main>
+    <div class="note">Zkuste se zeptat třeba: "Jaké máte tarify?", "Jak appku nainstaluji?" nebo na produkt z vašeho katalogu.</div>
+    <div class="product">
+      <h3>Ukázkový produkt</h3>
+      <p>Tady by normálně byly produkty vašeho e-shopu. Widget vpravo dole odpovídá podle katalogu, který jste vyplnili v řídicím panelu (/store/dashboard).</p>
+    </div>
+  </main>
+  <script src="/embed.js" data-store="${storeId}" data-key="${apiKey}" async></script>
+</body>
+</html>`);
+});
+
 app.post("/store/signup", async (req, res) => {
   try {
     requireMeteringDatabase();
