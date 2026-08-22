@@ -1468,6 +1468,7 @@ app.get("/marketing", (req, res) => {
     #marketing-chat-input{flex:1;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font-size:1rem}
     #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
     #marketing-chat-form button:disabled{opacity:.6;cursor:default}
+    .cta-button{display:inline-block;margin-top:22px;padding:14px 28px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;text-decoration:none;font-size:1.05rem;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
   </style>
 </head>
 <body>
@@ -1475,7 +1476,8 @@ app.get("/marketing", (req, res) => {
     <div class="brand-mark">
       <img src="/mascot.svg" alt="Chatnelo maskot">
       <h1>Chatnelo</h1>
-      <p>AI chatbot, který za vás na Shopify obchodě odpovídá zákazníkům — podle reálných produktů a skladu.</p>
+      <p>AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
+      <a class="cta-button" href="/store/dashboard">Vyzkoušet zdarma</a>
     </div>
   </header>
   <main>
