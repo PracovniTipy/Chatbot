@@ -56,7 +56,7 @@ const FAQ = [
   },
   {
     question: "V jakém jazyce chatbot odpovídá?",
-    answer: "Standardně česky, protože je navržený pro české a slovenské e-shopy. Odpovídá jen na základě reálných dat z vašeho obchodu, nic si nevymýšlí.",
+    answer: "Podle jazyka zákazníka — appka odpovídá ve stejném jazyce, ve kterém se zákazník zeptá, ať už česky, anglicky, německy nebo jinak. Odpovídá jen na základě reálných dat z vašeho obchodu, nic si nevymýšlí.",
   },
 ];
 
