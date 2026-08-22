@@ -17,8 +17,8 @@ Pět samoobslužných tarifů má být v Shopify nastaveno přesně pod těmito 
 |---|---:|---:|
 | Start 70 | 70 | 379 Kč |
 | Basic 150 | 150 | 779 Kč |
-| Growth 400 | 400 | 1 270 Kč |
-| Pro 1000 | 1 000 | 2 490 Kč |
+| Growth 400 | 400 | 1 570 Kč |
+| Pro 1000 | 1 000 | 3 490 Kč |
 | Business 5000 | 5 000 | 7 990 Kč |
 
 Vyšší tarify jsou v kódu připravené jako soukromé nabídky: Scale 12000, Scale 30000, Scale 80000, Enterprise 200000 a Enterprise 500000.
