@@ -1315,9 +1315,16 @@ app.get("/", (req, res) => {
   <title>Chatnelo</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
-    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;gap:14px;padding:20px 32px;color:#fff}
+    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
+    .brand-header-left{display:flex;align-items:center;gap:14px}
     .brand-header img{width:44px;height:44px}
     .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+    #chatnelo-lang-switcher{position:relative}
+    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:20}
+    #chatnelo-lang-dropdown.open{display:flex}
+    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
+    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
     main{max-width:900px;margin:32px auto 48px;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012}
     h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
     .usage-card{margin-top:28px;padding:22px;border:1px solid #dfe3e8;border-radius:12px;background:#fafbfb}
@@ -1332,29 +1339,33 @@ app.get("/", (req, res) => {
   </style>
 </head>
 <body>
-  <div class="brand-header"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></div>
+  <div class="brand-header">
+    <div class="brand-header-left"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></div>
+    <div id="chatnelo-lang-switcher"></div>
+  </div>
   <main>
     <h1>Chatnelo</h1>
-    <p>Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
+    <p data-i18n="root.intro">Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
     <section class="usage-card" aria-live="polite">
       <div class="usage-row">
         <div>
-          <strong>Spotřeba v tomto období</strong>
-          <div class="usage-value" id="usage-count">Načítám…</div>
+          <strong data-i18n="root.usageCardTitle">Spotřeba v tomto období</strong>
+          <div class="usage-value" id="usage-count" data-i18n="root.loading">Načítám…</div>
         </div>
         <div>
-          <strong id="plan-name">Cena tarifu</strong>
+          <strong id="plan-name" data-i18n="root.planPriceLabel">Cena tarifu</strong>
           <div class="usage-value" id="usage-price">—</div>
         </div>
       </div>
       <progress id="usage-progress" max="70" value="0"></progress>
-      <div class="muted" id="usage-period">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
+      <div class="muted" id="usage-period" data-i18n="root.caseHint">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
       <table>
-        <thead><tr><th>Tarif</th><th>Případů / měsíc</th><th>Cena / měsíc</th></tr></thead>
+        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
         <tbody id="pricing-tiers"></tbody>
       </table>
     </section>
   </main>
+  <script src="/i18n.js"></script>
   <script>
     window.CHATBOT_API = "";
     window.addEventListener("DOMContentLoaded", function () {
@@ -1412,8 +1423,8 @@ app.get("/marketing", (req, res) => {
         <li>
           <span class="step-number">${index + 1}</span>
           <div>
-            <h3>${escapeHtml(step.title)}</h3>
-            <p>${escapeHtml(step.text)}</p>
+            <h3 data-i18n="marketing.steps.${index}.title">${escapeHtml(step.title)}</h3>
+            <p data-i18n="marketing.steps.${index}.text">${escapeHtml(step.text)}</p>
           </div>
         </li>`).join("");
 
@@ -1424,10 +1435,10 @@ app.get("/marketing", (req, res) => {
           <td>${plan.priceCzk.toLocaleString("cs-CZ")} Kč</td>
         </tr>`).join("");
 
-  const faqHtml = FAQ.map((item) => `
+  const faqHtml = FAQ.map((item, index) => `
         <details>
-          <summary>${escapeHtml(item.question)}</summary>
-          <p>${escapeHtml(item.answer)}</p>
+          <summary data-i18n="marketing.faq.${index}.q">${escapeHtml(item.question)}</summary>
+          <p data-i18n="marketing.faq.${index}.a">${escapeHtml(item.answer)}</p>
         </details>`).join("");
 
   res.type("html").send(`<!doctype html>
@@ -1469,50 +1480,58 @@ app.get("/marketing", (req, res) => {
     #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
     #marketing-chat-form button:disabled{opacity:.6;cursor:default}
     .cta-button{display:inline-block;margin-top:22px;padding:14px 28px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;text-decoration:none;font-size:1.05rem;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
+    #chatnelo-lang-switcher{position:absolute;top:16px;right:16px;z-index:5}
+    #chatnelo-lang-current{font-size:1.4rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    #chatnelo-lang-dropdown.open{display:flex}
+    .chatnelo-lang-option{font-size:1.4rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
+    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
   </style>
 </head>
 <body>
   <header>
+    <div id="chatnelo-lang-switcher"></div>
     <div class="brand-mark">
       <img src="/mascot.png" alt="Chatnelo maskot">
       <h1>Chatnelo</h1>
-      <p>AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
-      <a class="cta-button" href="/store/dashboard">Vyzkoušet zdarma</a>
+      <p data-i18n="marketing.tagline">AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
+      <a class="cta-button" href="/store/dashboard" data-i18n="marketing.cta">Vyzkoušet zdarma</a>
     </div>
   </header>
   <main>
     <section>
-      <h2>Jak to funguje</h2>
+      <h2 data-i18n="marketing.stepsHeading">Jak to funguje</h2>
       <ol class="steps">${stepsHtml}
       </ol>
     </section>
     <section>
-      <h2>Ceník</h2>
-      <p class="muted">Pevná měsíční cena za tarif, ne platba za jednotlivou zprávu. Víte tedy dopředu, kolik appka bude stát, i v měsíci, kdy dorazí jen pár dotazů.</p>
+      <h2 data-i18n="marketing.pricingHeading">Ceník</h2>
+      <p class="muted" data-i18n="marketing.pricingIntro">Pevná měsíční cena za tarif, ne platba za jednotlivou zprávu. Víte tedy dopředu, kolik appka bude stát, i v měsíci, kdy dorazí jen pár dotazů.</p>
       <table>
-        <thead><tr><th>Tarif</th><th>Případů / měsíc</th><th>Cena / měsíc</th></tr></thead>
+        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
         <tbody>${pricingHtml}
         </tbody>
       </table>
     </section>
     <section>
-      <h2>Časté dotazy</h2>
+      <h2 data-i18n="marketing.faqHeading">Časté dotazy</h2>
       ${faqHtml}
     </section>
     <section>
-      <h2>Zeptejte se rovnou chatbota</h2>
+      <h2 data-i18n="marketing.chatHeading">Zeptejte se rovnou chatbota</h2>
       <div id="marketing-chat">
         <div id="marketing-chat-log"></div>
         <form id="marketing-chat-form">
-          <input id="marketing-chat-input" maxlength="500" autocomplete="off" placeholder="Např. Jak dlouho trvá instalace?">
-          <button type="submit">Odeslat</button>
+          <input id="marketing-chat-input" maxlength="500" autocomplete="off" placeholder="Např. Jak dlouho trvá instalace?" data-i18n-placeholder="marketing.chatPlaceholder">
+          <button type="submit" data-i18n="marketing.chatSend">Odeslat</button>
         </form>
       </div>
     </section>
   </main>
   <footer style="text-align:center;padding:24px;color:#637381;font-size:.85rem">
-    <a href="/privacy" style="color:#637381">Zásady ochrany osobních údajů</a>
+    <a href="/privacy" style="color:#637381" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
   </footer>
+  <script src="/i18n.js"></script>
   <script>
     (function () {
       var log = document.getElementById("marketing-chat-log");
@@ -1621,10 +1640,10 @@ app.get("/privacy", (req, res) => {
     contactEmail: process.env.PRIVACY_CONTACT_EMAIL || OPERATOR_PLACEHOLDER.contactEmail,
     address: process.env.PRIVACY_OPERATOR_ADDRESS || OPERATOR_PLACEHOLDER.address,
   };
-  const sectionsHtml = renderPrivacyText(operator).map((section) => `
+  const sectionsHtml = renderPrivacyText(operator).map((section, index) => `
         <section>
-          <h2>${escapeHtml(section.title)}</h2>
-          <p>${escapeHtml(section.body)}</p>
+          <h2 data-i18n="privacy.sections.${index}.title">${escapeHtml(section.title)}</h2>
+          <p data-i18n-template="privacy.sections.${index}.body">${escapeHtml(section.body)}</p>
         </section>`).join("");
 
   res.type("html").send(`<!doctype html>
@@ -1636,7 +1655,7 @@ app.get("/privacy", (req, res) => {
   <title>Chatnelo — Zásady ochrany osobních údajů</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}
-    header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);color:#fff;padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+    header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);color:#fff;padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative}
     header img{width:52px;height:52px}
     header h1{margin:0;font-size:1.6rem}
     main{max-width:760px;margin:0 auto;padding:32px 24px 60px}
@@ -1644,17 +1663,26 @@ app.get("/privacy", (req, res) => {
     h2{background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.1rem;margin-top:0;display:inline-block}
     p{margin:0;color:#3c4149}
     .updated{text-align:center;color:#637381;font-size:.85rem;margin-bottom:24px}
+    #chatnelo-lang-switcher{position:absolute;top:16px;right:16px;z-index:5}
+    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+    #chatnelo-lang-dropdown.open{display:flex}
+    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
+    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
   </style>
 </head>
 <body>
   <header>
+    <div id="chatnelo-lang-switcher"></div>
     <img src="/mascot.png" alt="Chatnelo maskot">
-    <h1>Zásady ochrany osobních údajů</h1>
+    <h1 data-i18n="privacy.title">Zásady ochrany osobních údajů</h1>
   </header>
   <main>
-    <p class="updated">Poslední aktualizace: ${new Date().toISOString().slice(0, 10)}</p>
+    <p class="updated"><span data-i18n="privacy.updated">Poslední aktualizace</span>: ${new Date().toISOString().slice(0, 10)}</p>
     ${sectionsHtml}
   </main>
+  <script>window.CHATNELO_OPERATOR = ${JSON.stringify(operator).replace(/</g, "\\u003c")};</script>
+  <script src="/i18n.js"></script>
 </body>
 </html>`);
 });
@@ -1705,9 +1733,16 @@ app.get("/store/dashboard", (req, res) => {
   <title>Chatnelo — Řídicí panel</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
-    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;gap:14px;padding:20px 32px;color:#fff}
+    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
+    .brand-header-left{display:flex;align-items:center;gap:14px}
     .brand-header img{width:44px;height:44px}
     .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+    #chatnelo-lang-switcher{position:relative}
+    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:20}
+    #chatnelo-lang-dropdown.open{display:flex}
+    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
+    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
     main{max-width:760px;margin:32px auto 60px;padding:0 20px 60px}
     h1{background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
     section{background:#fff;border-radius:14px;box-shadow:0 1px 4px #00000012;padding:24px;margin-bottom:22px;border-left:3px solid #a855f7}
@@ -1724,57 +1759,65 @@ app.get("/store/dashboard", (req, res) => {
   </style>
 </head>
 <body>
-  <div class="brand-header"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></div>
+  <div class="brand-header">
+    <div class="brand-header-left"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></div>
+    <div id="chatnelo-lang-switcher"></div>
+  </div>
   <main>
-    <h1>Řídicí panel obchodu</h1>
+    <h1 data-i18n="dashboard.title">Řídicí panel obchodu</h1>
     <section id="signup-section">
-      <p class="muted">Nemáte ještě obchod? Zaregistrujte se — je to zdarma, tarif zvolíte a zaplatíte později.</p>
-      <label for="signup-name">Název obchodu</label>
+      <p class="muted" data-i18n="dashboard.signupIntro">Nemáte ještě obchod? Zaregistrujte se — je to zdarma, tarif zvolíte a zaplatíte později.</p>
+      <label for="signup-name" data-i18n="dashboard.nameLabel">Název obchodu</label>
       <input id="signup-name" autocomplete="off">
-      <label for="signup-email">E-mail</label>
+      <label for="signup-email" data-i18n="dashboard.emailLabel">E-mail</label>
       <input id="signup-email" type="email" autocomplete="off">
-      <button id="signup-btn" type="button">Zaregistrovat obchod</button>
+      <button id="signup-btn" type="button" data-i18n="dashboard.signupBtn">Zaregistrovat obchod</button>
       <div id="signup-error" class="error"></div>
       <div id="signup-result" style="display:none">
-        <p class="ok">Obchod je zaregistrovaný. <strong>Uložte si adminKey níže bezpečně — znovu se nezobrazí.</strong></p>
-        <label>ID obchodu</label>
+        <p class="ok"><strong data-i18n="dashboard.signupOkStrong">Uložte si adminKey níže bezpečně — znovu se nezobrazí.</strong></p>
+        <label data-i18n="dashboard.idLabel">ID obchodu</label>
         <pre id="signup-store-id"></pre>
-        <label>adminKey</label>
+        <label data-i18n="dashboard.adminKeyLabel">adminKey</label>
         <pre id="signup-admin-key"></pre>
-        <button id="signup-continue-btn" type="button">Pokračovat do panelu</button>
+        <button id="signup-continue-btn" type="button" data-i18n="dashboard.continueBtn">Pokračovat do panelu</button>
       </div>
     </section>
     <section id="login-section">
-      <p class="muted">Už máte obchod? Zadejte ID obchodu a adminKey, které jste dostali při registraci.</p>
-      <label for="store-id">ID obchodu</label>
+      <p class="muted" data-i18n="dashboard.loginIntro">Už máte obchod? Zadejte ID obchodu a adminKey, které jste dostali při registraci.</p>
+      <label for="store-id" data-i18n="dashboard.idLabel">ID obchodu</label>
       <input id="store-id" autocomplete="off">
-      <label for="admin-key">adminKey</label>
+      <label for="admin-key" data-i18n="dashboard.adminKeyLabel">adminKey</label>
       <input id="admin-key" type="password" autocomplete="off">
-      <button id="login-btn" type="button">Přihlásit</button>
+      <button id="login-btn" type="button" data-i18n="dashboard.loginBtn">Přihlásit</button>
       <div id="login-error" class="error"></div>
     </section>
     <section id="app-section">
       <h2 id="store-name"></h2>
-      <p class="muted">Vložte tento kód do HTML svého webu (např. před &lt;/body&gt;):</p>
+      <p class="muted" data-i18n="dashboard.embedIntro">Vložte tento kód do HTML svého webu (např. před &lt;/body&gt;):</p>
       <pre id="embed-snippet"></pre>
       <p class="muted" id="usage-summary"></p>
     </section>
     <section id="billing-section" style="display:none">
-      <h2>Tarif a platba</h2>
+      <h2 data-i18n="dashboard.billingHeading">Tarif a platba</h2>
       <p class="muted" id="billing-status"></p>
       <div id="plan-list"></div>
       <div id="billing-error" class="error"></div>
     </section>
     <section id="app-section2" style="display:none">
-      <h2>Katalog produktů a pravidla obchodu</h2>
-      <p class="muted">Pole products je pole objektů s klíči id, nazev, cena, mena, sklad, popis. Pole rules může obsahovat doprava, vraceni, platba.</p>
-      <label for="catalog-json">Katalog (JSON)</label>
+      <h2 data-i18n="dashboard.catalogHeading">Katalog produktů a pravidla obchodu</h2>
+      <p class="muted" data-i18n="dashboard.catalogIntro">Pole products je pole objektů s klíči id, nazev, cena, mena, sklad, popis. Pole rules může obsahovat doprava, vraceni, platba.</p>
+      <label for="catalog-json" data-i18n="dashboard.catalogLabel">Katalog (JSON)</label>
       <textarea id="catalog-json" spellcheck="false"></textarea>
-      <button id="save-btn" type="button">Uložit katalog</button>
+      <button id="save-btn" type="button" data-i18n="dashboard.saveBtn">Uložit katalog</button>
       <div id="save-message"></div>
     </section>
   </main>
+  <script src="/i18n.js"></script>
   <script>
+    function T(key) {
+      var value = window.CHATNELO_T && window.CHATNELO_T(key);
+      return typeof value === "string" ? value : "";
+    }
     var storeId = "";
     var adminKey = "";
 
@@ -1796,7 +1839,7 @@ app.get("/store/dashboard", (req, res) => {
         document.getElementById("embed-snippet").textContent = data.embedSnippet;
         if (data.usage.enabled) {
           document.getElementById("usage-summary").textContent =
-            "Spotřeba: " + data.usage.usage + " / " + data.usage.limit + " (tarif " + data.usage.plan.name + ")";
+            T("dashboard.usagePrefix") + data.usage.usage + " / " + data.usage.limit + " (" + T("dashboard.planWord") + " " + data.usage.plan.name + ")";
         }
         document.getElementById("catalog-json").value = JSON.stringify(data.catalog, null, 2);
         renderBilling(data);
@@ -1849,23 +1892,22 @@ app.get("/store/dashboard", (req, res) => {
       document.getElementById("billing-error").textContent = "";
 
       if (!data.billingConfigured) {
-        status.textContent = "Aktuální tarif: " + data.usage.plan.name +
-          ". Platby zatím nejsou nastavené, tarif běží v testovacím režimu.";
+        status.textContent = T("dashboard.currentPlanPrefix") + data.usage.plan.name + "." + T("dashboard.noBilling");
         section.style.display = "block";
         return;
       }
-      status.textContent = "Aktuální tarif: " + data.usage.plan.name +
-        (data.subscriptionStatus ? " (stav platby: " + data.subscriptionStatus + ")" : " (zatím bez platby)");
+      status.textContent = T("dashboard.currentPlanPrefix") + data.usage.plan.name +
+        (data.subscriptionStatus ? T("dashboard.paymentStatusPrefix") + data.subscriptionStatus + T("dashboard.paymentStatusSuffix") : T("dashboard.noPaymentYet"));
 
       data.usage.plans.forEach(function (plan) {
         var row = document.createElement("div");
         row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee";
         var label = document.createElement("span");
-        label.textContent = plan.name + " — " + plan.limit.toLocaleString("cs-CZ") + " případů / měsíc — " +
-          plan.priceCzk.toLocaleString("cs-CZ") + " Kč";
+        label.textContent = plan.name + " — " + plan.limit.toLocaleString("cs-CZ") + T("dashboard.perMonthSuffix") +
+          plan.priceCzk.toLocaleString("cs-CZ") + T("dashboard.currencySuffix");
         var button = document.createElement("button");
         var isCurrent = plan.handle === data.planHandle && data.subscriptionStatus === "active";
-        button.textContent = isCurrent ? "Aktivní tarif" : "Vybrat";
+        button.textContent = isCurrent ? T("dashboard.activePlanBtn") : T("dashboard.selectBtn");
         button.disabled = isCurrent;
         button.style.marginTop = "0";
         button.addEventListener("click", async function () {
@@ -1894,7 +1936,7 @@ app.get("/store/dashboard", (req, res) => {
     document.getElementById("save-btn").addEventListener("click", async function () {
       var messageEl = document.getElementById("save-message");
       messageEl.className = "";
-      messageEl.textContent = "Ukládám…";
+      messageEl.textContent = T("dashboard.saving");
       try {
         var catalog = JSON.parse(document.getElementById("catalog-json").value);
         var response = await fetch("/store/" + encodeURIComponent(storeId) + "/catalog", {
@@ -1905,7 +1947,7 @@ app.get("/store/dashboard", (req, res) => {
         var data = await response.json();
         if (!response.ok) throw new Error(data.error || "Uložení se nezdařilo.");
         messageEl.className = "ok";
-        messageEl.textContent = "Katalog uložen.";
+        messageEl.textContent = T("dashboard.catalogSaved");
       } catch (error) {
         messageEl.className = "error";
         messageEl.textContent = error.message;
