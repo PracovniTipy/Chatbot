@@ -1317,7 +1317,7 @@ app.get("/", (req, res) => {
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
     .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
     .brand-header-left{display:flex;align-items:center;gap:14px}
-    .brand-header img{width:44px;height:44px}
+    .brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover}
     .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
     #chatnelo-lang-switcher{position:relative}
     #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
@@ -1453,7 +1453,7 @@ app.get("/marketing", (req, res) => {
     header{background:radial-gradient(circle at 20% 20%,#1e1b4b 0%,#0b1020 55%,#05060d 100%);color:#fff;padding:64px 24px 72px;text-align:center;position:relative;overflow:hidden}
     header::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 0%,rgba(168,85,247,.35),transparent 55%),radial-gradient(circle at 10% 90%,rgba(34,211,238,.25),transparent 50%);pointer-events:none}
     header .brand-mark{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px}
-    header img{width:96px;height:96px;filter:drop-shadow(0 0 24px rgba(168,85,247,.55))}
+    header img{width:96px;height:96px;border-radius:50%;object-fit:cover;filter:drop-shadow(0 0 24px rgba(168,85,247,.55))}
     header h1{margin:0;font-size:2.3rem;background:linear-gradient(90deg,#67e8f9,#e9d5ff);-webkit-background-clip:text;background-clip:text;color:transparent}
     header p{margin:10px 0 0;opacity:.85;font-size:1.1rem;max-width:560px}
     main{max-width:900px;margin:0 auto;padding:40px 24px}
@@ -1656,7 +1656,7 @@ app.get("/privacy", (req, res) => {
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}
     header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);color:#fff;padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative}
-    header img{width:52px;height:52px}
+    header img{width:52px;height:52px;border-radius:50%;object-fit:cover}
     header h1{margin:0;font-size:1.6rem}
     main{max-width:760px;margin:0 auto;padding:32px 24px 60px}
     section{background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:20px 24px;margin-bottom:16px;border-left:3px solid #a855f7}
@@ -1735,7 +1735,7 @@ app.get("/store/dashboard", (req, res) => {
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
     .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
     .brand-header-left{display:flex;align-items:center;gap:14px}
-    .brand-header img{width:44px;height:44px}
+    .brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover}
     .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
     #chatnelo-lang-switcher{position:relative}
     #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
