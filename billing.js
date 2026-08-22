@@ -1,8 +1,8 @@
 const PLANS = Object.freeze([
   Object.freeze({ handle: "start-70", name: "Start 70", limit: 70, priceCzk: 379, public: true }),
   Object.freeze({ handle: "basic-150", name: "Basic 150", limit: 150, priceCzk: 779, public: true }),
-  Object.freeze({ handle: "growth-400", name: "Growth 400", limit: 400, priceCzk: 1270, public: true }),
-  Object.freeze({ handle: "pro-1000", name: "Pro 1000", limit: 1000, priceCzk: 2490, public: true }),
+  Object.freeze({ handle: "growth-400", name: "Growth 400", limit: 400, priceCzk: 1570, public: true }),
+  Object.freeze({ handle: "pro-1000", name: "Pro 1000", limit: 1000, priceCzk: 3490, public: true }),
   Object.freeze({ handle: "business-5000", name: "Business 5000", limit: 5000, priceCzk: 7990, public: true }),
   Object.freeze({ handle: "scale-12000", name: "Scale 12000", limit: 12000, priceCzk: 14990, public: false }),
   Object.freeze({ handle: "scale-30000", name: "Scale 30000", limit: 30000, priceCzk: 29990, public: false }),

@@ -36,7 +36,7 @@ const FAQ = [
   },
   {
     question: "Kolik to stojí?",
-    answer: "Pět samoobslužných tarifů s pevnou měsíční cenou, ne platbou za jednotlivou zprávu: Start 70 za 379 Kč, Basic 150 za 779 Kč, Growth 400 za 1 270 Kč, Pro 1000 za 2 490 Kč a Business 5000 za 7 990 Kč. Číslo v názvu je měsíční limit vyřešených případů, ne cena za jeden. Pro větší provoz jsou k dispozici i vyšší tarify na vyžádání.",
+    answer: "Pět samoobslužných tarifů s pevnou měsíční cenou, ne platbou za jednotlivou zprávu: Start 70 za 379 Kč, Basic 150 za 779 Kč, Growth 400 za 1 570 Kč, Pro 1000 za 3 490 Kč a Business 5000 za 7 990 Kč. Číslo v názvu je měsíční limit vyřešených případů, ne cena za jeden. Pro větší provoz jsou k dispozici i vyšší tarify na vyžádání.",
   },
   {
     question: "Musím appku programovat nebo upravovat šablonu obchodu?",
