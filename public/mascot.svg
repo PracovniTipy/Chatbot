@@ -14,7 +14,7 @@
       <stop offset="0%" stop-color="#22d3ee"/>
       <stop offset="100%" stop-color="#a855f7"/>
     </linearGradient>
-    <radialGradient id="eyeGrad" cx="50%" cy="50%" r="50%">
+    <radialGradient id="eyeGrad" cx="50%" cy="35%" r="65%">
       <stop offset="0%" stop-color="#f3e8ff"/>
       <stop offset="100%" stop-color="#a855f7"/>
     </radialGradient>
@@ -44,13 +44,16 @@
   <circle cx="120" cy="130" r="78" fill="url(#orbFill)" stroke="url(#rim)" stroke-width="4"/>
   <ellipse cx="95" cy="100" rx="34" ry="20" fill="#ffffff" opacity="0.08" transform="rotate(-25 95 100)"/>
 
-  <path d="M130,125 Q155,105 180,125 Q155,140 130,125 Z" fill="url(#eyeGrad)" opacity="0.92"/>
+  <ellipse cx="93" cy="118" rx="14" ry="18" fill="url(#eyeGrad)"/>
+  <ellipse cx="147" cy="118" rx="14" ry="18" fill="url(#eyeGrad)"/>
+  <circle cx="97" cy="111" r="3" fill="#ffffff" opacity="0.85"/>
+  <circle cx="151" cy="111" r="3" fill="#ffffff" opacity="0.85"/>
 
-  <path d="M90,160 Q120,180 155,158" fill="none" stroke="url(#smileGrad)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M92,168 Q120,185 148,168" fill="none" stroke="url(#smileGrad)" stroke-width="7" stroke-linecap="round"/>
 
-  <rect x="60" y="148" width="46" height="32" rx="10" fill="#0b1020" stroke="url(#rim)" stroke-width="2"/>
-  <path d="M75,180 L85,180 L78,190 Z" fill="#0b1020" stroke="url(#rim)" stroke-width="2"/>
-  <circle cx="72" cy="164" r="3" fill="#67e8f9"/>
-  <circle cx="83" cy="164" r="3" fill="#67e8f9"/>
-  <circle cx="94" cy="164" r="3" fill="#67e8f9"/>
+  <rect x="48" y="152" width="42" height="30" rx="10" fill="#0b1020" stroke="url(#rim)" stroke-width="2"/>
+  <path d="M62,182 L72,182 L65,192 Z" fill="#0b1020" stroke="url(#rim)" stroke-width="2"/>
+  <circle cx="58" cy="167" r="2.6" fill="#67e8f9"/>
+  <circle cx="69" cy="167" r="2.6" fill="#67e8f9"/>
+  <circle cx="80" cy="167" r="2.6" fill="#67e8f9"/>
 </svg>
