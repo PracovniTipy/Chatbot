@@ -1,11 +1,11 @@
 const HOW_IT_WORKS = [
   {
-    title: "Nainstalujete appku",
-    text: "Přidáte Chatnelo ze Shopify App Store na svůj obchod. Appka se připojí přes standardní Shopify přihlášení, žádné heslo ani API klíč nikam nekopírujete.",
+    title: "Připojíte appku",
+    text: "Na Shopify appku přidáte ze Shopify App Store, přihlásí se přes standardní Shopify OAuth. Mimo Shopify se zaregistrujete zdarma na /store/dashboard a dostanete přístupové klíče. V obou případech nikam nekopírujete žádné heslo.",
   },
   {
     title: "Chatbot se sám naučí váš sortiment",
-    text: "Po připojení appka čte produkty, ceny a skladové zásoby přímo z vašeho Shopify obchodu, takže odpovědi vždy odpovídají aktuální nabídce.",
+    text: "Na Shopify appka čte produkty, ceny a skladové zásoby přímo z Shopify Admin API. Mimo Shopify vyplníte katalog produktů a pravidla obchodu v řídicím panelu — v obou případech odpovědi odpovídají aktuální nabídce.",
   },
   {
     title: "Widget se zobrazí zákazníkům",
@@ -20,7 +20,7 @@ const HOW_IT_WORKS = [
 const FAQ = [
   {
     question: "Pro koho je Chatnelo určené?",
-    answer: "Pro obchodníky, kteří mají e-shop na platformě Shopify a chtějí zákazníkům automaticky odpovídat na dotazy o produktech, skladu, dopravě a vrácení zboží.",
+    answer: "Pro obchodníky, kteří chtějí zákazníkům automaticky odpovídat na dotazy o produktech, skladu, dopravě a vrácení zboží — ať už mají e-shop na Shopify, nebo na jiné platformě.",
   },
   {
     question: "Funguje appka i mimo Shopify?",
