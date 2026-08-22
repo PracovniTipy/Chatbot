@@ -1837,6 +1837,7 @@ app.get("/store/dashboard", (req, res) => {
       <h2 id="store-name"></h2>
       <p class="muted" data-i18n="dashboard.embedIntro">Vložte tento kód do HTML svého webu (např. před &lt;/body&gt;):</p>
       <pre id="embed-snippet"></pre>
+      <a id="widget-preview-link" href="#" target="_blank" style="display:inline-block;margin-top:4px" data-i18n="dashboard.testWidgetLink">Vyzkoušet widget na testovací stránce →</a>
       <p class="muted" id="usage-summary"></p>
     </section>
     <section id="billing-section" style="display:none">
@@ -1879,6 +1880,8 @@ app.get("/store/dashboard", (req, res) => {
         document.getElementById("app-section2").style.display = "block";
         document.getElementById("store-name").textContent = data.name;
         document.getElementById("embed-snippet").textContent = data.embedSnippet;
+        document.getElementById("widget-preview-link").href =
+          "/widget-preview?store=" + encodeURIComponent(storeId) + "&key=" + encodeURIComponent(data.apiKey);
         if (data.usage.enabled) {
           document.getElementById("usage-summary").textContent =
             T("dashboard.usagePrefix") + data.usage.usage + " / " + data.usage.limit + " (" + T("dashboard.planWord") + " " + data.usage.plan.name + ")";
@@ -2016,6 +2019,7 @@ app.get("/store/:id", async (req, res) => {
       billingConfigured: Boolean(stripeClient),
       catalog,
       usage,
+      apiKey: store.api_key,
       embedSnippet: buildEmbedSnippet(baseUrl, store.id, store.api_key),
     });
   } catch (error) {
