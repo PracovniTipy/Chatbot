@@ -1311,7 +1311,7 @@ app.get("/", (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="shopify-api-key" content="${apiKey}">
   <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
+  <link rel="icon" type="image/png" href="/mascot.png">
   <title>Chatnelo</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
@@ -1332,7 +1332,7 @@ app.get("/", (req, res) => {
   </style>
 </head>
 <body>
-  <div class="brand-header"><img src="/mascot.svg" alt="Chatnelo"><span>Chatnelo</span></div>
+  <div class="brand-header"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></div>
   <main>
     <h1>Chatnelo</h1>
     <p>Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
@@ -1435,7 +1435,7 @@ app.get("/marketing", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
+  <link rel="icon" type="image/png" href="/mascot.png">
   <title>Chatnelo — chatbot pro váš Shopify obchod</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.5}
@@ -1474,7 +1474,7 @@ app.get("/marketing", (req, res) => {
 <body>
   <header>
     <div class="brand-mark">
-      <img src="/mascot.svg" alt="Chatnelo maskot">
+      <img src="/mascot.png" alt="Chatnelo maskot">
       <h1>Chatnelo</h1>
       <p>AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
       <a class="cta-button" href="/store/dashboard">Vyzkoušet zdarma</a>
@@ -1632,7 +1632,7 @@ app.get("/privacy", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
+  <link rel="icon" type="image/png" href="/mascot.png">
   <title>Chatnelo — Zásady ochrany osobních údajů</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}
@@ -1648,7 +1648,7 @@ app.get("/privacy", (req, res) => {
 </head>
 <body>
   <header>
-    <img src="/mascot.svg" alt="Chatnelo maskot">
+    <img src="/mascot.png" alt="Chatnelo maskot">
     <h1>Zásady ochrany osobních údajů</h1>
   </header>
   <main>
@@ -1701,7 +1701,7 @@ app.get("/store/dashboard", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" type="image/svg+xml" href="/mascot.svg">
+  <link rel="icon" type="image/png" href="/mascot.png">
   <title>Chatnelo — Řídicí panel</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
@@ -1724,7 +1724,7 @@ app.get("/store/dashboard", (req, res) => {
   </style>
 </head>
 <body>
-  <div class="brand-header"><img src="/mascot.svg" alt="Chatnelo"><span>Chatnelo</span></div>
+  <div class="brand-header"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></div>
   <main>
     <h1>Řídicí panel obchodu</h1>
     <section id="signup-section">
