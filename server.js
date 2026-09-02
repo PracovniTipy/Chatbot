@@ -1069,7 +1069,7 @@ async function shopifyGraphql(shop, accessToken, query) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.errors) {
-    const detail = data.errors?.map((error) => error.message).join("; ");
+    const detail = Array.isArray(data.errors) ? data.errors.map((error) => (error && error.message) || String(error)).join("; ") : (typeof data.errors === "string" ? data.errors : undefined);
     throw new Error(detail || "Nepodařilo se načíst data ze Shopify.");
   }
   return data.data;
