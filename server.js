@@ -36,6 +36,16 @@ app.use(express.json({
 }));
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
+// Shopify vyžaduje, aby vestavěná appka posílala Content-Security-Policy s
+// frame-ancestors pro konkrétní obchod (jinak review appku odmítne kvůli
+// ochraně proti clickjackingu). Stránky, které se do Shopify admina
+// nevkládají (marketing, privacy, univerzální dashboard), naopak framování
+// zakazují úplně; embedded routa "/" si hlavičku níže přepíše na míru obchodu.
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none';");
+  next();
+});
+
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -907,6 +917,27 @@ function isValidShop(shop) {
     /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
 }
 
+// Sestaví hodnotu frame-ancestors pro vestavěnou (embedded) admin stránku.
+// Shopify vyžaduje, aby byla dynamicky navázaná na konkrétní obchod, ne
+// napevno na "*" nebo jednu doménu - jinak appka neprojde review.
+function embeddedFrameAncestors(req) {
+  const queryShop = String(req.query.shop || "").toLowerCase();
+  if (isValidShop(queryShop)) {
+    return `https://${queryShop} https://admin.shopify.com`;
+  }
+
+  const hostParam = String(req.query.host || "");
+  try {
+    const decodedHost = base64UrlDecode(hostParam).toString("utf8");
+    const match = decodedHost.match(/[a-z0-9][a-z0-9-]*\.myshopify\.com/i);
+    if (match) return `https://${match[0]} https://admin.shopify.com`;
+  } catch (_error) {
+    // Neplatný/nedekódovatelný host parametr - použijeme bezpečný fallback níže.
+  }
+
+  return "https://admin.shopify.com";
+}
+
 app.post("/webhooks", async (req, res) => {
   const isAuthentic = verifyShopifyWebhook(
     req.rawBody,
@@ -1302,6 +1333,7 @@ function appBaseUrl(req) {
 }
 
 app.get("/", (req, res) => {
+  res.setHeader("Content-Security-Policy", `frame-ancestors ${embeddedFrameAncestors(req)};`);
   const host = escapeHtml(req.query.host || "");
   const apiKey = escapeHtml(SHOPIFY_CLIENT_ID || "");
   res.type("html").send(`<!doctype html>
