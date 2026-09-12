@@ -57,6 +57,7 @@ const SHOPIFY_USAGE_BILLING_ENABLED = process.env.SHOPIFY_USAGE_BILLING_ENABLED 
 const SHOPIFY_USAGE_EVENT_HANDLE = process.env.SHOPIFY_USAGE_EVENT_HANDLE || "resolved_case";
 const SHOPIFY_APP_EVENTS_API_VERSION = process.env.SHOPIFY_APP_EVENTS_API_VERSION || "unstable";
 const SHOPIFY_DEFAULT_PLAN_HANDLE = process.env.SHOPIFY_DEFAULT_PLAN_HANDLE || DEFAULT_PLAN_HANDLE;
+const SHOPIFY_BILLING_TEST_CHARGES = process.env.SHOPIFY_BILLING_TEST_CHARGES === "true";
 const MAX_MESSAGES_PER_CASE = Number(process.env.MAX_MESSAGES_PER_CASE) || 20;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -1088,14 +1089,14 @@ function verifyAppProxy(req) {
   return shop;
 }
 
-async function shopifyGraphql(shop, accessToken, query) {
+async function shopifyGraphql(shop, accessToken, query, variables) {
   const response = await fetch(`https://${shop}/admin/api/2026-07/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": accessToken,
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(variables ? { query, variables } : { query }),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -1119,6 +1120,69 @@ async function loadActiveSubscription(shop, accessToken) {
     }
   }`);
   return data.currentAppInstallation.activeSubscriptions[0] || null;
+}
+
+async function createShopifySubscription(shop, accessToken, plan) {
+  const mutation = `
+    mutation AppSubscriptionCreate(
+      $name: String!
+      $returnUrl: URL!
+      $test: Boolean!
+      $lineItems: [AppSubscriptionLineItemInput!]!
+    ) {
+      appSubscriptionCreate(
+        name: $name
+        returnUrl: $returnUrl
+        test: $test
+        lineItems: $lineItems
+      ) {
+        userErrors { field message }
+        confirmationUrl
+        appSubscription { id }
+      }
+    }
+  `;
+  const variables = {
+    name: plan.name,
+    returnUrl: `https://${shop}/admin/apps/${SHOPIFY_CLIENT_ID}`,
+    test: SHOPIFY_BILLING_TEST_CHARGES,
+    lineItems: [
+      {
+        plan: {
+          appRecurringPricingDetails: {
+            price: { amount: plan.priceCzk, currencyCode: "CZK" },
+            interval: "EVERY_30_DAYS",
+          },
+        },
+      },
+    ],
+  };
+
+  const data = await shopifyGraphql(shop, accessToken, mutation, variables);
+  const result = data.appSubscriptionCreate;
+  if (result.userErrors?.length) {
+    throw new Error(result.userErrors.map((error) => error.message).join("; "));
+  }
+  if (!result.confirmationUrl) {
+    throw new Error("Shopify nevrátil potvrzovací odkaz pro předplatné.");
+  }
+  return result.confirmationUrl;
+}
+
+async function cancelShopifySubscription(shop, accessToken, subscriptionId) {
+  const mutation = `
+    mutation AppSubscriptionCancel($id: ID!) {
+      appSubscriptionCancel(id: $id) {
+        userErrors { field message }
+        appSubscription { id status }
+      }
+    }
+  `;
+  const data = await shopifyGraphql(shop, accessToken, mutation, { id: subscriptionId });
+  const result = data.appSubscriptionCancel;
+  if (result.userErrors?.length) {
+    throw new Error(result.userErrors.map((error) => error.message).join("; "));
+  }
 }
 
 async function loadCatalog(shop, accessToken) {
@@ -1364,10 +1428,16 @@ app.get("/", (req, res) => {
     .usage-value{font-size:1.5rem;font-weight:700;color:#7e22ce}
     progress{width:100%;height:14px;margin:14px 0;accent-color:#a855f7}
     .muted{color:#637381;font-size:.92rem}
-    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
-    th,td{padding:9px;border-bottom:1px solid #dfe3e8;text-align:left}
-    th{color:#637381;font-weight:600}
     .error{color:#b42318}
+    .plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-top:20px}
+    .plan-card{border:1px solid #dfe3e8;border-radius:12px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:6px;position:relative}
+    .plan-card.active{border-color:#7e22ce;box-shadow:0 0 0 2px #7e22ce33}
+    .plan-card-name{font-weight:700}
+    .plan-card-limit{color:#637381;font-size:.85rem}
+    .plan-card-price{font-size:1.2rem;font-weight:700;color:#7e22ce;margin:4px 0}
+    .plan-card-btn{margin-top:8px;border:none;border-radius:8px;padding:9px 12px;font-weight:600;cursor:pointer;background:linear-gradient(90deg,#0891b2,#7e22ce);color:#fff}
+    .plan-card-btn:disabled{background:#e9ebf2;color:#637381;cursor:default}
+    .plan-card-badge{position:absolute;top:-10px;right:12px;background:#7e22ce;color:#fff;font-size:.72rem;padding:2px 8px;border-radius:999px}
   </style>
 </head>
 <body>
@@ -1391,10 +1461,8 @@ app.get("/", (req, res) => {
       </div>
       <progress id="usage-progress" max="70" value="0"></progress>
       <div class="muted" id="usage-period" data-i18n="root.caseHint">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
-      <table>
-        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
-        <tbody id="pricing-tiers"></tbody>
-      </table>
+      <div class="plan-grid" id="pricing-tiers"></div>
+      <div class="muted" id="billing-status" style="margin-top:10px"></div>
     </section>
   </main>
   <script src="/i18n.js"></script>
@@ -1432,11 +1500,48 @@ app.get("/", (req, res) => {
           var end = new Date(usage.periodEnd).toLocaleDateString("cs-CZ");
           document.getElementById("usage-period").textContent = "Období " + start + " – " + end +
             ". Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.";
+          var currentHandle = usage.plan && usage.plan.handle;
           document.getElementById("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
-            return "<tr><td>" + plan.name + "</td><td>" +
-              plan.limit.toLocaleString("cs-CZ") + "</td><td>" +
-              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td></tr>";
+            var isActive = plan.handle === currentHandle;
+            var price = new Intl.NumberFormat("cs-CZ", {
+              style: "currency", currency: "CZK", maximumFractionDigits: 0
+            }).format(plan.priceCzk);
+            return "<div class=\"plan-card" + (isActive ? " active" : "") + "\">" +
+              (isActive ? "<span class=\"plan-card-badge\">Aktivní</span>" : "") +
+              "<div class=\"plan-card-name\">" + plan.name + "</div>" +
+              "<div class=\"plan-card-limit\">" + plan.limit.toLocaleString("cs-CZ") + " případů / měsíc</div>" +
+              "<div class=\"plan-card-price\">" + price + "</div>" +
+              "<button class=\"plan-card-btn\" data-plan=\"" + plan.handle + "\"" + (isActive ? " disabled" : "") + ">" +
+              (isActive ? "Váš tarif" : "Vybrat") + "</button></div>";
           }).join("");
+          document.querySelectorAll(".plan-card-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+              var status = document.getElementById("billing-status");
+              button.disabled = true;
+              button.textContent = "Zpracovávám…";
+              status.textContent = "";
+              window.fetch("/api/billing/subscribe", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ planHandle: button.getAttribute("data-plan") }),
+              })
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                  if (data.error) throw new Error(data.error);
+                  if (window.top && window.top !== window.self) {
+                    window.top.location.href = data.confirmationUrl;
+                  } else {
+                    window.location.href = data.confirmationUrl;
+                  }
+                })
+                .catch(function (error) {
+                  button.disabled = false;
+                  button.textContent = "Vybrat";
+                  status.textContent = error.message || "Nepodařilo se založit předplatné.";
+                  status.classList.add("error");
+                });
+            });
+          });
         })
         .catch(function () {
           var counter = document.getElementById("usage-count");
@@ -2166,6 +2271,25 @@ app.post("/api/bootstrap", async (req, res) => {
   } catch (error) {
     console.error("Bootstrap:", error);
     res.status(401).json({ error: error.message });
+  }
+});
+
+app.post("/api/billing/subscribe", async (req, res) => {
+  try {
+    const { shop, accessToken } = await getAdminAccess(req);
+    const plan = getPlan(req.body && req.body.planHandle);
+    if (!plan || !plan.public) {
+      return res.status(400).json({ error: "Neznámý nebo nedostupný tarif." });
+    }
+    const existing = await loadActiveSubscription(shop, accessToken);
+    if (existing && existing.id) {
+      await cancelShopifySubscription(shop, accessToken, existing.id);
+    }
+    const confirmationUrl = await createShopifySubscription(shop, accessToken, plan);
+    res.json({ ok: true, confirmationUrl });
+  } catch (error) {
+    console.error("Billing subscribe:", error);
+    res.status(errorStatus(error)).json({ error: error.message });
   }
 });
 
