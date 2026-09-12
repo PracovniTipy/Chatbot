@@ -35,6 +35,7 @@ Jeden případ je jedno chatové vlákno, ve kterém chatbot úspěšně odpově
 - `SHOPIFY_DEFAULT_PLAN_HANDLE=start-70` – testovací tarif, dokud není zapnuté placení.
 - `SHOPIFY_SUBSCRIPTION_REQUIRED=false` – ponechat `false` během testování; změnit na `true` až po vytvoření a ověření plánů v Shopify.
 - `SHOPIFY_USAGE_BILLING_ENABLED=false` – u pevných měsíčních tarifů musí zůstat `false`, aby se každý případ navíc neúčtoval jako samostatná položka.
+- `SHOPIFY_BILLING_TEST_CHARGES=true` – tarify vybrané v administraci appky (tlačítko „Vybrat“ u ceníku, endpoint `POST /api/billing/subscribe`) se založí jako testovací platba přes Shopify Billing, žádné peníze se nestrhnou. Před ostrým spuštěním appky pro reálné obchody přepnout na `false`.
 - `MAX_MESSAGES_PER_CASE=20` – ochrana proti nekonečnému vláknu.
 - `STRIPE_SECRET_KEY` – tajný klíč Stripe účtu; bez něj běží univerzální (mimo Shopify) tarify jen v testovacím režimu.
 - `STRIPE_WEBHOOK_SECRET` – podpisový klíč webhooku `POST /stripe/webhook`, který ve Stripe napojte na eventy `checkout.session.completed`, `customer.subscription.updated` a `customer.subscription.deleted`.
