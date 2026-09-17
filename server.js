@@ -36,16 +36,6 @@ app.use(express.json({
 }));
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
-// Shopify vyžaduje, aby vestavěná appka posílala Content-Security-Policy s
-// frame-ancestors pro konkrétní obchod (jinak review appku odmítne kvůli
-// ochraně proti clickjackingu). Stránky, které se do Shopify admina
-// nevkládají (marketing, privacy, univerzální dashboard), naopak framování
-// zakazují úplně; embedded routa "/" si hlavičku níže přepíše na míru obchodu.
-app.use((req, res, next) => {
-  res.setHeader("Content-Security-Policy", "frame-ancestors 'none';");
-  next();
-});
-
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -57,7 +47,6 @@ const SHOPIFY_USAGE_BILLING_ENABLED = process.env.SHOPIFY_USAGE_BILLING_ENABLED 
 const SHOPIFY_USAGE_EVENT_HANDLE = process.env.SHOPIFY_USAGE_EVENT_HANDLE || "resolved_case";
 const SHOPIFY_APP_EVENTS_API_VERSION = process.env.SHOPIFY_APP_EVENTS_API_VERSION || "unstable";
 const SHOPIFY_DEFAULT_PLAN_HANDLE = process.env.SHOPIFY_DEFAULT_PLAN_HANDLE || DEFAULT_PLAN_HANDLE;
-const SHOPIFY_BILLING_TEST_CHARGES = process.env.SHOPIFY_BILLING_TEST_CHARGES === "true";
 const MAX_MESSAGES_PER_CASE = Number(process.env.MAX_MESSAGES_PER_CASE) || 20;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -169,6 +158,8 @@ async function initializeDatabase() {
     )
   `);
   await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS shop_id TEXT");
+  await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS refresh_token TEXT");
+  await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ");
   await database.query(`
     CREATE TABLE IF NOT EXISTS usage_events (
       id TEXT PRIMARY KEY,
@@ -250,33 +241,93 @@ async function initializeDatabase() {
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
 }
 
-async function saveShopToken(shop, accessToken) {
-  shopTokens.set(shop, accessToken);
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+function isSessionExpiring(session) {
+  return Boolean(session?.expiresAt) && session.expiresAt - Date.now() < TOKEN_REFRESH_BUFFER_MS;
+}
+
+async function saveShopToken(shop, accessToken, { refreshToken, expiresIn } = {}) {
+  const expiresAt = Number(expiresIn) > 0 ? Date.now() + Number(expiresIn) * 1000 : null;
+  const session = { accessToken, refreshToken: refreshToken || null, expiresAt };
+  shopTokens.set(shop, session);
   if (!database) return;
 
   await database.query(
-    `INSERT INTO shop_sessions (shop, access_token)
-     VALUES ($1, $2)
+    `INSERT INTO shop_sessions (shop, access_token, refresh_token, expires_at)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (shop) DO UPDATE
-     SET access_token = EXCLUDED.access_token, updated_at = NOW()`,
-    [shop, encryptToken(accessToken)],
+     SET access_token = EXCLUDED.access_token,
+         refresh_token = EXCLUDED.refresh_token,
+         expires_at = EXCLUDED.expires_at,
+         updated_at = NOW()`,
+    [
+      shop,
+      encryptToken(accessToken),
+      refreshToken ? encryptToken(refreshToken) : null,
+      expiresAt ? new Date(expiresAt) : null,
+    ],
   );
 }
 
+async function invalidateShopToken(shop) {
+  shopTokens.delete(shop);
+  if (!database) return;
+  await database.query("DELETE FROM shop_sessions WHERE shop = $1", [shop]);
+}
+
+async function refreshShopSession(shop, refreshToken) {
+  const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: SHOPIFY_CLIENT_ID,
+      client_secret: SHOPIFY_CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) {
+    await invalidateShopToken(shop);
+    return null;
+  }
+
+  await saveShopToken(shop, data.access_token, {
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+  });
+  return data.access_token;
+}
+
 async function getShopToken(shop) {
-  const cached = shopTokens.get(shop);
-  if (cached) return cached;
-  if (!database) return null;
+  let session = shopTokens.get(shop);
+  if (!session && database) {
+    const result = await database.query(
+      "SELECT access_token, refresh_token, expires_at FROM shop_sessions WHERE shop = $1",
+      [shop],
+    );
+    if (result.rowCount) {
+      const row = result.rows[0];
+      session = {
+        accessToken: decryptToken(row.access_token),
+        refreshToken: row.refresh_token ? decryptToken(row.refresh_token) : null,
+        expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : null,
+      };
+      shopTokens.set(shop, session);
+    }
+  }
+  if (!session) return null;
 
-  const result = await database.query(
-    "SELECT access_token FROM shop_sessions WHERE shop = $1",
-    [shop],
-  );
-  if (!result.rowCount) return null;
+  if (isSessionExpiring(session)) {
+    if (!session.refreshToken) return session.accessToken;
+    const refreshed = await refreshShopSession(shop, session.refreshToken);
+    if (refreshed) return refreshed;
+    return null;
+  }
 
-  const accessToken = decryptToken(result.rows[0].access_token);
-  shopTokens.set(shop, accessToken);
-  return accessToken;
+  return session.accessToken;
 }
 
 async function saveShopIdentity(shop, shopId) {
@@ -918,27 +969,6 @@ function isValidShop(shop) {
     /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
 }
 
-// Sestaví hodnotu frame-ancestors pro vestavěnou (embedded) admin stránku.
-// Shopify vyžaduje, aby byla dynamicky navázaná na konkrétní obchod, ne
-// napevno na "*" nebo jednu doménu - jinak appka neprojde review.
-function embeddedFrameAncestors(req) {
-  const queryShop = String(req.query.shop || "").toLowerCase();
-  if (isValidShop(queryShop)) {
-    return `https://${queryShop} https://admin.shopify.com`;
-  }
-
-  const hostParam = String(req.query.host || "");
-  try {
-    const decodedHost = base64UrlDecode(hostParam).toString("utf8");
-    const match = decodedHost.match(/[a-z0-9][a-z0-9-]*\.myshopify\.com/i);
-    if (match) return `https://${match[0]} https://admin.shopify.com`;
-  } catch (_error) {
-    // Neplatný/nedekódovatelný host parametr - použijeme bezpečný fallback níže.
-  }
-
-  return "https://admin.shopify.com";
-}
-
 app.post("/webhooks", async (req, res) => {
   const isAuthentic = verifyShopifyWebhook(
     req.rawBody,
@@ -1031,6 +1061,7 @@ async function exchangeForOfflineToken(shop, sessionToken) {
       subject_token: sessionToken,
       subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
       requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+      expiring: 1,
     }),
   });
 
@@ -1039,7 +1070,10 @@ async function exchangeForOfflineToken(shop, sessionToken) {
     throw new Error(data.error_description || data.error || "Shopify nevydal přístupový token.");
   }
 
-  await saveShopToken(shop, data.access_token);
+  await saveShopToken(shop, data.access_token, {
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
+  });
   return data.access_token;
 }
 
@@ -1089,20 +1123,31 @@ function verifyAppProxy(req) {
   return shop;
 }
 
-async function shopifyGraphql(shop, accessToken, query, variables) {
+async function shopifyGraphql(shop, accessToken, query) {
   const response = await fetch(`https://${shop}/admin/api/2026-07/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": accessToken,
     },
-    body: JSON.stringify(variables ? { query, variables } : { query }),
+    body: JSON.stringify({ query }),
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.errors) {
-    const detail = Array.isArray(data.errors) ? data.errors.map((error) => (error && error.message) || String(error)).join("; ") : (typeof data.errors === "string" ? data.errors : undefined);
-    throw new Error(detail || "Nepodařilo se načíst data ze Shopify.");
+    const detail = Array.isArray(data.errors)
+      ? data.errors.map((error) => (error && error.message) || String(error)).join("; ")
+      : (typeof data.errors === "string" ? data.errors : undefined);
+    const message = detail || "Nepodařilo se načíst data ze Shopify.";
+    if (response.status === 401 || /non-expiring access tokens/i.test(message)) {
+      await invalidateShopToken(shop);
+      const authError = new Error(
+        "Přístup k obchodu Shopify vypršel. Otevřete prosím appku znovu v administraci obchodu.",
+      );
+      authError.statusCode = 401;
+      throw authError;
+    }
+    throw new Error(message);
   }
   return data.data;
 }
@@ -1120,69 +1165,6 @@ async function loadActiveSubscription(shop, accessToken) {
     }
   }`);
   return data.currentAppInstallation.activeSubscriptions[0] || null;
-}
-
-async function createShopifySubscription(shop, accessToken, plan) {
-  const mutation = `
-    mutation AppSubscriptionCreate(
-      $name: String!
-      $returnUrl: URL!
-      $test: Boolean!
-      $lineItems: [AppSubscriptionLineItemInput!]!
-    ) {
-      appSubscriptionCreate(
-        name: $name
-        returnUrl: $returnUrl
-        test: $test
-        lineItems: $lineItems
-      ) {
-        userErrors { field message }
-        confirmationUrl
-        appSubscription { id }
-      }
-    }
-  `;
-  const variables = {
-    name: plan.name,
-    returnUrl: `https://${shop}/admin/apps/${SHOPIFY_CLIENT_ID}`,
-    test: SHOPIFY_BILLING_TEST_CHARGES,
-    lineItems: [
-      {
-        plan: {
-          appRecurringPricingDetails: {
-            price: { amount: plan.priceCzk, currencyCode: "CZK" },
-            interval: "EVERY_30_DAYS",
-          },
-        },
-      },
-    ],
-  };
-
-  const data = await shopifyGraphql(shop, accessToken, mutation, variables);
-  const result = data.appSubscriptionCreate;
-  if (result.userErrors?.length) {
-    throw new Error(result.userErrors.map((error) => error.message).join("; "));
-  }
-  if (!result.confirmationUrl) {
-    throw new Error("Shopify nevrátil potvrzovací odkaz pro předplatné.");
-  }
-  return result.confirmationUrl;
-}
-
-async function cancelShopifySubscription(shop, accessToken, subscriptionId) {
-  const mutation = `
-    mutation AppSubscriptionCancel($id: ID!) {
-      appSubscriptionCancel(id: $id) {
-        userErrors { field message }
-        appSubscription { id status }
-      }
-    }
-  `;
-  const data = await shopifyGraphql(shop, accessToken, mutation, { id: subscriptionId });
-  const result = data.appSubscriptionCancel;
-  if (result.userErrors?.length) {
-    throw new Error(result.userErrors.map((error) => error.message).join("; "));
-  }
 }
 
 async function loadCatalog(shop, accessToken) {
@@ -1397,7 +1379,6 @@ function appBaseUrl(req) {
 }
 
 app.get("/", (req, res) => {
-  res.setHeader("Content-Security-Policy", `frame-ancestors ${embeddedFrameAncestors(req)};`);
   const host = escapeHtml(req.query.host || "");
   const apiKey = escapeHtml(SHOPIFY_CLIENT_ID || "");
   res.type("html").send(`<!doctype html>
@@ -1428,16 +1409,10 @@ app.get("/", (req, res) => {
     .usage-value{font-size:1.5rem;font-weight:700;color:#7e22ce}
     progress{width:100%;height:14px;margin:14px 0;accent-color:#a855f7}
     .muted{color:#637381;font-size:.92rem}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
+    th,td{padding:9px;border-bottom:1px solid #dfe3e8;text-align:left}
+    th{color:#637381;font-weight:600}
     .error{color:#b42318}
-    .plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-top:20px}
-    .plan-card{border:1px solid #dfe3e8;border-radius:12px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:6px;position:relative}
-    .plan-card.active{border-color:#7e22ce;box-shadow:0 0 0 2px #7e22ce33}
-    .plan-card-name{font-weight:700}
-    .plan-card-limit{color:#637381;font-size:.85rem}
-    .plan-card-price{font-size:1.2rem;font-weight:700;color:#7e22ce;margin:4px 0}
-    .plan-card-btn{margin-top:8px;border:none;border-radius:8px;padding:9px 12px;font-weight:600;cursor:pointer;background:linear-gradient(90deg,#0891b2,#7e22ce);color:#fff}
-    .plan-card-btn:disabled{background:#e9ebf2;color:#637381;cursor:default}
-    .plan-card-badge{position:absolute;top:-10px;right:12px;background:#7e22ce;color:#fff;font-size:.72rem;padding:2px 8px;border-radius:999px}
   </style>
 </head>
 <body>
@@ -1461,8 +1436,10 @@ app.get("/", (req, res) => {
       </div>
       <progress id="usage-progress" max="70" value="0"></progress>
       <div class="muted" id="usage-period" data-i18n="root.caseHint">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
-      <div class="plan-grid" id="pricing-tiers"></div>
-      <div class="muted" id="billing-status" style="margin-top:10px"></div>
+      <table>
+        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
+        <tbody id="pricing-tiers"></tbody>
+      </table>
     </section>
   </main>
   <script src="/i18n.js"></script>
@@ -1500,48 +1477,11 @@ app.get("/", (req, res) => {
           var end = new Date(usage.periodEnd).toLocaleDateString("cs-CZ");
           document.getElementById("usage-period").textContent = "Období " + start + " – " + end +
             ". Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.";
-          var currentHandle = usage.plan && usage.plan.handle;
           document.getElementById("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
-            var isActive = plan.handle === currentHandle;
-            var price = new Intl.NumberFormat("cs-CZ", {
-              style: "currency", currency: "CZK", maximumFractionDigits: 0
-            }).format(plan.priceCzk);
-            return "<div class=\"plan-card" + (isActive ? " active" : "") + "\">" +
-              (isActive ? "<span class=\"plan-card-badge\">Aktivní</span>" : "") +
-              "<div class=\"plan-card-name\">" + plan.name + "</div>" +
-              "<div class=\"plan-card-limit\">" + plan.limit.toLocaleString("cs-CZ") + " případů / měsíc</div>" +
-              "<div class=\"plan-card-price\">" + price + "</div>" +
-              "<button class=\"plan-card-btn\" data-plan=\"" + plan.handle + "\"" + (isActive ? " disabled" : "") + ">" +
-              (isActive ? "Váš tarif" : "Vybrat") + "</button></div>";
+            return "<tr><td>" + plan.name + "</td><td>" +
+              plan.limit.toLocaleString("cs-CZ") + "</td><td>" +
+              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td></tr>";
           }).join("");
-          document.querySelectorAll(".plan-card-btn").forEach(function (button) {
-            button.addEventListener("click", function () {
-              var status = document.getElementById("billing-status");
-              button.disabled = true;
-              button.textContent = "Zpracovávám…";
-              status.textContent = "";
-              window.fetch("/api/billing/subscribe", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ planHandle: button.getAttribute("data-plan") }),
-              })
-                .then(function (response) { return response.json(); })
-                .then(function (data) {
-                  if (data.error) throw new Error(data.error);
-                  if (window.top && window.top !== window.self) {
-                    window.top.location.href = data.confirmationUrl;
-                  } else {
-                    window.location.href = data.confirmationUrl;
-                  }
-                })
-                .catch(function (error) {
-                  button.disabled = false;
-                  button.textContent = "Vybrat";
-                  status.textContent = error.message || "Nepodařilo se založit předplatné.";
-                  status.classList.add("error");
-                });
-            });
-          });
         })
         .catch(function () {
           var counter = document.getElementById("usage-count");
@@ -2271,25 +2211,6 @@ app.post("/api/bootstrap", async (req, res) => {
   } catch (error) {
     console.error("Bootstrap:", error);
     res.status(401).json({ error: error.message });
-  }
-});
-
-app.post("/api/billing/subscribe", async (req, res) => {
-  try {
-    const { shop, accessToken } = await getAdminAccess(req);
-    const plan = getPlan(req.body && req.body.planHandle);
-    if (!plan || !plan.public) {
-      return res.status(400).json({ error: "Neznámý nebo nedostupný tarif." });
-    }
-    const existing = await loadActiveSubscription(shop, accessToken);
-    if (existing && existing.id) {
-      await cancelShopifySubscription(shop, accessToken, existing.id);
-    }
-    const confirmationUrl = await createShopifySubscription(shop, accessToken, plan);
-    res.json({ ok: true, confirmationUrl });
-  } catch (error) {
-    console.error("Billing subscribe:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
   }
 });
 
