@@ -34,7 +34,7 @@ app.use(express.json({
     req.rawBody = Buffer.from(buffer);
   },
 }));
-app.use(express.static(path.join(__dirname, "public"), { index: false }));
+app.use(express.static(path.join(__dirname, "public"), { index: false })); app.use(function (req, res, next) { res.setHeader("Content-Security-Policy", "frame-ancestors 'none';"); next(); });
 
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
@@ -969,7 +969,7 @@ function isValidShop(shop) {
     /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
 }
 
-app.post("/webhooks", async (req, res) => {
+function embeddedFrameAncestors(req) { const queryShop = String(req.query.shop || "").toLowerCase(); if (isValidShop(queryShop)) { return `https://${queryShop} https://admin.shopify.com`; } const hostParam = String(req.query.host || ""); try { const decodedHost = base64UrlDecode(hostParam).toString("utf8"); const match = decodedHost.match(/[a-z0-9][a-z0-9-]*\.myshopify\.com/i); if (match) return `https://${match[0]} https://admin.shopify.com`; } catch (_error) { } return "https://admin.shopify.com"; } app.post("/webhooks", async (req, res) => {
   const isAuthentic = verifyShopifyWebhook(
     req.rawBody,
     req.get("x-shopify-hmac-sha256"),
@@ -1378,7 +1378,7 @@ function appBaseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
 
-app.get("/", (req, res) => {
+app.get("/", (req, res) => { res.setHeader("Content-Security-Policy", `frame-ancestors ${embeddedFrameAncestors(req)};`);
   const host = escapeHtml(req.query.host || "");
   const apiKey = escapeHtml(SHOPIFY_CLIENT_ID || "");
   res.type("html").send(`<!doctype html>
