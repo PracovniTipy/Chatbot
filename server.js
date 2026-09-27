@@ -1123,14 +1123,14 @@ function verifyAppProxy(req) {
   return shop;
 }
 
-async function shopifyGraphql(shop, accessToken, query) {
+async function shopifyGraphql(shop, accessToken, query, variables) {
   const response = await fetch(`https://${shop}/admin/api/2026-07/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": accessToken,
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(variables ? { query, variables } : { query }),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -1437,7 +1437,7 @@ app.get("/", (req, res) => {
       <progress id="usage-progress" max="70" value="0"></progress>
       <div class="muted" id="usage-period" data-i18n="root.caseHint">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
       <table>
-        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
+        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th><th></th></tr></thead>
         <tbody id="pricing-tiers"></tbody>
       </table>
     </section>
@@ -1458,7 +1458,7 @@ app.get("/", (req, res) => {
         }
         return originalFetch(resource, options);
       };
-      window.fetch("/api/bootstrap", { method: "POST" })
+      window.__selectPlan = function (handle) { window.fetch("/api/billing/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: handle }) }).then(function (r) { return r.json(); }).then(function (data) { if (data && data.confirmationUrl) { window.top.location.href = data.confirmationUrl; } else { window.alert((data && data.error) || "Nepodařilo se zahájit platbu."); } }).catch(function () { window.alert("Nepodařilo se zahájit platbu."); }); }; window.fetch("/api/bootstrap", { method: "POST" })
         .then(function (response) { return response.json(); })
         .then(function (data) {
           if (!data.usage || !data.usage.enabled) {
@@ -1480,7 +1480,7 @@ app.get("/", (req, res) => {
           document.getElementById("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
             return "<tr><td>" + plan.name + "</td><td>" +
               plan.limit.toLocaleString("cs-CZ") + "</td><td>" +
-              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td></tr>";
+              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td><td>" + ((usage.plan && plan.handle === usage.plan.handle) ? "<span class=\"muted\">Aktuální</span>" : "<button type=\"button\" onclick=\"window.__selectPlan('" + plan.handle + "')\">Vybrat</button>") + "</td></tr>";
           }).join("");
         })
         .catch(function () {
@@ -2214,7 +2214,7 @@ app.post("/api/bootstrap", async (req, res) => {
   }
 });
 
-app.get("/api/usage", async (req, res) => {
+app.post("/api/billing/subscribe", async (req, res) => { try { const { shop, accessToken } = await getAdminAccess(req); const plan = getPlan(req.body && req.body.plan); if (!plan || !plan.public || !Number.isFinite(plan.priceUsd)) { return res.status(400).json({ error: "Neplatný tarif." }); } const returnUrl = appBaseUrl(req) + "/"; const isTest = String(process.env.SHOPIFY_BILLING_TEST_CHARGES || "").toLowerCase() === "true"; const mutation = "mutation($name:String!,$returnUrl:URL!,$test:Boolean,$lineItems:[AppSubscriptionLineItemInput!]!){appSubscriptionCreate(name:$name,returnUrl:$returnUrl,test:$test,lineItems:$lineItems){appSubscription{id}confirmationUrl userErrors{field message}}}"; const variables = { name: plan.name, returnUrl, test: isTest, lineItems: [{ plan: { appRecurringPricingDetails: { price: { amount: plan.priceUsd, currencyCode: "USD" }, interval: "EVERY_30_DAYS" } } }] }; const data = await shopifyGraphql(shop, accessToken, mutation, variables); const result = data && data.appSubscriptionCreate; const userErrors = (result && result.userErrors) || []; if (userErrors.length) { return res.status(400).json({ error: userErrors.map(function (e) { return e.message; }).join("; ") }); } res.json({ confirmationUrl: result && result.confirmationUrl }); } catch (error) { console.error("Billing subscribe:", error); res.status(errorStatus(error)).json({ error: error.message }); } }); app.get("/api/usage", async (req, res) => {
   try {
     const { shop, accessToken } = await getAdminAccess(req);
     res.json(await getUsageSummary(shop, accessToken));
