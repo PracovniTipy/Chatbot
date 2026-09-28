@@ -2,7 +2,10 @@ client_id = "0ac9fa0dc2d28f130c073f9b0d5e843e"
 name = "Chatnelo"
 application_url = "https://chatbot-production-6b09.up.railway.app"
 embedded = true
-app_proxy = { url = "https://chatbot-production-6b09.up.railway.app/proxy", subpath = "eshop-assistant", prefix = "apps" }
+[app_proxy]
+url = "https://chatbot-production-6b09.up.railway.app/proxy"
+subpath = "eshop-assistant"
+prefix = "apps"
 
 [webhooks]
 api_version = "2026-07"
