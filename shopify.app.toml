@@ -27,8 +27,3 @@ use_legacy_install_flow = false
 redirect_urls = [
   "https://chatbot-production-6b09.up.railway.app/auth/callback"
 ]
-
-[app_proxy]
-url = "/proxy"
-prefix = "apps"
-subpath = "eshop-assistant"
