@@ -1391,28 +1391,35 @@ app.get("/", (req, res) => { res.setHeader("Content-Security-Policy", `frame-anc
   <link rel="icon" type="image/png" href="/mascot.png">
   <title>Chatnelo</title>
   <style>
-    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
-    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
-    .brand-header-left{display:flex;align-items:center;gap:14px}
-    .brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover}
-    .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
-    #chatnelo-lang-switcher{position:relative}
-    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
-    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:20}
-    #chatnelo-lang-dropdown.open{display:flex}
-    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
-    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
-    main{max-width:900px;margin:32px auto 48px;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012}
-    h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
-    .usage-card{margin-top:28px;padding:22px;border:1px solid #dfe3e8;border-radius:12px;background:#fafbfb}
-    .usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
-    .usage-value{font-size:1.5rem;font-weight:700;color:#7e22ce}
-    progress{width:100%;height:14px;margin:14px 0;accent-color:#a855f7}
-    .muted{color:#637381;font-size:.92rem}
-    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
-    th,td{padding:9px;border-bottom:1px solid #dfe3e8;text-align:left}
-    th{color:#637381;font-weight:600}
-    .error{color:#b42318}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;margin:0;background:#f4f5f9;color:#1c1f26}
+*{box-sizing:border-box}
+.brand-header{background:linear-gradient(120deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 32px;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.brand-header-left{display:flex;align-items:center;gap:14px}
+.brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+.brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+#chatnelo-lang-switcher{position:relative}
+#chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer;transition:background .15s ease,transform .15s ease}
+#chatnelo-lang-current:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
+#chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#12173a;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:20}
+#chatnelo-lang-dropdown.open{display:flex}
+.chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left;transition:background .12s ease}
+.chatnelo-lang-option:hover{background:rgba(255,255,255,.14)}
+main{max-width:900px;margin:32px auto 48px;padding:36px;background:#fff;border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 12px 32px rgba(20,20,50,.06)}
+h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.8rem}
+.usage-card{margin-top:28px;padding:24px;border:1px solid #e6e8f0;border-radius:14px;background:linear-gradient(180deg,#fafbff,#f5f6fb)}
+.usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
+.usage-value{font-size:1.6rem;font-weight:700;background:linear-gradient(90deg,#7e22ce,#a855f7);-webkit-background-clip:text;background-clip:text;color:transparent}
+progress{width:100%;height:12px;margin:16px 0;accent-color:#a855f7;border-radius:8px;overflow:hidden}
+.muted{color:#637381;font-size:.92rem}
+table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
+th,td{padding:11px 9px;border-bottom:1px solid #e6e8f0;text-align:left}
+th{color:#637381;font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.03em}
+tbody tr{transition:background .12s ease}
+tbody tr:hover{background:#fafbff}
+td button{background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:600;font-size:.88rem;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+td button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(126,34,206,.35)}
+td button:active{transform:translateY(0)}
+.error{color:#b42318}
   </style>
 </head>
 <body>
