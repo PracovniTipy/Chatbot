@@ -74,6 +74,7 @@
     "#ea-bubble.ea-attention{animation:ea-attn 1.6s ease-out 2}" +
     "#ea-bubble .ea-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .2s ease,transform .25s ease}" +
     "#ea-bubble .ea-icon-close{opacity:0;transform:rotate(-45deg) scale(.5)}" +
+".ea-mascot{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}" +
     "#ea-bubble.ea-open .ea-icon-chat{opacity:0;transform:rotate(45deg) scale(.5)}" +
     "#ea-bubble.ea-open .ea-icon-close{opacity:1;transform:rotate(0) scale(1)}" +
     "@keyframes ea-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}" +
@@ -126,9 +127,9 @@
   bubble.type = "button";
   bubble.setAttribute("aria-label", "Otevřít chat");
   bubble.setAttribute("aria-expanded", "false");
-  bubble.innerHTML =
-    '<span class="ea-icon ea-icon-chat" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-4.4 3.3A.5.5 0 0 1 4 20V6a1 1 0 0 1 1-1z" stroke="#fff" stroke-width="1.7" stroke-linejoin="round" fill="none"/></svg></span>' +
-    '<span class="ea-icon ea-icon-close" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>';
+bubble.innerHTML =
+        '<span class="ea-icon ea-icon-chat" aria-hidden="true"><img class="ea-mascot" src="https://chatbot-production-6b09.up.railway.app/mascot.png" alt=""></span>' +
+        '<span class="ea-icon ea-icon-close" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>';
 
  var panel = document.createElement("section");
   panel.id = "ea-panel";
