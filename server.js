@@ -1357,7 +1357,7 @@ async function answerChat(shop, accessToken, body) {
     return {
       caseId,
       reply,
-function appBaseUrl(req) {      usageLimit: plan.limit,
+      usage: reservation ? reservation.usageAfterSuccess : null, usageLimit: plan.limit,
       plan: plan.handle,
     };
   } catch (error) {
