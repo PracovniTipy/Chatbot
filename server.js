@@ -1357,8 +1357,7 @@ async function answerChat(shop, accessToken, body) {
     return {
       caseId,
       reply,
-      usage: reservation ? reservation.usageAfterSuccess : null,
-      usageLimit: plan.limit,
+function appBaseUrl(req) {      usageLimit: plan.limit,
       plan: plan.handle,
     };
   } catch (error) {
@@ -1373,6 +1372,75 @@ function errorStatus(error) {
   if (error?.statusCode) return error.statusCode;
   return /token|podpis|doména|Session/i.test(error.message) ? 401 : 500;
 }
+
+const authStateStore = new Map();
+
+function buildOAuthState(shop) {
+    const state = crypto.randomBytes(16).toString("hex");
+    authStateStore.set(state, { shop, createdAt: Date.now() });
+    return state;
+}
+
+app.get("/auth", (req, res) => {
+    const shop = String(req.query.shop || "").toLowerCase();
+    if (!isValidShop(shop)) return res.status(400).send("Neplatna domena obchodu.");
+    if (!SHOPIFY_CLIENT_ID) return res.status(500).send("Shopify neni nakonfigurovane.");
+    const state = buildOAuthState(shop);
+    const redirectUri = `${appBaseUrl(req)}/auth/callback`;
+    const scopes = "read_inventory,read_products,write_app_proxy";
+    const authorizeUrl = `https://${shop}/admin/oauth/authorize?client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID)}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+    res.redirect(authorizeUrl);
+});
+
+app.get("/auth/callback", async (req, res) => {
+    try {
+          const shop = String(req.query.shop || "").toLowerCase();
+          const code = String(req.query.code || "");
+          const state = String(req.query.state || "");
+          const hmac = String(req.query.hmac || "");
+          if (!isValidShop(shop)) return res.status(400).send("Neplatna domena obchodu.");
+      
+          const saved = authStateStore.get(state);
+          authStateStore.delete(state);
+          if (!saved || saved.shop !== shop || Date.now() - saved.createdAt > 10 * 60 * 1000) {
+                  return res.status(400).send("Pozadavek vyprsel. Zkuste to znovu z /auth?shop=" + shop);
+          }
+      
+          const params = Object.assign({}, req.query);
+          delete params.hmac;
+          delete params.signature;
+          const message = Object.keys(params).sort()
+                  .map((key) => `${key}=${Array.isArray(params[key]) ? params[key].join(",") : params[key]}`)
+                  .join("&");
+          const expected = crypto.createHmac("sha256", SHOPIFY_CLIENT_SECRET).update(message).digest("hex");
+          const expectedBuffer = Buffer.from(expected, "utf8");
+          const receivedBuffer = Buffer.from(hmac, "utf8");
+          if (expectedBuffer.length !== receivedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
+                  return res.status(400).send("Neplatny podpis OAuth pozadavku.");
+          }
+      
+          const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                            client_id: SHOPIFY_CLIENT_ID,
+                            client_secret: SHOPIFY_CLIENT_SECRET,
+                            code,
+                  }),
+          });
+          const tokenData = await tokenResponse.json().catch(() => ({}));
+          if (!tokenResponse.ok || !tokenData.access_token) {
+                  console.error("OAuth token exchange failed:", tokenData);
+                  return res.status(502).send("Shopify nevydal pristupovy token.");
+          }
+      
+          await saveShopToken(shop, tokenData.access_token, {});
+          return res.redirect(`https://${shop}/admin/apps`);
+    } catch (error) {
+          console.error("OAuth callback:", error);
+          return res.status(500).send("Autorizace se nezdarila.");
+    }
+});
 
 function appBaseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
