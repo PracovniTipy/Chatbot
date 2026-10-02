@@ -295,7 +295,7 @@ async function getShopToken(shop) {
   if (!record) return null;
 
   const expiresAtMs = record.expiresAt ? new Date(record.expiresAt).getTime() : null;
-  const needsRefresh = expiresAtMs !== null && expiresAtMs - Date.now() < 60000;
+  const needsRefresh = expiresAtMs === null || expiresAtMs - Date.now() < 60000;
   if (needsRefresh) {
     if (!record.refreshToken) {
       shopTokens.delete(shop);
