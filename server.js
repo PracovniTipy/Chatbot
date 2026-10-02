@@ -34,7 +34,7 @@ app.use(express.json({
     req.rawBody = Buffer.from(buffer);
   },
 }));
-app.use(express.static(path.join(__dirname, "public"), { index: false })); app.use(function (req, res, next) { res.setHeader("Content-Security-Policy", "frame-ancestors 'none';"); next(); });
+app.use(express.static(path.join(__dirname, "public"), { index: false }));
 
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
@@ -158,8 +158,6 @@ async function initializeDatabase() {
     )
   `);
   await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS shop_id TEXT");
-  await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS refresh_token TEXT");
-  await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ");
   await database.query(`
     CREATE TABLE IF NOT EXISTS usage_events (
       id TEXT PRIMARY KEY,
@@ -241,93 +239,33 @@ async function initializeDatabase() {
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
 }
 
-const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
-
-function isSessionExpiring(session) {
-  return Boolean(session?.expiresAt) && session.expiresAt - Date.now() < TOKEN_REFRESH_BUFFER_MS;
-}
-
-async function saveShopToken(shop, accessToken, { refreshToken, expiresIn } = {}) {
-  const expiresAt = Number(expiresIn) > 0 ? Date.now() + Number(expiresIn) * 1000 : null;
-  const session = { accessToken, refreshToken: refreshToken || null, expiresAt };
-  shopTokens.set(shop, session);
+async function saveShopToken(shop, accessToken) {
+  shopTokens.set(shop, accessToken);
   if (!database) return;
 
   await database.query(
-    `INSERT INTO shop_sessions (shop, access_token, refresh_token, expires_at)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO shop_sessions (shop, access_token)
+     VALUES ($1, $2)
      ON CONFLICT (shop) DO UPDATE
-     SET access_token = EXCLUDED.access_token,
-         refresh_token = EXCLUDED.refresh_token,
-         expires_at = EXCLUDED.expires_at,
-         updated_at = NOW()`,
-    [
-      shop,
-      encryptToken(accessToken),
-      refreshToken ? encryptToken(refreshToken) : null,
-      expiresAt ? new Date(expiresAt) : null,
-    ],
+     SET access_token = EXCLUDED.access_token, updated_at = NOW()`,
+    [shop, encryptToken(accessToken)],
   );
 }
 
-async function invalidateShopToken(shop) {
-  shopTokens.delete(shop);
-  if (!database) return;
-  await database.query("DELETE FROM shop_sessions WHERE shop = $1", [shop]);
-}
-
-async function refreshShopSession(shop, refreshToken) {
-  const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: SHOPIFY_CLIENT_ID,
-      client_secret: SHOPIFY_CLIENT_SECRET,
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }),
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.access_token) {
-    await invalidateShopToken(shop);
-    return null;
-  }
-
-  await saveShopToken(shop, data.access_token, {
-    refreshToken: data.refresh_token,
-    expiresIn: data.expires_in,
-  });
-  return data.access_token;
-}
-
 async function getShopToken(shop) {
-  let session = shopTokens.get(shop);
-  if (!session && database) {
-    const result = await database.query(
-      "SELECT access_token, refresh_token, expires_at FROM shop_sessions WHERE shop = $1",
-      [shop],
-    );
-    if (result.rowCount) {
-      const row = result.rows[0];
-      session = {
-        accessToken: decryptToken(row.access_token),
-        refreshToken: row.refresh_token ? decryptToken(row.refresh_token) : null,
-        expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : null,
-      };
-      shopTokens.set(shop, session);
-    }
-  }
-  if (!session) return null;
+  const cached = shopTokens.get(shop);
+  if (cached) return cached;
+  if (!database) return null;
 
-  if (isSessionExpiring(session)) {
-    if (!session.refreshToken) return session.accessToken;
-    const refreshed = await refreshShopSession(shop, session.refreshToken);
-    if (refreshed) return refreshed;
-    return null;
-  }
+  const result = await database.query(
+    "SELECT access_token FROM shop_sessions WHERE shop = $1",
+    [shop],
+  );
+  if (!result.rowCount) return null;
 
-  return session.accessToken;
+  const accessToken = decryptToken(result.rows[0].access_token);
+  shopTokens.set(shop, accessToken);
+  return accessToken;
 }
 
 async function saveShopIdentity(shop, shopId) {
@@ -969,7 +907,7 @@ function isValidShop(shop) {
     /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
 }
 
-function embeddedFrameAncestors(req) { const queryShop = String(req.query.shop || "").toLowerCase(); if (isValidShop(queryShop)) { return `https://${queryShop} https://admin.shopify.com`; } const hostParam = String(req.query.host || ""); try { const decodedHost = base64UrlDecode(hostParam).toString("utf8"); const match = decodedHost.match(/[a-z0-9][a-z0-9-]*\.myshopify\.com/i); if (match) return `https://${match[0]} https://admin.shopify.com`; } catch (_error) { } return "https://admin.shopify.com"; } app.post("/webhooks", async (req, res) => {
+app.post("/webhooks", async (req, res) => {
   const isAuthentic = verifyShopifyWebhook(
     req.rawBody,
     req.get("x-shopify-hmac-sha256"),
@@ -1061,7 +999,6 @@ async function exchangeForOfflineToken(shop, sessionToken) {
       subject_token: sessionToken,
       subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
       requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
-      expiring: 1,
     }),
   });
 
@@ -1070,10 +1007,7 @@ async function exchangeForOfflineToken(shop, sessionToken) {
     throw new Error(data.error_description || data.error || "Shopify nevydal přístupový token.");
   }
 
-  await saveShopToken(shop, data.access_token, {
-    refreshToken: data.refresh_token,
-    expiresIn: data.expires_in,
-  });
+  await saveShopToken(shop, data.access_token);
   return data.access_token;
 }
 
@@ -1123,31 +1057,20 @@ function verifyAppProxy(req) {
   return shop;
 }
 
-async function shopifyGraphql(shop, accessToken, query, variables) {
+async function shopifyGraphql(shop, accessToken, query) {
   const response = await fetch(`https://${shop}/admin/api/2026-07/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": accessToken,
     },
-    body: JSON.stringify(variables ? { query, variables } : { query }),
+    body: JSON.stringify({ query }),
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.errors) {
-    const detail = Array.isArray(data.errors)
-      ? data.errors.map((error) => (error && error.message) || String(error)).join("; ")
-      : (typeof data.errors === "string" ? data.errors : undefined);
-    const message = detail || "Nepodařilo se načíst data ze Shopify.";
-    if (response.status === 401 || /non-expiring access tokens/i.test(message)) {
-      await invalidateShopToken(shop);
-      const authError = new Error(
-        "Přístup k obchodu Shopify vypršel. Otevřete prosím appku znovu v administraci obchodu.",
-      );
-      authError.statusCode = 401;
-      throw authError;
-    }
-    throw new Error(message);
+    const detail = data.errors?.map((error) => error.message).join("; ");
+    throw new Error(detail || "Nepodařilo se načíst data ze Shopify.");
   }
   return data.data;
 }
@@ -1357,7 +1280,8 @@ async function answerChat(shop, accessToken, body) {
     return {
       caseId,
       reply,
-      usage: reservation ? reservation.usageAfterSuccess : null, usageLimit: plan.limit,
+      usage: reservation ? reservation.usageAfterSuccess : null,
+      usageLimit: plan.limit,
       plan: plan.handle,
     };
   } catch (error) {
@@ -1373,80 +1297,11 @@ function errorStatus(error) {
   return /token|podpis|doména|Session/i.test(error.message) ? 401 : 500;
 }
 
-const authStateStore = new Map();
-
-function buildOAuthState(shop) {
-    const state = crypto.randomBytes(16).toString("hex");
-    authStateStore.set(state, { shop, createdAt: Date.now() });
-    return state;
-}
-
-app.get("/auth", (req, res) => {
-    const shop = String(req.query.shop || "").toLowerCase();
-    if (!isValidShop(shop)) return res.status(400).send("Neplatna domena obchodu.");
-    if (!SHOPIFY_CLIENT_ID) return res.status(500).send("Shopify neni nakonfigurovane.");
-    const state = buildOAuthState(shop);
-    const redirectUri = `${appBaseUrl(req)}/auth/callback`;
-    const scopes = "read_inventory,read_products,write_app_proxy";
-    const authorizeUrl = `https://${shop}/admin/oauth/authorize?client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID)}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
-    res.redirect(authorizeUrl);
-});
-
-app.get("/auth/callback", async (req, res) => {
-    try {
-          const shop = String(req.query.shop || "").toLowerCase();
-          const code = String(req.query.code || "");
-          const state = String(req.query.state || "");
-          const hmac = String(req.query.hmac || "");
-          if (!isValidShop(shop)) return res.status(400).send("Neplatna domena obchodu.");
-      
-          const saved = authStateStore.get(state);
-          authStateStore.delete(state);
-          if (!saved || saved.shop !== shop || Date.now() - saved.createdAt > 10 * 60 * 1000) {
-                  return res.status(400).send("Pozadavek vyprsel. Zkuste to znovu z /auth?shop=" + shop);
-          }
-      
-          const params = Object.assign({}, req.query);
-          delete params.hmac;
-          delete params.signature;
-          const message = Object.keys(params).sort()
-                  .map((key) => `${key}=${Array.isArray(params[key]) ? params[key].join(",") : params[key]}`)
-                  .join("&");
-          const expected = crypto.createHmac("sha256", SHOPIFY_CLIENT_SECRET).update(message).digest("hex");
-          const expectedBuffer = Buffer.from(expected, "utf8");
-          const receivedBuffer = Buffer.from(hmac, "utf8");
-          if (expectedBuffer.length !== receivedBuffer.length || !crypto.timingSafeEqual(expectedBuffer, receivedBuffer)) {
-                  return res.status(400).send("Neplatny podpis OAuth pozadavku.");
-          }
-      
-          const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                            client_id: SHOPIFY_CLIENT_ID,
-                            client_secret: SHOPIFY_CLIENT_SECRET,
-                            code,
-                  }),
-          });
-          const tokenData = await tokenResponse.json().catch(() => ({}));
-          if (!tokenResponse.ok || !tokenData.access_token) {
-                  console.error("OAuth token exchange failed:", tokenData);
-                  return res.status(502).send("Shopify nevydal pristupovy token.");
-          }
-      
-          await saveShopToken(shop, tokenData.access_token, {});
-          return res.redirect(`https://${shop}/admin/apps`);
-    } catch (error) {
-          console.error("OAuth callback:", error);
-          return res.status(500).send("Autorizace se nezdarila.");
-    }
-});
-
 function appBaseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
 
-app.get("/", (req, res) => { res.setHeader("Content-Security-Policy", `frame-ancestors ${embeddedFrameAncestors(req)};`);
+app.get("/", (req, res) => {
   const host = escapeHtml(req.query.host || "");
   const apiKey = escapeHtml(SHOPIFY_CLIENT_ID || "");
   res.type("html").send(`<!doctype html>
@@ -1459,35 +1314,28 @@ app.get("/", (req, res) => { res.setHeader("Content-Security-Policy", `frame-anc
   <link rel="icon" type="image/png" href="/mascot.png">
   <title>Chatnelo</title>
   <style>
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;margin:0;background:#f4f5f9;color:#1c1f26}
-*{box-sizing:border-box}
-.brand-header{background:linear-gradient(120deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 32px;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.18)}
-.brand-header-left{display:flex;align-items:center;gap:14px}
-.brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
-.brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
-#chatnelo-lang-switcher{position:relative}
-#chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer;transition:background .15s ease,transform .15s ease}
-#chatnelo-lang-current:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
-#chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#12173a;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:20}
-#chatnelo-lang-dropdown.open{display:flex}
-.chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left;transition:background .12s ease}
-.chatnelo-lang-option:hover{background:rgba(255,255,255,.14)}
-main{max-width:900px;margin:32px auto 48px;padding:36px;background:#fff;border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 12px 32px rgba(20,20,50,.06)}
-h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.8rem}
-.usage-card{margin-top:28px;padding:24px;border:1px solid #e6e8f0;border-radius:14px;background:linear-gradient(180deg,#fafbff,#f5f6fb)}
-.usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
-.usage-value{font-size:1.6rem;font-weight:700;background:linear-gradient(90deg,#7e22ce,#a855f7);-webkit-background-clip:text;background-clip:text;color:transparent}
-progress{width:100%;height:12px;margin:16px 0;accent-color:#a855f7;border-radius:8px;overflow:hidden}
-.muted{color:#637381;font-size:.92rem}
-table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
-th,td{padding:11px 9px;border-bottom:1px solid #e6e8f0;text-align:left}
-th{color:#637381;font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.03em}
-tbody tr{transition:background .12s ease}
-tbody tr:hover{background:#fafbff}
-td button{background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:600;font-size:.88rem;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
-td button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(126,34,206,.35)}
-td button:active{transform:translateY(0)}
-.error{color:#b42318}
+    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
+    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
+    .brand-header-left{display:flex;align-items:center;gap:14px}
+    .brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover}
+    .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+    #chatnelo-lang-switcher{position:relative}
+    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:20}
+    #chatnelo-lang-dropdown.open{display:flex}
+    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
+    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
+    main{max-width:900px;margin:32px auto 48px;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012}
+    h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .usage-card{margin-top:28px;padding:22px;border:1px solid #dfe3e8;border-radius:12px;background:#fafbfb}
+    .usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
+    .usage-value{font-size:1.5rem;font-weight:700;color:#7e22ce}
+    progress{width:100%;height:14px;margin:14px 0;accent-color:#a855f7}
+    .muted{color:#637381;font-size:.92rem}
+    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
+    th,td{padding:9px;border-bottom:1px solid #dfe3e8;text-align:left}
+    th{color:#637381;font-weight:600}
+    .error{color:#b42318}
   </style>
 </head>
 <body>
@@ -1512,7 +1360,7 @@ td button:active{transform:translateY(0)}
       <progress id="usage-progress" max="70" value="0"></progress>
       <div class="muted" id="usage-period" data-i18n="root.caseHint">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
       <table>
-        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th><th></th></tr></thead>
+        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
         <tbody id="pricing-tiers"></tbody>
       </table>
     </section>
@@ -1525,7 +1373,10 @@ td button:active{transform:translateY(0)}
       window.fetch = async function (resource, options) {
         var url = typeof resource === "string" ? resource : (resource && resource.url) || "";
         if (url.indexOf("/api/") !== -1 && window.shopify && window.shopify.idToken) {
-          var token = await window.shopify.idToken();
+          var token = await Promise.race([
+            window.shopify.idToken(),
+            new Promise(function (_, reject) { setTimeout(function () { reject(new Error("idToken timeout")); }, 8000); }),
+          ]);
           options = options || {};
           var headers = new Headers(options.headers || {});
           headers.set("Authorization", "Bearer " + token);
@@ -1533,7 +1384,7 @@ td button:active{transform:translateY(0)}
         }
         return originalFetch(resource, options);
       };
-      window.__selectPlan = function (handle) { window.fetch("/api/billing/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan: handle }) }).then(function (r) { return r.json(); }).then(function (data) { if (data && data.confirmationUrl) { window.top.location.href = data.confirmationUrl; } else { window.alert((data && data.error) || "Nepodařilo se zahájit platbu."); } }).catch(function () { window.alert("Nepodařilo se zahájit platbu."); }); }; window.fetch("/api/bootstrap", { method: "POST" })
+      window.fetch("/api/bootstrap", { method: "POST" })
         .then(function (response) { return response.json(); })
         .then(function (data) {
           if (!data.usage || !data.usage.enabled) {
@@ -1555,7 +1406,7 @@ td button:active{transform:translateY(0)}
           document.getElementById("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
             return "<tr><td>" + plan.name + "</td><td>" +
               plan.limit.toLocaleString("cs-CZ") + "</td><td>" +
-              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td><td>" + ((usage.plan && plan.handle === usage.plan.handle) ? "<span class=\"muted\">Aktuální</span>" : "<button type=\"button\" onclick=\"window.__selectPlan('" + plan.handle + "')\">Vybrat</button>") + "</td></tr>";
+              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td></tr>";
           }).join("");
         })
         .catch(function () {
@@ -2289,7 +2140,7 @@ app.post("/api/bootstrap", async (req, res) => {
   }
 });
 
-app.post("/api/billing/subscribe", async (req, res) => { try { const { shop, accessToken } = await getAdminAccess(req); const plan = getPlan(req.body && req.body.plan); if (!plan || !plan.public || !Number.isFinite(plan.priceUsd)) { return res.status(400).json({ error: "Neplatný tarif." }); } const returnUrl = appBaseUrl(req) + "/"; const isTest = String(process.env.SHOPIFY_BILLING_TEST_CHARGES || "").toLowerCase() === "true"; const mutation = "mutation($name:String!,$returnUrl:URL!,$test:Boolean,$lineItems:[AppSubscriptionLineItemInput!]!){appSubscriptionCreate(name:$name,returnUrl:$returnUrl,test:$test,lineItems:$lineItems){appSubscription{id}confirmationUrl userErrors{field message}}}"; const variables = { name: plan.name, returnUrl, test: isTest, lineItems: [{ plan: { appRecurringPricingDetails: { price: { amount: plan.priceUsd, currencyCode: "USD" }, interval: "EVERY_30_DAYS" } } }] }; const data = await shopifyGraphql(shop, accessToken, mutation, variables); const result = data && data.appSubscriptionCreate; const userErrors = (result && result.userErrors) || []; if (userErrors.length) { return res.status(400).json({ error: userErrors.map(function (e) { return e.message; }).join("; ") }); } res.json({ confirmationUrl: result && result.confirmationUrl }); } catch (error) { console.error("Billing subscribe:", error); res.status(errorStatus(error)).json({ error: error.message }); } }); app.get("/api/usage", async (req, res) => {
+app.get("/api/usage", async (req, res) => {
   try {
     const { shop, accessToken } = await getAdminAccess(req);
     res.json(await getUsageSummary(shop, accessToken));
