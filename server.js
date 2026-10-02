@@ -158,6 +158,8 @@ async function initializeDatabase() {
     )
   `);
   await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS shop_id TEXT");
+  await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS refresh_token TEXT");
+  await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMPTZ");
   await database.query(`
     CREATE TABLE IF NOT EXISTS usage_events (
       id TEXT PRIMARY KEY,
@@ -239,33 +241,74 @@ async function initializeDatabase() {
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
 }
 
-async function saveShopToken(shop, accessToken) {
-  shopTokens.set(shop, accessToken);
+async function saveShopToken(shop, accessToken, refreshToken, expiresInSeconds) {
+  const expiresAt = expiresInSeconds ? new Date(Date.now() + Number(expiresInSeconds) * 1000) : null;
+  shopTokens.set(shop, { accessToken, refreshToken: refreshToken || null, expiresAt });
   if (!database) return;
 
   await database.query(
-    `INSERT INTO shop_sessions (shop, access_token)
-     VALUES ($1, $2)
+    `INSERT INTO shop_sessions (shop, access_token, refresh_token, access_token_expires_at)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (shop) DO UPDATE
-     SET access_token = EXCLUDED.access_token, updated_at = NOW()`,
-    [shop, encryptToken(accessToken)],
+     SET access_token = EXCLUDED.access_token,
+         refresh_token = EXCLUDED.refresh_token,
+         access_token_expires_at = EXCLUDED.access_token_expires_at,
+         updated_at = NOW()`,
+    [shop, encryptToken(accessToken), refreshToken ? encryptToken(refreshToken) : null, expiresAt],
   );
 }
 
+async function refreshShopToken(shop, refreshToken) {
+  const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: SHOPIFY_CLIENT_ID,
+      client_secret: SHOPIFY_CLIENT_SECRET,
+      refresh_token: refreshToken,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token) return null;
+  await saveShopToken(shop, data.access_token, data.refresh_token, data.expires_in);
+  return data.access_token;
+}
+
 async function getShopToken(shop) {
-  const cached = shopTokens.get(shop);
-  if (cached) return cached;
-  if (!database) return null;
+  let record = shopTokens.get(shop);
+  if (!record && database) {
+    const result = await database.query(
+      "SELECT access_token, refresh_token, access_token_expires_at FROM shop_sessions WHERE shop = $1",
+      [shop],
+    );
+    if (result.rowCount) {
+      const row = result.rows[0];
+      record = {
+        accessToken: decryptToken(row.access_token),
+        refreshToken: row.refresh_token ? decryptToken(row.refresh_token) : null,
+        expiresAt: row.access_token_expires_at,
+      };
+      shopTokens.set(shop, record);
+    }
+  }
+  if (!record) return null;
 
-  const result = await database.query(
-    "SELECT access_token FROM shop_sessions WHERE shop = $1",
-    [shop],
-  );
-  if (!result.rowCount) return null;
-
-  const accessToken = decryptToken(result.rows[0].access_token);
-  shopTokens.set(shop, accessToken);
-  return accessToken;
+  const expiresAtMs = record.expiresAt ? new Date(record.expiresAt).getTime() : null;
+  const needsRefresh = expiresAtMs !== null && expiresAtMs - Date.now() < 60000;
+  if (needsRefresh) {
+    if (!record.refreshToken) {
+      shopTokens.delete(shop);
+      return null;
+    }
+    const refreshed = await refreshShopToken(shop, record.refreshToken);
+    if (!refreshed) {
+      shopTokens.delete(shop);
+      return null;
+    }
+    return refreshed;
+  }
+  return record.accessToken;
 }
 
 async function saveShopIdentity(shop, shopId) {
@@ -999,6 +1042,7 @@ async function exchangeForOfflineToken(shop, sessionToken) {
       subject_token: sessionToken,
       subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
       requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+      expiring: "1",
     }),
   });
 
@@ -1007,7 +1051,7 @@ async function exchangeForOfflineToken(shop, sessionToken) {
     throw new Error(data.error_description || data.error || "Shopify nevydal přístupový token.");
   }
 
-  await saveShopToken(shop, data.access_token);
+  await saveShopToken(shop, data.access_token, data.refresh_token, data.expires_in);
   return data.access_token;
 }
 
