@@ -34,7 +34,19 @@ app.use(express.json({
     req.rawBody = Buffer.from(buffer);
   },
 }));
-app.use(express.static(path.join(__dirname, "public"), { index: false }));
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
+app.use(express.static(path.join(__dirname, "public"), { index: false, maxAge: "1h" }));
+// Pages outside the Shopify admin must never be framed. The embedded admin
+// page ("/") overrides this with the shop-specific frame-ancestors below.
+app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none';");
+  next();
+});
 
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
@@ -69,7 +81,25 @@ const PASSWORD_PROTECTED_TEST_SHOP = process.env.PASSWORD_PROTECTED_TEST_SHOP ||
   "eshop-assistant-test.myshopify.com";
 const PASSWORD_PROTECTED_TEST_ORIGIN = `https://${PASSWORD_PROTECTED_TEST_SHOP}`;
 
+const SHOPIFY_APP_HANDLE = process.env.SHOPIFY_APP_HANDLE || "eshop-assistant-ai";
+const SHOPIFY_TIMEOUT_MS = 15_000;
+const OPENAI_TIMEOUT_MS = 30_000;
+
+function fetchWithTimeout(url, options = {}, timeoutMs = SHOPIFY_TIMEOUT_MS) {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs) });
+}
+
+function httpError(message, statusCode) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
 const shopTokens = new Map();
+const tokenRefreshInFlight = new Map();
+const widgetChatRateLimit = new Map();
+const WIDGET_CHAT_RATE_LIMIT = 60;
+const WIDGET_CHAT_RATE_WINDOW_MS = 10 * 60 * 1000;
 const marketingChatRateLimit = new Map();
 const MARKETING_CHAT_RATE_LIMIT = 20;
 const MARKETING_CHAT_RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -160,6 +190,7 @@ async function initializeDatabase() {
   await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS shop_id TEXT");
   await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS refresh_token TEXT");
   await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMPTZ");
+  await database.query("ALTER TABLE shop_sessions ADD COLUMN IF NOT EXISTS refresh_token_expires_at TIMESTAMPTZ");
   await database.query(`
     CREATE TABLE IF NOT EXISTS usage_events (
       id TEXT PRIMARY KEY,
@@ -241,25 +272,49 @@ async function initializeDatabase() {
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
 }
 
-async function saveShopToken(shop, accessToken, refreshToken, expiresInSeconds) {
-  const expiresAt = expiresInSeconds ? new Date(Date.now() + Number(expiresInSeconds) * 1000) : null;
+async function saveShopToken(shop, accessToken, refreshToken, expiresInSeconds, refreshExpiresInSeconds) {
+  const expiresAt = Number(expiresInSeconds) > 0
+    ? new Date(Date.now() + Number(expiresInSeconds) * 1000)
+    : null;
+  const refreshExpiresAt = refreshToken && Number(refreshExpiresInSeconds) > 0
+    ? new Date(Date.now() + Number(refreshExpiresInSeconds) * 1000)
+    : null;
   shopTokens.set(shop, { accessToken, refreshToken: refreshToken || null, expiresAt });
   if (!database) return;
 
   await database.query(
-    `INSERT INTO shop_sessions (shop, access_token, refresh_token, access_token_expires_at)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO shop_sessions
+       (shop, access_token, refresh_token, access_token_expires_at, refresh_token_expires_at)
+     VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (shop) DO UPDATE
      SET access_token = EXCLUDED.access_token,
          refresh_token = EXCLUDED.refresh_token,
          access_token_expires_at = EXCLUDED.access_token_expires_at,
+         refresh_token_expires_at = EXCLUDED.refresh_token_expires_at,
          updated_at = NOW()`,
-    [shop, encryptToken(accessToken), refreshToken ? encryptToken(refreshToken) : null, expiresAt],
+    [
+      shop,
+      encryptToken(accessToken),
+      refreshToken ? encryptToken(refreshToken) : null,
+      expiresAt,
+      refreshExpiresAt,
+    ],
   );
 }
 
-async function refreshShopToken(shop, refreshToken) {
-  const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
+async function invalidateShopToken(shop) {
+  shopTokens.delete(shop);
+  if (!database) return;
+  await database.query(
+    `UPDATE shop_sessions
+     SET access_token_expires_at = TO_TIMESTAMP(0), updated_at = NOW()
+     WHERE shop = $1`,
+    [shop],
+  );
+}
+
+async function requestRefreshedToken(shop, refreshToken) {
+  const response = await fetchWithTimeout(`https://${shop}/admin/oauth/access_token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -270,12 +325,37 @@ async function refreshShopToken(shop, refreshToken) {
     }),
   });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok || !data.access_token) return null;
-  await saveShopToken(shop, data.access_token, data.refresh_token, data.expires_in);
+  if (!response.ok || !data.access_token) {
+    console.warn("Obnova Shopify tokenu selhala:", { shop, status: response.status, error: data.error });
+    return null;
+  }
+  await saveShopToken(
+    shop,
+    data.access_token,
+    data.refresh_token,
+    data.expires_in,
+    data.refresh_token_expires_in,
+  );
   return data.access_token;
 }
 
-async function getShopToken(shop) {
+// Shopify rotates the refresh token on every use, so two concurrent refreshes
+// with the same refresh token would make the second one fail. Share one
+// in-flight refresh per shop.
+function refreshShopToken(shop, refreshToken) {
+  const running = tokenRefreshInFlight.get(shop);
+  if (running) return running;
+  const promise = requestRefreshedToken(shop, refreshToken)
+    .catch((error) => {
+      console.warn("Obnova Shopify tokenu selhala:", { shop, error: error.message });
+      return null;
+    })
+    .finally(() => tokenRefreshInFlight.delete(shop));
+  tokenRefreshInFlight.set(shop, promise);
+  return promise;
+}
+
+async function loadShopSession(shop) {
   let record = shopTokens.get(shop);
   if (!record && database) {
     const result = await database.query(
@@ -292,23 +372,46 @@ async function getShopToken(shop) {
       shopTokens.set(shop, record);
     }
   }
+  return record || null;
+}
+
+async function getShopToken(shop) {
+  const record = await loadShopSession(shop);
   if (!record) return null;
 
+  // Tokens without a known expiry are legacy non-expiring tokens, which the
+  // Admin API no longer accepts, so they are treated as expired.
   const expiresAtMs = record.expiresAt ? new Date(record.expiresAt).getTime() : null;
-  const needsRefresh = expiresAtMs === null || expiresAtMs - Date.now() < 60000;
-  if (needsRefresh) {
-    if (!record.refreshToken) {
-      shopTokens.delete(shop);
-      return null;
-    }
-    const refreshed = await refreshShopToken(shop, record.refreshToken);
-    if (!refreshed) {
-      shopTokens.delete(shop);
-      return null;
-    }
-    return refreshed;
+  const needsRefresh = expiresAtMs === null || expiresAtMs - Date.now() < 60_000;
+  if (!needsRefresh) return record.accessToken;
+
+  if (!record.refreshToken) {
+    shopTokens.delete(shop);
+    return null;
   }
-  return record.accessToken;
+  const refreshed = await refreshShopToken(shop, record.refreshToken);
+  if (!refreshed) shopTokens.delete(shop);
+  return refreshed;
+}
+
+// Refresh tokens expire after 90 days. A shop whose storefront chat is idle and
+// whose admin never opens the app would otherwise silently lose access, so
+// rotate tokens that are close to their refresh-token expiry in the background.
+async function refreshExpiringShopTokens() {
+  if (!database || !databaseReady) return;
+  const result = await database.query(
+    `SELECT shop, refresh_token FROM shop_sessions
+     WHERE refresh_token IS NOT NULL
+       AND (refresh_token_expires_at IS NULL OR refresh_token_expires_at < NOW() + INTERVAL '30 days')
+     LIMIT 200`,
+  );
+  for (const row of result.rows) {
+    try {
+      await refreshShopToken(row.shop, decryptToken(row.refresh_token));
+    } catch (error) {
+      console.warn("Plánovaná obnova tokenu:", { shop: row.shop, error: error.message });
+    }
+  }
 }
 
 async function saveShopIdentity(shop, shopId) {
@@ -503,6 +606,7 @@ async function getUsageSummary(shop, accessToken, subscription) {
   if (!USAGE_METERING_ENABLED) {
     return {
       enabled: false,
+      subscribed: Boolean(activeSubscription),
       usage: 0,
       limit: plan.limit,
       monthlyPriceCzk: plan.priceCzk,
@@ -523,6 +627,7 @@ async function getUsageSummary(shop, accessToken, subscription) {
   const usage = result.rows[0].count;
   return {
     enabled: true,
+    subscribed: Boolean(activeSubscription),
     billingEnabled: SHOPIFY_USAGE_BILLING_ENABLED,
     usage,
     limit: plan.limit,
@@ -826,7 +931,7 @@ async function getAppEventsAccessToken() {
     return appEventsAccessToken;
   }
 
-  const response = await fetch("https://api.shopify.com/auth/access_token", {
+  const response = await fetchWithTimeout("https://api.shopify.com/auth/access_token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -881,7 +986,7 @@ async function claimPendingBillingEvent() {
 
 async function deliverBillingEvent(event) {
   const accessToken = await getAppEventsAccessToken();
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `https://api.shopify.com/app/${SHOPIFY_APP_EVENTS_API_VERSION}/events`,
     {
       method: "POST",
@@ -948,6 +1053,19 @@ function escapeHtml(value) {
 function isValidShop(shop) {
   return typeof shop === "string" &&
     /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(shop);
+}
+
+function embeddedFrameAncestors(req) {
+  const queryShop = String(req.query.shop || "").toLowerCase();
+  if (isValidShop(queryShop)) return `https://${queryShop} https://admin.shopify.com`;
+  try {
+    const decodedHost = base64UrlDecode(String(req.query.host || "")).toString("utf8");
+    const match = decodedHost.match(/[a-z0-9][a-z0-9-]*\.myshopify\.com/i);
+    if (match) return `https://${match[0].toLowerCase()} https://admin.shopify.com`;
+  } catch (_error) {
+    // Fall through to the admin-only policy.
+  }
+  return "https://admin.shopify.com";
 }
 
 app.post("/webhooks", async (req, res) => {
@@ -1032,7 +1150,7 @@ function getBearerToken(req) {
 }
 
 async function exchangeForOfflineToken(shop, sessionToken) {
-  const response = await fetch(`https://${shop}/admin/oauth/access_token`, {
+  const response = await fetchWithTimeout(`https://${shop}/admin/oauth/access_token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1051,7 +1169,13 @@ async function exchangeForOfflineToken(shop, sessionToken) {
     throw new Error(data.error_description || data.error || "Shopify nevydal přístupový token.");
   }
 
-  await saveShopToken(shop, data.access_token, data.refresh_token, data.expires_in);
+  await saveShopToken(
+    shop,
+    data.access_token,
+    data.refresh_token,
+    data.expires_in,
+    data.refresh_token_expires_in,
+  );
   return data.access_token;
 }
 
@@ -1060,7 +1184,20 @@ async function getAdminAccess(req) {
   const { shop } = verifySessionToken(sessionToken);
   const cached = await getShopToken(shop);
   const accessToken = cached || await exchangeForOfflineToken(shop, sessionToken);
-  return { shop, accessToken };
+  return { shop, accessToken, sessionToken };
+}
+
+// Runs an admin action; if Shopify rejects the stored token, exchange the
+// current session token for a fresh offline token and retry once.
+async function withAdminAccess(req, action) {
+  const access = await getAdminAccess(req);
+  try {
+    return await action(access.shop, access.accessToken);
+  } catch (error) {
+    if (!error.shopifyAuthFailed) throw error;
+    const freshToken = await exchangeForOfflineToken(access.shop, access.sessionToken);
+    return action(access.shop, freshToken);
+  }
 }
 
 function verifyAppProxy(req) {
@@ -1101,22 +1238,34 @@ function verifyAppProxy(req) {
   return shop;
 }
 
-async function shopifyGraphql(shop, accessToken, query) {
-  const response = await fetch(`https://${shop}/admin/api/2026-07/graphql.json`, {
+async function shopifyGraphql(shop, accessToken, query, variables) {
+  const response = await fetchWithTimeout(`https://${shop}/admin/api/2026-07/graphql.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Shopify-Access-Token": accessToken,
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify(variables ? { query, variables } : { query }),
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.errors) {
     const detail = Array.isArray(data.errors)
-      ? data.errors.map((error) => error.message).join("; ")
+      ? data.errors.map((error) => (error && error.message) || String(error)).join("; ")
       : (typeof data.errors === "string" ? data.errors : null);
-    throw new Error(detail || "Nepodařilo se načíst data ze Shopify.");
+    const message = detail || `Shopify Admin API vrátilo ${response.status}.`;
+    if (response.status === 401 || response.status === 403 ||
+        /access token|non-expiring/i.test(message)) {
+      await invalidateShopToken(shop).catch(() => {});
+      const authError = httpError(
+        "Přístup k obchodu Shopify vypršel. Otevřete prosím appku znovu v administraci obchodu.",
+        401,
+      );
+      authError.shopifyAuthFailed = true;
+      authError.detail = message;
+      throw authError;
+    }
+    throw new Error(message);
   }
   return data.data;
 }
@@ -1138,7 +1287,7 @@ async function loadActiveSubscription(shop, accessToken) {
 
 async function loadCatalog(shop, accessToken) {
   const query = `{
-    products(first: 50, sortKey: TITLE) {
+    products(first: 50, sortKey: TITLE, query: "status:active") {
       nodes {
         title
         handle
@@ -1192,8 +1341,8 @@ async function loadCatalog(shop, accessToken) {
 
 function validateChatBody(body) {
   const message = typeof body?.message === "string" ? body.message.trim() : "";
-  if (!message) throw new Error("Napište prosím zprávu.");
-  if (message.length > 1000) throw new Error("Zpráva je příliš dlouhá.");
+  if (!message) throw httpError("Napište prosím zprávu.", 400);
+  if (message.length > 1000) throw httpError("Zpráva je příliš dlouhá.", 400);
 
   const suppliedCaseId = typeof body?.caseId === "string" ? body.caseId.trim() : "";
   if (suppliedCaseId &&
@@ -1227,7 +1376,7 @@ async function callOpenAiChat(system, message, history) {
     messages.push({ role: "user", content: message });
   }
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1238,11 +1387,12 @@ async function callOpenAiChat(system, message, history) {
       temperature: 0.1,
       messages,
     }),
-  });
+  }, OPENAI_TIMEOUT_MS);
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error?.message || "AI služba neodpověděla.");
+    console.error("OpenAI:", response.status, data.error?.message);
+    throw httpError("AI služba je dočasně nedostupná. Zkuste to prosím za chvíli.", 503);
   }
   return data.choices?.[0]?.message?.content?.trim() || "Omlouvám se, odpověď se nepodařilo vytvořit.";
 }
@@ -1279,6 +1429,30 @@ function isMarketingChatRateLimited(ip) {
   }
   entry.count += 1;
   return entry.count > MARKETING_CHAT_RATE_LIMIT;
+}
+
+function isWidgetChatRateLimited(ip) {
+  const now = Date.now();
+  const entry = widgetChatRateLimit.get(ip);
+  if (!entry || now - entry.windowStart > WIDGET_CHAT_RATE_WINDOW_MS) {
+    widgetChatRateLimit.set(ip, { windowStart: now, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > WIDGET_CHAT_RATE_LIMIT;
+}
+
+function pruneRateLimits() {
+  const now = Date.now();
+  for (const [map, windowMs] of [
+    [marketingChatRateLimit, MARKETING_CHAT_RATE_WINDOW_MS],
+    [signupRateLimit, SIGNUP_RATE_WINDOW_MS],
+    [widgetChatRateLimit, WIDGET_CHAT_RATE_WINDOW_MS],
+  ]) {
+    for (const [key, entry] of map) {
+      if (now - entry.windowStart > windowMs) map.delete(key);
+    }
+  }
 }
 
 function isSignupRateLimited(ip) {
@@ -1340,14 +1514,118 @@ async function answerChat(shop, accessToken, body) {
 
 function errorStatus(error) {
   if (error?.statusCode) return error.statusCode;
-  return /token|podpis|doména|Session/i.test(error.message) ? 401 : 500;
+  if (error?.name === "TimeoutError" || error?.name === "AbortError") return 504;
+  return /token|podpis|doména|Session/i.test(error?.message || "") ? 401 : 500;
+}
+
+// Messages of errors raised deliberately (with a statusCode) are meant for
+// the user. Anything unexpected is logged and replaced by a generic message so
+// internal details never reach shoppers.
+function publicErrorMessage(error) {
+  if (error?.statusCode) return error.message;
+  const status = errorStatus(error);
+  if (status === 504) return "Odpověď trvala příliš dlouho. Zkuste to prosím znovu.";
+  if (status === 401) return "Ověření se nezdařilo. Obnovte prosím stránku.";
+  return "Omlouváme se, nastala chyba. Zkuste to prosím za chvíli.";
 }
 
 function appBaseUrl(req) {
   return `${req.protocol}://${req.get("host")}`;
 }
 
+const authStateStore = new Map();
+const AUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+function buildOAuthState(shop) {
+  const now = Date.now();
+  for (const [key, value] of authStateStore) {
+    if (now - value.createdAt > AUTH_STATE_TTL_MS) authStateStore.delete(key);
+  }
+  const state = crypto.randomBytes(16).toString("hex");
+  authStateStore.set(state, { shop, createdAt: now });
+  return state;
+}
+
+function verifyOAuthQueryHmac(query) {
+  const hmac = typeof query.hmac === "string" ? query.hmac : "";
+  if (!hmac || !SHOPIFY_CLIENT_SECRET) return false;
+  const message = Object.keys(query)
+    .filter((key) => key !== "hmac" && key !== "signature")
+    .sort()
+    .map((key) => `${key}=${Array.isArray(query[key]) ? query[key].join(",") : query[key]}`)
+    .join("&");
+  const expected = Buffer.from(
+    crypto.createHmac("sha256", SHOPIFY_CLIENT_SECRET).update(message).digest("hex"),
+    "utf8",
+  );
+  const received = Buffer.from(hmac, "utf8");
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+app.get("/auth", (req, res) => {
+  const shop = String(req.query.shop || "").toLowerCase();
+  if (!isValidShop(shop)) return res.status(400).send("Neplatná doména obchodu.");
+  if (!SHOPIFY_CLIENT_ID) return res.status(500).send("Shopify není nakonfigurované.");
+  const state = buildOAuthState(shop);
+  const redirectUri = `${appBaseUrl(req)}/auth/callback`;
+  const scopes = "read_inventory,read_products,write_app_proxy";
+  const authorizeUrl = `https://${shop}/admin/oauth/authorize` +
+    `?client_id=${encodeURIComponent(SHOPIFY_CLIENT_ID)}` +
+    `&scope=${encodeURIComponent(scopes)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&state=${state}`;
+  return res.redirect(authorizeUrl);
+});
+
+app.get("/auth/callback", async (req, res) => {
+  try {
+    const shop = String(req.query.shop || "").toLowerCase();
+    const code = typeof req.query.code === "string" ? req.query.code : "";
+    const state = typeof req.query.state === "string" ? req.query.state : "";
+    if (!isValidShop(shop) || !code) return res.status(400).send("Neplatný požadavek.");
+
+    const saved = authStateStore.get(state);
+    authStateStore.delete(state);
+    if (!saved || saved.shop !== shop || Date.now() - saved.createdAt > AUTH_STATE_TTL_MS) {
+      return res.status(400).send("Požadavek vypršel. Spusťte prosím instalaci znovu.");
+    }
+    if (!verifyOAuthQueryHmac(req.query)) {
+      return res.status(400).send("Neplatný podpis požadavku.");
+    }
+
+    const tokenResponse = await fetchWithTimeout(`https://${shop}/admin/oauth/access_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: SHOPIFY_CLIENT_ID,
+        client_secret: SHOPIFY_CLIENT_SECRET,
+        code,
+        expiring: "1",
+      }),
+    });
+    const tokenData = await tokenResponse.json().catch(() => ({}));
+    if (!tokenResponse.ok || !tokenData.access_token) {
+      console.error("OAuth výměna kódu selhala:", { shop, status: tokenResponse.status, error: tokenData.error });
+      return res.status(502).send("Shopify nevydal přístupový token.");
+    }
+
+    await saveShopToken(
+      shop,
+      tokenData.access_token,
+      tokenData.refresh_token,
+      tokenData.expires_in,
+      tokenData.refresh_token_expires_in,
+    );
+    const storeHandle = shop.replace(/\.myshopify\.com$/i, "");
+    return res.redirect(`https://admin.shopify.com/store/${storeHandle}/apps/${SHOPIFY_APP_HANDLE}`);
+  } catch (error) {
+    console.error("OAuth callback:", error);
+    return res.status(500).send("Autorizace se nezdařila.");
+  }
+});
+
 app.get("/", (req, res) => {
+  res.setHeader("Content-Security-Policy", `frame-ancestors ${embeddedFrameAncestors(req)};`);
   const host = escapeHtml(req.query.host || "");
   const apiKey = escapeHtml(SHOPIFY_CLIENT_ID || "");
   res.type("html").send(`<!doctype html>
@@ -1360,28 +1638,35 @@ app.get("/", (req, res) => {
   <link rel="icon" type="image/png" href="/mascot.png">
   <title>Chatnelo</title>
   <style>
-    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
-    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
-    .brand-header-left{display:flex;align-items:center;gap:14px}
-    .brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover}
-    .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
-    #chatnelo-lang-switcher{position:relative}
-    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
-    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:20}
-    #chatnelo-lang-dropdown.open{display:flex}
-    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
-    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
-    main{max-width:900px;margin:32px auto 48px;padding:32px;background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012}
-    h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
-    .usage-card{margin-top:28px;padding:22px;border:1px solid #dfe3e8;border-radius:12px;background:#fafbfb}
-    .usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
-    .usage-value{font-size:1.5rem;font-weight:700;color:#7e22ce}
-    progress{width:100%;height:14px;margin:14px 0;accent-color:#a855f7}
-    .muted{color:#637381;font-size:.92rem}
-    table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
-    th,td{padding:9px;border-bottom:1px solid #dfe3e8;text-align:left}
-    th{color:#637381;font-weight:600}
-    .error{color:#b42318}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;margin:0;background:#f4f5f9;color:#1c1f26}
+*{box-sizing:border-box}
+.brand-header{background:linear-gradient(120deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 32px;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.brand-header-left{display:flex;align-items:center;gap:14px}
+.brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+.brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+#chatnelo-lang-switcher{position:relative}
+#chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer;transition:background .15s ease,transform .15s ease}
+#chatnelo-lang-current:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
+#chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#12173a;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 12px 32px rgba(0,0,0,.45);z-index:20}
+#chatnelo-lang-dropdown.open{display:flex}
+.chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left;transition:background .12s ease}
+.chatnelo-lang-option:hover{background:rgba(255,255,255,.14)}
+main{max-width:900px;margin:32px auto 48px;padding:36px;background:#fff;border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 12px 32px rgba(20,20,50,.06)}
+h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.8rem}
+.usage-card{margin-top:28px;padding:24px;border:1px solid #e6e8f0;border-radius:14px;background:linear-gradient(180deg,#fafbff,#f5f6fb)}
+.usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
+.usage-value{font-size:1.6rem;font-weight:700;background:linear-gradient(90deg,#7e22ce,#a855f7);-webkit-background-clip:text;background-clip:text;color:transparent}
+progress{width:100%;height:12px;margin:16px 0;accent-color:#a855f7;border-radius:8px;overflow:hidden}
+.muted{color:#637381;font-size:.92rem}
+table{width:100%;border-collapse:collapse;margin-top:20px;font-size:.92rem}
+th,td{padding:11px 9px;border-bottom:1px solid #e6e8f0;text-align:left}
+th{color:#637381;font-weight:600;font-size:.82rem;text-transform:uppercase;letter-spacing:.03em}
+tbody tr{transition:background .12s ease}
+tbody tr:hover{background:#fafbff}
+td button{background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:600;font-size:.88rem;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
+td button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(126,34,206,.35)}
+td button:active{transform:translateY(0)}
+.error{color:#b42318}
   </style>
 </head>
 <body>
@@ -1406,7 +1691,7 @@ app.get("/", (req, res) => {
       <progress id="usage-progress" max="70" value="0"></progress>
       <div class="muted" id="usage-period" data-i18n="root.caseHint">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
       <table>
-        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
+        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th><th></th></tr></thead>
         <tbody id="pricing-tiers"></tbody>
       </table>
     </section>
@@ -1430,8 +1715,38 @@ app.get("/", (req, res) => {
         }
         return originalFetch(resource, options);
       };
+      function escapeText(value) {
+        return String(value).replace(/[&<>"']/g, function (character) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character];
+        });
+      }
+      function readJson(response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok) throw new Error(data.error || "HTTP " + response.status);
+          return data;
+        });
+      }
+      document.getElementById("pricing-tiers").addEventListener("click", function (event) {
+        var button = event.target.closest("button[data-plan]");
+        if (!button) return;
+        button.disabled = true;
+        window.fetch("/api/billing/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan: button.getAttribute("data-plan") }),
+        })
+          .then(readJson)
+          .then(function (data) {
+            if (!data.confirmationUrl) throw new Error("Nepodařilo se zahájit platbu.");
+            window.open(data.confirmationUrl, "_top");
+          })
+          .catch(function (error) {
+            button.disabled = false;
+            window.alert(error.message || "Nepodařilo se zahájit platbu.");
+          });
+      });
       window.fetch("/api/bootstrap", { method: "POST" })
-        .then(function (response) { return response.json(); })
+        .then(readJson)
         .then(function (data) {
           if (!data.usage || !data.usage.enabled) {
             document.getElementById("usage-count").textContent = "Měření vypnuto";
@@ -1450,9 +1765,14 @@ app.get("/", (req, res) => {
           document.getElementById("usage-period").textContent = "Období " + start + " – " + end +
             ". Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.";
           document.getElementById("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
-            return "<tr><td>" + plan.name + "</td><td>" +
+            var isCurrent = usage.subscribed && usage.plan && plan.handle === usage.plan.handle;
+            return "<tr><td>" + escapeText(plan.name) + "</td><td>" +
               plan.limit.toLocaleString("cs-CZ") + "</td><td>" +
-              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td></tr>";
+              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td><td>" +
+              (isCurrent
+                ? '<span class="muted">Aktivní</span>'
+                : '<button type="button" data-plan="' + escapeText(plan.handle) + '">Vybrat</button>') +
+              "</td></tr>";
           }).join("");
         })
         .catch(function () {
@@ -1643,7 +1963,7 @@ app.post("/marketing/chat", async (req, res) => {
     res.json({ reply });
   } catch (error) {
     console.error("Marketing chat:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
@@ -1679,9 +1999,11 @@ app.post("/social/reply", async (req, res) => {
     res.json({ reply });
   } catch (error) {
     console.error("Social automation reply:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
+
+const PRIVACY_LAST_UPDATED = process.env.PRIVACY_LAST_UPDATED || "2026-10-02";
 
 app.get("/privacy", (req, res) => {
   const operator = {
@@ -1727,7 +2049,7 @@ app.get("/privacy", (req, res) => {
     <h1 data-i18n="privacy.title">Zásady ochrany osobních údajů</h1>
   </header>
   <main>
-    <p class="updated"><span data-i18n="privacy.updated">Poslední aktualizace</span>: ${new Date().toISOString().slice(0, 10)}</p>
+    <p class="updated"><span data-i18n="privacy.updated">Poslední aktualizace</span>: ${PRIVACY_LAST_UPDATED}</p>
     ${sectionsHtml}
   </main>
   <script>window.CHATNELO_OPERATOR = ${JSON.stringify(operator).replace(/</g, "\\u003c")};</script>
@@ -1784,7 +2106,13 @@ app.post("/store/signup", async (req, res) => {
     if (isSignupRateLimited(req.ip)) {
       return res.status(429).json({ error: "Příliš mnoho registrací, zkuste to prosím za chvíli znovu." });
     }
-    const { name, email } = validateSignupInput(req.body);
+    let signup;
+    try {
+      signup = validateSignupInput(req.body);
+    } catch (error) {
+      throw httpError(error.message, 400);
+    }
+    const { name, email } = signup;
     const id = generateStoreId();
     const apiKey = generateSecretKey();
     const adminKey = generateSecretKey();
@@ -1810,7 +2138,7 @@ app.post("/store/signup", async (req, res) => {
     });
   } catch (error) {
     console.error("Store signup:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
@@ -2073,7 +2401,7 @@ app.get("/store/:id", async (req, res) => {
     });
   } catch (error) {
     console.error("Store detail:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
@@ -2114,7 +2442,7 @@ app.post("/store/:id/checkout", async (req, res) => {
     res.json({ url: session.url });
   } catch (error) {
     console.error("Store checkout:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
@@ -2143,12 +2471,17 @@ app.post("/stripe/webhook", async (req, res) => {
 app.put("/store/:id/catalog", async (req, res) => {
   try {
     const store = await requireStoreAdmin(req);
-    const catalog = validateCatalogInput(req.body);
+    let catalog;
+    try {
+      catalog = validateCatalogInput(req.body);
+    } catch (error) {
+      throw httpError(error.message, 400);
+    }
     await saveStoreCatalog(store.id, catalog);
     res.json({ ok: true, catalog });
   } catch (error) {
     console.error("Store catalog update:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
@@ -2166,59 +2499,118 @@ app.options("/widget/chat", (req, res) => {
 
 app.post("/widget/chat", async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
+  if (isWidgetChatRateLimited(req.ip)) {
+    return res.status(429).json({ error: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu." });
+  }
   try {
     const store = await requireStoreApiKey(req.body);
     res.json(await answerGenericChat(store, req.body));
   } catch (error) {
     console.error("Widget chat:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
 app.post("/api/bootstrap", async (req, res) => {
   try {
-    const { shop, accessToken } = await getAdminAccess(req);
-    const usage = await getUsageSummary(shop, accessToken);
-    res.json({ ok: true, shop, usage });
+    const result = await withAdminAccess(req, async (shop, accessToken) => ({
+      ok: true,
+      shop,
+      usage: await getUsageSummary(shop, accessToken),
+    }));
+    res.json(result);
   } catch (error) {
     console.error("Bootstrap:", error);
-    res.status(401).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
 app.get("/api/usage", async (req, res) => {
   try {
-    const { shop, accessToken } = await getAdminAccess(req);
-    res.json(await getUsageSummary(shop, accessToken));
+    res.json(await withAdminAccess(req, (shop, accessToken) => getUsageSummary(shop, accessToken)));
   } catch (error) {
     console.error("Usage summary:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+app.post("/api/billing/subscribe", async (req, res) => {
+  try {
+    const plan = getPlan(req.body && req.body.plan);
+    if (!plan || !plan.public || !Number.isFinite(plan.priceUsd)) {
+      throw httpError("Neplatný tarif.", 400);
+    }
+    const result = await withAdminAccess(req, async (shop, accessToken) => {
+      const storeHandle = shop.replace(/\.myshopify\.com$/i, "");
+      const returnUrl = `https://admin.shopify.com/store/${storeHandle}/apps/${SHOPIFY_APP_HANDLE}`;
+      const isTest = String(process.env.SHOPIFY_BILLING_TEST_CHARGES || "").toLowerCase() === "true";
+      const mutation = `mutation($name: String!, $returnUrl: URL!, $test: Boolean, $lineItems: [AppSubscriptionLineItemInput!]!) {
+        appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: $test, lineItems: $lineItems) {
+          appSubscription { id }
+          confirmationUrl
+          userErrors { field message }
+        }
+      }`;
+      const variables = {
+        name: plan.name,
+        returnUrl,
+        test: isTest,
+        lineItems: [{
+          plan: {
+            appRecurringPricingDetails: {
+              price: { amount: plan.priceUsd, currencyCode: "USD" },
+              interval: "EVERY_30_DAYS",
+            },
+          },
+        }],
+      };
+      const data = await shopifyGraphql(shop, accessToken, mutation, variables);
+      return data && data.appSubscriptionCreate;
+    });
+    const userErrors = (result && result.userErrors) || [];
+    if (userErrors.length) {
+      throw httpError(userErrors.map((userError) => userError.message).join("; "), 400);
+    }
+    if (!result || !result.confirmationUrl) throw new Error("Shopify nevrátil odkaz na potvrzení platby.");
+    res.json({ confirmationUrl: result.confirmationUrl });
+  } catch (error) {
+    console.error("Billing subscribe:", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { shop, accessToken } = await getAdminAccess(req);
-    res.json(await answerChat(shop, accessToken, req.body));
+    res.json(await withAdminAccess(req, (shop, accessToken) => answerChat(shop, accessToken, req.body)));
   } catch (error) {
     console.error("Admin chat:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
+
+// Storefront chat uses the stored offline token. If Shopify rejects it, the
+// token is invalidated and refreshed once before giving up.
+async function answerStorefrontChat(shop, body, notConnectedMessage) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const accessToken = await getShopToken(shop);
+    if (!accessToken) throw httpError(notConnectedMessage, 503);
+    try {
+      return await answerChat(shop, accessToken, body);
+    } catch (error) {
+      if (!error.shopifyAuthFailed || attempt === 1) throw error;
+    }
+  }
+  throw httpError(notConnectedMessage, 503);
+}
 
 app.post("/proxy/chat", async (req, res) => {
   try {
     const shop = verifyAppProxy(req);
-    const accessToken = await getShopToken(shop);
-    if (!accessToken) {
-      return res.status(503).json({
-        error: "Asistent se právě připojuje. Správce obchodu musí jednou otevřít aplikaci Chatnelo v administraci.",
-      });
-    }
-    res.json(await answerChat(shop, accessToken, req.body));
+    res.json(await answerStorefrontChat(shop, req.body,
+      "Asistent se právě připojuje. Správce obchodu musí jednou otevřít aplikaci Chatnelo v administraci."));
   } catch (error) {
     console.error("Storefront chat:", error);
-    res.status(errorStatus(error)).json({ error: error.message });
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
@@ -2247,16 +2639,11 @@ app.post("/test-storefront/chat", async (req, res) => {
   }
 
   try {
-    const accessToken = await getShopToken(PASSWORD_PROTECTED_TEST_SHOP);
-    if (!accessToken) {
-      return res.status(503).json({
-        error: "Asistent se právě připojuje. Otevřete jednou aplikaci Chatnelo v administraci.",
-      });
-    }
-    return res.json(await answerChat(PASSWORD_PROTECTED_TEST_SHOP, accessToken, req.body));
+    return res.json(await answerStorefrontChat(PASSWORD_PROTECTED_TEST_SHOP, req.body,
+      "Asistent se právě připojuje. Otevřete jednou aplikaci Chatnelo v administraci."));
   } catch (error) {
     console.error("Password-protected test storefront chat:", error);
-    return res.status(errorStatus(error)).json({ error: error.message });
+    return res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
 
@@ -2277,15 +2664,46 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.use((req, res) => {
+  res.status(404).json({ error: "Nenalezeno." });
+});
+
+// Malformed JSON, oversized bodies and any other unhandled error: answer
+// with a short JSON message instead of Express's default HTML stack trace.
+// eslint-disable-next-line no-unused-vars
+app.use((error, req, res, _next) => {
+  const status = error.status || error.statusCode || 500;
+  if (status >= 500) console.error("Neošetřená chyba:", error);
+  const message = status === 413
+    ? "Požadavek je příliš velký."
+    : status === 400
+      ? "Neplatný formát požadavku."
+      : "Omlouváme se, nastala chyba.";
+  res.status(status).json({ error: message });
+});
+
 const port = Number(process.env.PORT) || 3000;
+let server = null;
+
 initializeDatabase()
   .catch((error) => {
     console.error("Databáze se nepřipojila:", error);
   })
   .finally(() => {
-    app.listen(port, "0.0.0.0", () => {
+    server = app.listen(port, "0.0.0.0", () => {
       console.log(`Chatnelo běží na portu ${port}`);
     });
+    setInterval(pruneRateLimits, 10 * 60 * 1000).unref();
+    setInterval(() => {
+      refreshExpiringShopTokens().catch((error) => {
+        console.error("Plánovaná obnova tokenů:", error);
+      });
+    }, 12 * 60 * 60 * 1000).unref();
+    setTimeout(() => {
+      refreshExpiringShopTokens().catch((error) => {
+        console.error("Plánovaná obnova tokenů:", error);
+      });
+    }, 60_000).unref();
     if (SHOPIFY_USAGE_BILLING_ENABLED) {
       setInterval(() => {
         flushPendingBillingEvents().catch((error) => {
@@ -2297,3 +2715,16 @@ initializeDatabase()
       }));
     }
   });
+
+function shutdown(signal) {
+  console.log(`${signal} přijat, ukončuji server.`);
+  const finish = () => {
+    if (!database) process.exit(0);
+    database.end().finally(() => process.exit(0));
+  };
+  if (server) server.close(finish);
+  else finish();
+  setTimeout(() => process.exit(0), 8000).unref();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
