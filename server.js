@@ -40,6 +40,11 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   next();
 });
+// public/index.html is a leftover local demo page; never serve it.
+app.use((req, res, next) => {
+  if (req.path === "/index.html") return res.status(404).json({ error: "Nenalezeno." });
+  return next();
+});
 app.use(express.static(path.join(__dirname, "public"), { index: false, maxAge: "1h" }));
 // Pages outside the Shopify admin must never be framed. The embedded admin
 // page ("/") overrides this with the shop-specific frame-ancestors below.
@@ -1084,7 +1089,9 @@ app.post("/webhooks", async (req, res) => {
 
   try {
     if (topic === "app/uninstalled") {
-      await deleteShopData(shop, false);
+      // The privacy policy promises removal of the token and usage history
+      // within minutes of uninstalling, so delete both right away.
+      await deleteShopData(shop, true);
     } else if (topic === "shop/redact") {
       await deleteShopData(shop, true);
     } else if (!COMPLIANCE_TOPICS.includes(topic)) {
@@ -1285,9 +1292,10 @@ async function loadActiveSubscription(shop, accessToken) {
   return data.currentAppInstallation.activeSubscriptions[0] || null;
 }
 
-async function loadCatalog(shop, accessToken) {
+async function loadCatalog(shop, accessToken, searchText = "") {
   const query = `{
     products(first: 50, sortKey: TITLE, query: "status:active") {
+      pageInfo { hasNextPage }
       nodes {
         title
         handle
@@ -1324,20 +1332,70 @@ async function loadCatalog(shop, accessToken) {
   }`;
 
   const data = await shopifyGraphql(shop, accessToken, query);
+  let nodes = data.products.nodes;
+
+  // Larger catalogs: add products matching the customer's words, so the
+  // assistant is not limited to the first 50 products alphabetically.
+  const terms = searchTermsFrom(searchText);
+  if (data.products.pageInfo?.hasNextPage && terms.length) {
+    const searchQuery = `status:active AND (${terms.map((term) => `${term}*`).join(" OR ")})`;
+    const found = await shopifyGraphql(shop, accessToken, `query($q: String!) {
+      products(first: 30, query: $q) {
+        nodes {
+          title
+          handle
+          status
+          productType
+          vendor
+          description
+          variants(first: 50) {
+            nodes { title price compareAtPrice inventoryQuantity availableForSale sku }
+          }
+        }
+      }
+    }`, { q: searchQuery }).catch((error) => {
+      console.warn("Vyhledání produktů selhalo:", error.message);
+      return null;
+    });
+    if (found) {
+      const seen = new Set(nodes.map((product) => product.handle));
+      nodes = found.products.nodes.filter((product) => !seen.has(product.handle)).concat(nodes);
+    }
+  }
+
   return {
     shop: data.shop,
     subscription: data.currentAppInstallation.activeSubscriptions[0] || null,
-    products: data.products.nodes.map((product) => ({
+    products: nodes.map((product) => ({
       title: product.title,
       handle: product.handle,
       status: product.status,
       type: product.productType,
       vendor: product.vendor,
-      description: product.description,
+      description: String(product.description || "").slice(0, 600),
       variants: product.variants.nodes,
     })),
   };
 }
+
+function searchTermsFrom(text) {
+  const words = String(text || "")
+    .toLowerCase()
+    .normalize("NFC")
+    .match(/[\p{L}\p{N}]{3,}/gu) || [];
+  return [...new Set(words)]
+    .filter((word) => !SEARCH_STOP_WORDS.has(word))
+    .slice(0, 6)
+    // Crude stemming so Czech plurals and cases still prefix-match
+    // ("snowboardy" -> "snowboar*").
+    .map((word) => (word.length > 5 ? word.slice(0, word.length - 2) : word));
+}
+
+const SEARCH_STOP_WORDS = new Set([
+  "máte", "mate", "jaké", "jake", "jaký", "jaky", "které", "ktere", "skladem", "prosím", "prosim",
+  "kolik", "stojí", "stoji", "chci", "hledám", "hledam", "nějaké", "nejake", "pro", "the", "and",
+  "have", "you", "what", "which", "stock", "with", "do", "jak", "kde", "kdy", "ještě", "jeste",
+]);
 
 function validateChatBody(body) {
   const message = typeof body?.message === "string" ? body.message.trim() : "";
@@ -1365,11 +1423,26 @@ function validateChatBody(body) {
   return { caseId, message, history };
 }
 
+// The chat widgets show plain text, so strip the Markdown the model sometimes
+// produces anyway (bold, headings, bullet stars, links).
+function toPlainText(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^(\s*)[*+]\s+/gm, "$1• ")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, "$1 ($2)")
+    .replace(/`([^`]+)`/g, "$1")
+    .trim();
+}
+
+const PLAIN_TEXT_RULE = "Piš prostý text bez Markdownu (žádné **, #, ani hvězdičkové odrážky); pro výčty používej číslované řádky.";
+
 async function callOpenAiChat(system, message, history) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY není nastaven.");
 
   const messages = [
-    { role: "system", content: system },
+    { role: "system", content: `${system}\n${PLAIN_TEXT_RULE}` },
     ...history,
   ];
   if (history.at(-1)?.role !== "user" || history.at(-1)?.content !== message) {
@@ -1394,7 +1467,8 @@ async function callOpenAiChat(system, message, history) {
     console.error("OpenAI:", response.status, data.error?.message);
     throw httpError("AI služba je dočasně nedostupná. Zkuste to prosím za chvíli.", 503);
   }
-  return data.choices?.[0]?.message?.content?.trim() || "Omlouvám se, odpověď se nepodařilo vytvořit.";
+  const content = data.choices?.[0]?.message?.content?.trim();
+  return content ? toPlainText(content) : "Omlouvám se, odpověď se nepodařilo vytvořit.";
 }
 
 function shopifySystemPrompt(catalog) {
@@ -1480,9 +1554,9 @@ async function generateMarketingAnswer(message, history) {
   return callOpenAiChat(marketingSystemPrompt(), message, history);
 }
 
-async function answerChat(shop, accessToken, body) {
+async function answerChat(shop, accessToken, body, { metered = true } = {}) {
   const { caseId, message, history } = validateChatBody(body);
-  const catalog = await loadCatalog(shop, accessToken);
+  const catalog = await loadCatalog(shop, accessToken, message);
   if (SHOPIFY_SUBSCRIPTION_REQUIRED && !catalog.subscription) {
     const error = new Error("Obchod nemá aktivní předplatné Chatnelo.");
     error.statusCode = 402;
@@ -1490,7 +1564,9 @@ async function answerChat(shop, accessToken, body) {
   }
   await saveShopIdentity(shop, catalog.shop.id);
   const plan = planForSubscription(catalog.subscription);
-  const reservation = await reserveUsage(shop, catalog.shop.id, catalog.subscription, caseId);
+  const reservation = metered
+    ? await reserveUsage(shop, catalog.shop.id, catalog.subscription, caseId)
+    : null;
   try {
     const reply = await generateAnswer(catalog, message, history);
     await finalizeUsageReservation(reservation);
@@ -1666,6 +1742,10 @@ tbody tr:hover{background:#fafbff}
 td button{background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;border:0;padding:8px 16px;border-radius:8px;font-weight:600;font-size:.88rem;cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
 td button:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(126,34,206,.35)}
 td button:active{transform:translateY(0)}
+.setup-card{margin-top:22px;padding:20px 22px;border:1px solid #e6e8f0;border-left:4px solid #a855f7;border-radius:14px;background:#fff}
+.setup-card p{margin:6px 0 14px}
+.setup-button{display:inline-block;background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;text-decoration:none;padding:9px 16px;border-radius:8px;font-weight:600;font-size:.9rem}
+.setup-button:hover{box-shadow:0 4px 12px rgba(126,34,206,.35)}
 .error{color:#b42318}
   </style>
 </head>
@@ -1677,110 +1757,171 @@ td button:active{transform:translateY(0)}
   <main>
     <h1>Chatnelo</h1>
     <p data-i18n="root.intro">Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
+    <section class="setup-card">
+      <strong id="setup-title">Zapněte chat ve svém obchodě</strong>
+      <p class="muted" id="setup-text">Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit).</p>
+      <a id="setup-link" class="setup-button" href="#" target="_top">Otevřít editor šablony</a>
+    </section>
     <section class="usage-card" aria-live="polite">
       <div class="usage-row">
         <div>
           <strong data-i18n="root.usageCardTitle">Spotřeba v tomto období</strong>
-          <div class="usage-value" id="usage-count" data-i18n="root.loading">Načítám…</div>
+          <div class="usage-value" id="usage-count">Načítám…</div>
         </div>
         <div>
-          <strong id="plan-name" data-i18n="root.planPriceLabel">Cena tarifu</strong>
+          <strong id="plan-name">Cena tarifu</strong>
           <div class="usage-value" id="usage-price">—</div>
         </div>
       </div>
       <progress id="usage-progress" max="70" value="0"></progress>
-      <div class="muted" id="usage-period" data-i18n="root.caseHint">Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.</div>
+      <div class="muted" id="usage-period"></div>
       <table>
         <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th><th></th></tr></thead>
         <tbody id="pricing-tiers"></tbody>
       </table>
+      <p class="muted" id="billing-note"></p>
     </section>
   </main>
   <script src="/i18n.js"></script>
   <script>
     window.CHATBOT_API = "";
-    window.addEventListener("DOMContentLoaded", function () {
-      var originalFetch = window.fetch.bind(window);
-      window.fetch = async function (resource, options) {
-        var url = typeof resource === "string" ? resource : (resource && resource.url) || "";
-        if (url.indexOf("/api/") !== -1 && window.shopify && window.shopify.idToken) {
-          var token = await Promise.race([
-            window.shopify.idToken(),
-            new Promise(function (_, reject) { setTimeout(function () { reject(new Error("idToken timeout")); }, 8000); }),
-          ]);
-          options = options || {};
-          var headers = new Headers(options.headers || {});
-          headers.set("Authorization", "Bearer " + token);
-          options.headers = headers;
-        }
-        return originalFetch(resource, options);
+    (function () {
+      var STRINGS = {
+        cs: { loading: "Načítám…", loadError: "Nelze načíst", meteringOff: "Měření vypnuto", plan: "Tarif", planPrice: "Cena tarifu", period: "Období", caseHint: "Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.", select: "Vybrat", active: "Aktivní", payError: "Nepodařilo se zahájit platbu.", setupTitle: "Zapněte chat ve svém obchodě", setupText: "Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit).", setupButton: "Otevřít editor šablony", billingNote: "Platba probíhá přes Shopify v USD; částka v Kč je orientační.", noSubscription: "Zatím bez placeného tarifu" },
+        en: { loading: "Loading…", loadError: "Could not load", meteringOff: "Metering disabled", plan: "Plan", planPrice: "Plan price", period: "Period", caseHint: "One case is one chat thread with a successful answer.", select: "Select", active: "Active", payError: "Could not start the payment.", setupTitle: "Turn on the chat in your store", setupText: "Customers see the chat once you enable it in the theme editor (App embeds → Chatnelo Chat → Save).", setupButton: "Open theme editor", billingNote: "Billing is handled by Shopify in USD; CZK amounts are approximate.", noSubscription: "No paid plan yet" },
+        sk: { loading: "Načítavam…", loadError: "Nepodarilo sa načítať", meteringOff: "Meranie vypnuté", plan: "Tarif", planPrice: "Cena tarifu", period: "Obdobie", caseHint: "Jeden prípad je jedno chatové vlákno s úspešnou odpoveďou.", select: "Vybrať", active: "Aktívny", payError: "Platbu sa nepodarilo spustiť.", setupTitle: "Zapnite chat vo svojom obchode", setupText: "Chat sa zákazníkom zobrazí až po zapnutí v editore šablóny (Vloženia aplikácií → Chatnelo Chat → Uložiť).", setupButton: "Otvoriť editor šablóny", billingNote: "Platba prebieha cez Shopify v USD; suma v Kč je orientačná.", noSubscription: "Zatiaľ bez plateného tarifu" },
+        de: { loading: "Wird geladen…", loadError: "Konnte nicht geladen werden", meteringOff: "Messung deaktiviert", plan: "Tarif", planPrice: "Tarifpreis", period: "Zeitraum", caseHint: "Ein Fall ist ein Chat-Verlauf mit erfolgreicher Antwort.", select: "Auswählen", active: "Aktiv", payError: "Zahlung konnte nicht gestartet werden.", setupTitle: "Chat im Shop aktivieren", setupText: "Kunden sehen den Chat, sobald Sie ihn im Theme-Editor aktivieren (App-Einbettungen → Chatnelo Chat → Speichern).", setupButton: "Theme-Editor öffnen", billingNote: "Die Abrechnung erfolgt über Shopify in USD; CZK-Beträge sind Richtwerte.", noSubscription: "Noch kein bezahlter Tarif" },
+        pl: { loading: "Ładowanie…", loadError: "Nie udało się wczytać", meteringOff: "Pomiar wyłączony", plan: "Plan", planPrice: "Cena planu", period: "Okres", caseHint: "Jeden przypadek to jeden wątek czatu z udaną odpowiedzią.", select: "Wybierz", active: "Aktywny", payError: "Nie udało się rozpocząć płatności.", setupTitle: "Włącz czat w sklepie", setupText: "Klienci zobaczą czat po włączeniu go w edytorze motywu (Osadzenia aplikacji → Chatnelo Chat → Zapisz).", setupButton: "Otwórz edytor motywu", billingNote: "Płatność obsługuje Shopify w USD; kwoty w CZK są orientacyjne.", noSubscription: "Brak płatnego planu" },
       };
+      var LOCALES = { cs: "cs-CZ", en: "en-US", sk: "sk-SK", de: "de-DE", pl: "pl-PL" };
+      var state = { data: null, error: false };
+
+      function lang() { return STRINGS[window.CHATNELO_LANG] ? window.CHATNELO_LANG : "cs"; }
+      function t(key) { return STRINGS[lang()][key] || STRINGS.cs[key]; }
+      function locale() { return LOCALES[lang()]; }
+      function byId(id) { return document.getElementById(id); }
       function escapeText(value) {
         return String(value).replace(/[&<>"']/g, function (character) {
           return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[character];
         });
       }
-      function readJson(response) {
-        return response.json().catch(function () { return {}; }).then(function (data) {
-          if (!response.ok) throw new Error(data.error || "HTTP " + response.status);
-          return data;
-        });
+      function formatMoney(amount, currency) {
+        return new Intl.NumberFormat(locale(), { style: "currency", currency: currency, maximumFractionDigits: currency === "CZK" ? 0 : 2 }).format(amount);
       }
-      document.getElementById("pricing-tiers").addEventListener("click", function (event) {
-        var button = event.target.closest("button[data-plan]");
-        if (!button) return;
-        button.disabled = true;
-        window.fetch("/api/billing/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan: button.getAttribute("data-plan") }),
-        })
-          .then(readJson)
-          .then(function (data) {
-            if (!data.confirmationUrl) throw new Error("Nepodařilo se zahájit platbu.");
-            window.open(data.confirmationUrl, "_top");
-          })
-          .catch(function (error) {
-            button.disabled = false;
-            window.alert(error.message || "Nepodařilo se zahájit platbu.");
-          });
-      });
-      window.fetch("/api/bootstrap", { method: "POST" })
-        .then(readJson)
-        .then(function (data) {
-          if (!data.usage || !data.usage.enabled) {
-            document.getElementById("usage-count").textContent = "Měření vypnuto";
-            return;
-          }
-          var usage = data.usage;
-          document.getElementById("usage-count").textContent = usage.usage + " / " + usage.limit;
-          document.getElementById("plan-name").textContent = "Tarif " + usage.plan.name;
-          document.getElementById("usage-price").textContent = new Intl.NumberFormat("cs-CZ", {
-            style: "currency", currency: "CZK", maximumFractionDigits: 0
-          }).format(usage.monthlyPriceCzk);
-          document.getElementById("usage-progress").max = usage.limit;
-          document.getElementById("usage-progress").value = usage.usage;
-          var start = new Date(usage.periodStart).toLocaleDateString("cs-CZ");
-          var end = new Date(usage.periodEnd).toLocaleDateString("cs-CZ");
-          document.getElementById("usage-period").textContent = "Období " + start + " – " + end +
-            ". Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.";
-          document.getElementById("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
-            var isCurrent = usage.subscribed && usage.plan && plan.handle === usage.plan.handle;
-            return "<tr><td>" + escapeText(plan.name) + "</td><td>" +
-              plan.limit.toLocaleString("cs-CZ") + "</td><td>" +
-              plan.priceCzk.toLocaleString("cs-CZ") + " Kč</td><td>" +
-              (isCurrent
-                ? '<span class="muted">Aktivní</span>'
-                : '<button type="button" data-plan="' + escapeText(plan.handle) + '">Vybrat</button>') +
-              "</td></tr>";
-          }).join("");
-        })
-        .catch(function () {
-          var counter = document.getElementById("usage-count");
-          counter.textContent = "Nelze načíst";
+      function planPrice(plan) {
+        var czk = formatMoney(plan.priceCzk, "CZK");
+        return typeof plan.priceUsd === "number" ? formatMoney(plan.priceUsd, "USD") + " (≈ " + czk + ")" : czk;
+      }
+
+      function render() {
+        byId("setup-title").textContent = t("setupTitle");
+        byId("setup-text").textContent = t("setupText");
+        byId("setup-link").textContent = t("setupButton");
+        byId("billing-note").textContent = t("billingNote");
+        var counter = byId("usage-count");
+        if (state.error) {
+          counter.textContent = t("loadError");
           counter.classList.add("error");
+          return;
+        }
+        if (!state.data) {
+          counter.textContent = t("loading");
+          byId("plan-name").textContent = t("planPrice");
+          byId("usage-period").textContent = t("caseHint");
+          return;
+        }
+        var data = state.data;
+        if (data.shop && data.apiKey) {
+          var storeHandle = data.shop.replace(/\\.myshopify\\.com$/i, "");
+          byId("setup-link").href = "https://admin.shopify.com/store/" + encodeURIComponent(storeHandle) +
+            "/themes/current/editor?context=apps&template=index&activateAppId=" +
+            encodeURIComponent(data.apiKey) + "/eshop-assistant-chat";
+        }
+        var usage = data.usage;
+        if (!usage || !usage.enabled) {
+          counter.textContent = t("meteringOff");
+          return;
+        }
+        counter.textContent = usage.usage + " / " + usage.limit;
+        byId("plan-name").textContent = usage.subscribed
+          ? t("plan") + " " + usage.plan.name
+          : t("noSubscription");
+        byId("usage-price").textContent = usage.subscribed ? planPrice(usage.plan) : "—";
+        byId("usage-progress").max = usage.limit;
+        byId("usage-progress").value = usage.usage;
+        var start = new Date(usage.periodStart).toLocaleDateString(locale());
+        var end = new Date(usage.periodEnd).toLocaleDateString(locale());
+        byId("usage-period").textContent = t("period") + " " + start + " – " + end + ". " + t("caseHint");
+        byId("pricing-tiers").innerHTML = usage.plans.map(function (plan) {
+          var isCurrent = usage.subscribed && usage.plan && plan.handle === usage.plan.handle;
+          return "<tr><td>" + escapeText(plan.name) + "</td><td>" +
+            plan.limit.toLocaleString(locale()) + "</td><td>" +
+            escapeText(planPrice(plan)) + "</td><td>" +
+            (isCurrent
+              ? '<span class="muted">' + escapeText(t("active")) + "</span>"
+              : '<button type="button" data-plan="' + escapeText(plan.handle) + '">' + escapeText(t("select")) + "</button>") +
+            "</td></tr>";
+        }).join("");
+      }
+
+      document.addEventListener("chatnelo:langchange", render);
+
+      window.addEventListener("DOMContentLoaded", function () {
+        // App Bridge occasionally never settles idToken(); bound it so the
+        // page and the preview chat fail visibly instead of hanging.
+        if (window.shopify && typeof window.shopify.idToken === "function") {
+          var originalIdToken = window.shopify.idToken.bind(window.shopify);
+          window.shopify.idToken = function () {
+            return Promise.race([
+              originalIdToken(),
+              new Promise(function (_, reject) { setTimeout(function () { reject(new Error("idToken timeout")); }, 8000); }),
+            ]);
+          };
+        }
+        var originalFetch = window.fetch.bind(window);
+        window.fetch = async function (resource, options) {
+          var url = typeof resource === "string" ? resource : (resource && resource.url) || "";
+          if (url.indexOf("/api/") !== -1 && window.shopify && window.shopify.idToken) {
+            var token = await window.shopify.idToken();
+            options = options || {};
+            var headers = new Headers(options.headers || {});
+            headers.set("Authorization", "Bearer " + token);
+            options.headers = headers;
+          }
+          return originalFetch(resource, options);
+        };
+        function readJson(response) {
+          return response.json().catch(function () { return {}; }).then(function (data) {
+            if (!response.ok) throw new Error(data.error || "HTTP " + response.status);
+            return data;
+          });
+        }
+        byId("pricing-tiers").addEventListener("click", function (event) {
+          var button = event.target.closest("button[data-plan]");
+          if (!button) return;
+          button.disabled = true;
+          window.fetch("/api/billing/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan: button.getAttribute("data-plan") }),
+          })
+            .then(readJson)
+            .then(function (data) {
+              if (!data.confirmationUrl) throw new Error(t("payError"));
+              window.open(data.confirmationUrl, "_top");
+            })
+            .catch(function (error) {
+              button.disabled = false;
+              window.alert(error.message || t("payError"));
+            });
         });
-    });
+        render();
+        window.fetch("/api/bootstrap", { method: "POST" })
+          .then(readJson)
+          .then(function (data) { state.data = data; render(); })
+          .catch(function () { state.error = true; render(); });
+      });
+    })();
   </script>
   <script src="/widget.js" defer></script>
 </body>
@@ -2516,6 +2657,7 @@ app.post("/api/bootstrap", async (req, res) => {
     const result = await withAdminAccess(req, async (shop, accessToken) => ({
       ok: true,
       shop,
+      apiKey: SHOPIFY_CLIENT_ID,
       usage: await getUsageSummary(shop, accessToken),
     }));
     res.json(result);
@@ -2581,7 +2723,8 @@ app.post("/api/billing/subscribe", async (req, res) => {
 
 app.post("/api/chat", async (req, res) => {
   try {
-    res.json(await withAdminAccess(req, (shop, accessToken) => answerChat(shop, accessToken, req.body)));
+    res.json(await withAdminAccess(req, (shop, accessToken) =>
+      answerChat(shop, accessToken, req.body, { metered: false })));
   } catch (error) {
     console.error("Admin chat:", error);
     res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });

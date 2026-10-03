@@ -36,11 +36,11 @@ const FAQ = [
   },
   {
     question: "Kolik to stojí?",
-    answer: "Pět samoobslužných tarifů s pevnou měsíční cenou, ne platbou za jednotlivou zprávu: Start 70 za 379 Kč, Basic 150 za 779 Kč, Growth 400 za 1 570 Kč, Pro 1000 za 3 490 Kč a Business 5000 za 7 990 Kč. Číslo v názvu je měsíční limit vyřešených případů, ne cena za jeden. Pro větší provoz jsou k dispozici i vyšší tarify na vyžádání.",
+    answer: "Pět samoobslužných tarifů s pevnou měsíční cenou, ne platbou za jednotlivou zprávu: Start 70 za 379 Kč, Basic 150 za 779 Kč, Growth 400 za 1 570 Kč, Pro 1000 za 3 490 Kč a Business 5000 za 7 990 Kč. Číslo v názvu je měsíční limit vyřešených případů, ne cena za jeden. Na Shopify se platí přes Shopify v USD (částky v Kč jsou orientační). Pro větší provoz jsou k dispozici i vyšší tarify na vyžádání.",
   },
   {
     question: "Musím appku programovat nebo upravovat šablonu obchodu?",
-    answer: "Ne. Na Shopify appka sama přidá chat widget do vašeho obchodu po instalaci ze Shopify App Store. Mimo Shopify stačí vložit jeden řádek se <script> kódem, který dostanete po registraci v řídicím panelu — žádný zásah do kódu šablony ani programování není potřeba.",
+    answer: "Ne. Na Shopify po instalaci jen jednou zapnete chat v editoru šablony (Vložení aplikací → Chatnelo Chat) — appka vám k tomu v administraci dá přímý odkaz. Mimo Shopify stačí vložit jeden řádek se <script> kódem, který dostanete po registraci v řídicím panelu. Programovat ani upravovat kód šablony není potřeba.",
   },
   {
     question: "Jak appku nasadím na web mimo Shopify?",
