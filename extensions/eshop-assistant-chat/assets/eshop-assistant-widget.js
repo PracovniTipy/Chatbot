@@ -1,71 +1,133 @@
 (function () {
-    if (window.__ESHOP_ASSISTANT_LOADED__) return;
-    window.__ESHOP_ASSISTANT_LOADED__ = true;
+  if (window.__ESHOP_ASSISTANT_LOADED__) return;
+  window.__ESHOP_ASSISTANT_LOADED__ = true;
 
-   var api = window.ESHOP_ASSISTANT_API || "/apps/eshop-assistant/chat";
-    var fallbackApi = window.ESHOP_ASSISTANT_FALLBACK_API || "";
-    var color = window.ESHOP_ASSISTANT_COLOR || "#173b70";
-    var title = window.ESHOP_ASSISTANT_TITLE || "Zeptejte se nás";
-    var greeting = window.ESHOP_ASSISTANT_GREETING ||
-          "Dobrý den, jsem asistent tohoto e-shopu. Zeptejte se na produkty nebo jejich dostupnost.";
-    var history = [];
-    var caseStorageKey = "eshop-assistant-case-v1";
-    var caseTtlMs = 24 * 60 * 60 * 1000;
+  var MASCOT_URL = "https://chatbot-production-6b09.up.railway.app/mascot.png";
 
-   function newCaseId() {
-         if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
-         return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (character) {
-                 var random = Math.floor(Math.random() * 16);
-                 var value = character === "x" ? random : (random & 3) | 8;
-                 return value.toString(16);
-         });
-   }
+  // UI strings follow the storefront language (<html lang>), Czech fallback
+  // for cs/sk, English for everything else.
+  var UI = {
+    cs: {
+      title: "Zeptejte se nás",
+      greeting: "Dobrý den, jsem asistent tohoto e-shopu. Zeptejte se na produkty nebo jejich dostupnost.",
+      open: "Otevřít chat", close: "Zavřít chat", newChat: "Nový chat", newChatAria: "Založit nový chat",
+      confirmReset: "Klikněte znovu pro potvrzení", confirmResetAria: "Opravdu smazat historii? Klikněte znovu pro potvrzení",
+      placeholder: "Napište zprávu…", message: "Zpráva", send: "Odeslat", sending: "Odesílám", typing: "Asistent píše odpověď",
+      offline: "Chatbot právě neodpovídá. Zkuste to prosím za chvíli.", incomplete: "Chatbot vrátil neúplnou odpověď.",
+      busy: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu.", generic: "Omlouvám se, nastala chyba.",
+    },
+    sk: {
+      title: "Opýtajte sa nás",
+      greeting: "Dobrý deň, som asistent tohto e-shopu. Opýtajte sa na produkty alebo ich dostupnosť.",
+      open: "Otvoriť chat", close: "Zavrieť chat", newChat: "Nový chat", newChatAria: "Založiť nový chat",
+      confirmReset: "Kliknite znova pre potvrdenie", confirmResetAria: "Naozaj zmazať históriu? Kliknite znova pre potvrdenie",
+      placeholder: "Napíšte správu…", message: "Správa", send: "Odoslať", sending: "Odosielam", typing: "Asistent píše odpoveď",
+      offline: "Chatbot práve neodpovedá. Skúste to prosím o chvíľu.", incomplete: "Chatbot vrátil neúplnú odpoveď.",
+      busy: "Príliš veľa otázok, skúste to prosím o chvíľu znova.", generic: "Ospravedlňujem sa, nastala chyba.",
+    },
+    de: {
+      title: "Fragen Sie uns",
+      greeting: "Hallo, ich bin der Assistent dieses Shops. Fragen Sie nach Produkten oder deren Verfügbarkeit.",
+      open: "Chat öffnen", close: "Chat schließen", newChat: "Neuer Chat", newChatAria: "Neuen Chat starten",
+      confirmReset: "Zum Bestätigen erneut klicken", confirmResetAria: "Verlauf wirklich löschen? Zum Bestätigen erneut klicken",
+      placeholder: "Nachricht schreiben…", message: "Nachricht", send: "Senden", sending: "Sende", typing: "Der Assistent schreibt",
+      offline: "Der Chat antwortet gerade nicht. Bitte versuchen Sie es gleich noch einmal.", incomplete: "Unvollständige Antwort erhalten.",
+      busy: "Zu viele Anfragen, bitte versuchen Sie es gleich noch einmal.", generic: "Entschuldigung, es ist ein Fehler aufgetreten.",
+    },
+    pl: {
+      title: "Zapytaj nas",
+      greeting: "Dzień dobry, jestem asystentem tego sklepu. Zapytaj o produkty lub ich dostępność.",
+      open: "Otwórz czat", close: "Zamknij czat", newChat: "Nowy czat", newChatAria: "Rozpocznij nowy czat",
+      confirmReset: "Kliknij ponownie, aby potwierdzić", confirmResetAria: "Na pewno usunąć historię? Kliknij ponownie, aby potwierdzić",
+      placeholder: "Napisz wiadomość…", message: "Wiadomość", send: "Wyślij", sending: "Wysyłam", typing: "Asystent pisze odpowiedź",
+      offline: "Czat chwilowo nie odpowiada. Spróbuj ponownie za chwilę.", incomplete: "Otrzymano niepełną odpowiedź.",
+      busy: "Zbyt wiele pytań, spróbuj ponownie za chwilę.", generic: "Przepraszamy, wystąpił błąd.",
+    },
+    en: {
+      title: "Ask us",
+      greeting: "Hi, I'm this store's assistant. Ask me about products or their availability.",
+      open: "Open chat", close: "Close chat", newChat: "New chat", newChatAria: "Start a new chat",
+      confirmReset: "Click again to confirm", confirmResetAria: "Clear the conversation? Click again to confirm",
+      placeholder: "Type a message…", message: "Message", send: "Send", sending: "Sending", typing: "The assistant is typing",
+      offline: "The chat is not responding right now. Please try again in a moment.", incomplete: "The chat returned an incomplete answer.",
+      busy: "Too many questions, please try again in a moment.", generic: "Sorry, something went wrong.",
+    },
+  };
+  var langCode = String(document.documentElement.lang || "en").toLowerCase().split("-")[0];
+  var T = UI[langCode] || UI.en;
 
- function loadCase() {
-   try {
-     var stored = JSON.parse(window.localStorage.getItem(caseStorageKey) || "null");
-     if (stored && stored.id && Date.now() - stored.touchedAt < caseTtlMs) return stored;
-   } catch (_) {}
-   return { id: newCaseId(), touchedAt: Date.now() };
- }
+  // The theme editor stores the Czech defaults when the merchant never edits
+  // them; on non-Czech storefronts show the localized default instead.
+  var CZECH_DEFAULT_TITLE = UI.cs.title;
+  var CZECH_DEFAULT_GREETING = UI.cs.greeting;
+  function localizedSetting(value, czechDefault, localized) {
+    if (!value) return localized;
+    return value === czechDefault ? localized : value;
+  }
 
- var activeCase = loadCase();
+  var api = window.ESHOP_ASSISTANT_API || "/apps/eshop-assistant/chat";
+  var fallbackApi = window.ESHOP_ASSISTANT_FALLBACK_API || "";
+  var color = window.ESHOP_ASSISTANT_COLOR || "#173b70";
+  var title = localizedSetting(window.ESHOP_ASSISTANT_TITLE, CZECH_DEFAULT_TITLE, T.title);
+  var greeting = localizedSetting(window.ESHOP_ASSISTANT_GREETING, CZECH_DEFAULT_GREETING, T.greeting);
+  var history = [];
+  var caseStorageKey = "eshop-assistant-case-v1";
+  var caseTtlMs = 24 * 60 * 60 * 1000;
 
- function saveCase() {
-   activeCase.touchedAt = Date.now();
-   try { window.localStorage.setItem(caseStorageKey, JSON.stringify(activeCase)); } catch (_) {}
- }
+  function newCaseId() {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (character) {
+      var random = Math.floor(Math.random() * 16);
+      var value = character === "x" ? random : (random & 3) | 8;
+      return value.toString(16);
+    });
+  }
 
- function ensureActiveCase() {
-   if (Date.now() - activeCase.touchedAt >= caseTtlMs) {
-     activeCase = { id: newCaseId(), touchedAt: Date.now() };
-     history = [];
-   }
-   saveCase();
- }
+  function loadCase() {
+    try {
+      var stored = JSON.parse(window.localStorage.getItem(caseStorageKey) || "null");
+      if (stored && stored.id && Date.now() - stored.touchedAt < caseTtlMs) return stored;
+    } catch (_) {}
+    return { id: newCaseId(), touchedAt: Date.now() };
+  }
 
- function hexToRgb(hex) {
-   var match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
-   if (!match) return "23,59,112";
-   return parseInt(match[1], 16) + "," + parseInt(match[2], 16) + "," + parseInt(match[3], 16);
- }
+  var activeCase = loadCase();
 
- function shadeColor(hex, percent) {
-   var match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
-   if (!match) return hex;
-   var amt = Math.round(2.55 * percent);
-   var clamp = function (value) { return value > 255 ? 255 : value < 0 ? 0 : value; };
-   var r = clamp(parseInt(match[1], 16) + amt);
-   var g = clamp(parseInt(match[2], 16) + amt);
-   var b = clamp(parseInt(match[3], 16) + amt);
-   var toHex = function (value) { var h = value.toString(16); return h.length === 1 ? "0" + h : h; };
-   return "#" + toHex(r) + toHex(g) + toHex(b);
- }
+  function saveCase() {
+    activeCase.touchedAt = Date.now();
+    try { window.localStorage.setItem(caseStorageKey, JSON.stringify(activeCase)); } catch (_) {}
+  }
 
- var colorRgb = hexToRgb(color);
+  function ensureActiveCase() {
+    if (Date.now() - activeCase.touchedAt >= caseTtlMs) {
+      activeCase = { id: newCaseId(), touchedAt: Date.now() };
+      history = [];
+    }
+    saveCase();
+  }
+
+  function hexToRgb(hex) {
+    var match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
+    if (!match) return "23,59,112";
+    return parseInt(match[1], 16) + "," + parseInt(match[2], 16) + "," + parseInt(match[3], 16);
+  }
+
+  function shadeColor(hex, percent) {
+    var match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || "");
+    if (!match) return hex;
+    var amt = Math.round(2.55 * percent);
+    var clamp = function (value) { return value > 255 ? 255 : value < 0 ? 0 : value; };
+    var r = clamp(parseInt(match[1], 16) + amt);
+    var g = clamp(parseInt(match[2], 16) + amt);
+    var b = clamp(parseInt(match[3], 16) + amt);
+    var toHex = function (value) { var h = value.toString(16); return h.length === 1 ? "0" + h : h; };
+    return "#" + toHex(r) + toHex(g) + toHex(b);
+  }
+
+  var colorRgb = hexToRgb(color);
   var colorDark = shadeColor(color, -14);
 
- var style = document.createElement("style");
+  var style = document.createElement("style");
   style.textContent =
     "#ea-bubble{position:fixed;right:22px;bottom:22px;width:60px;height:60px;border:0;border-radius:50%;background:linear-gradient(135deg," + color + "," + colorDark + ");color:#fff;cursor:pointer;z-index:2147483646;box-shadow:0 8px 24px rgba(0,0,0,.25),0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s ease;animation:ea-pop .4s cubic-bezier(.34,1.56,.64,1)}" +
     "#ea-bubble:hover{transform:scale(1.08);box-shadow:0 10px 28px rgba(0,0,0,.3),0 3px 10px rgba(0,0,0,.2)}" +
@@ -74,7 +136,7 @@
     "#ea-bubble.ea-attention{animation:ea-attn 1.6s ease-out 2}" +
     "#ea-bubble .ea-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .2s ease,transform .25s ease}" +
     "#ea-bubble .ea-icon-close{opacity:0;transform:rotate(-45deg) scale(.5)}" +
-".ea-mascot{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}" +
+    ".ea-mascot{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}" +
     "#ea-bubble.ea-open .ea-icon-chat{opacity:0;transform:rotate(45deg) scale(.5)}" +
     "#ea-bubble.ea-open .ea-icon-close{opacity:1;transform:rotate(0) scale(1)}" +
     "@keyframes ea-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}" +
@@ -122,16 +184,39 @@
     "@media (prefers-reduced-motion:reduce){#ea-bubble,#ea-panel,.ea-msg,.ea-typing span,#ea-bubble .ea-icon,#ea-bubble.ea-attention{animation:none!important;transition:none!important}}";
   document.head.appendChild(style);
 
- var bubble = document.createElement("button");
+  var CHAT_ICON_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-8z" fill="#fff"/></svg>';
+
+  var bubble = document.createElement("button");
   bubble.id = "ea-bubble";
   bubble.type = "button";
-  bubble.setAttribute("aria-label", "Otevřít chat");
+  bubble.setAttribute("aria-label", T.open);
   bubble.setAttribute("aria-expanded", "false");
-bubble.innerHTML =
-        '<span class="ea-icon ea-icon-chat" aria-hidden="true"><img class="ea-mascot" src="https://chatbot-production-6b09.up.railway.app/mascot.png" alt=""></span>' +
-        '<span class="ea-icon ea-icon-close" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>';
+  bubble.innerHTML =
+    '<span class="ea-icon ea-icon-chat" aria-hidden="true">' + CHAT_ICON_SVG + '</span>' +
+    '<span class="ea-icon ea-icon-close" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>';
 
- var panel = document.createElement("section");
+  // Load the mascot only after the page has finished loading so it never
+  // competes with the store's own content (Core Web Vitals).
+  function loadMascot() {
+    var image = new Image();
+    image.className = "ea-mascot";
+    image.alt = "";
+    image.decoding = "async";
+    image.onload = function () {
+      var slot = bubble.querySelector(".ea-icon-chat");
+      slot.innerHTML = "";
+      slot.appendChild(image);
+    };
+    image.src = MASCOT_URL;
+  }
+  function scheduleMascot() {
+    if ("requestIdleCallback" in window) window.requestIdleCallback(loadMascot, { timeout: 4000 });
+    else setTimeout(loadMascot, 1500);
+  }
+  if (document.readyState === "complete") scheduleMascot();
+  else window.addEventListener("load", scheduleMascot);
+
+  var panel = document.createElement("section");
   panel.id = "ea-panel";
   panel.setAttribute("role", "dialog");
   panel.setAttribute("aria-label", title);
@@ -140,198 +225,219 @@ bubble.innerHTML =
     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2a1 1 0 0 1 1 1v1.06A8.001 8.001 0 0 1 20 12v1h1a1 1 0 1 1 0 2h-1.1A8.002 8.002 0 0 1 13 21.94V23a1 1 0 1 1-2 0v-1.06A8.002 8.002 0 0 1 4.1 15H3a1 1 0 1 1 0-2h1v-1a8.001 8.001 0 0 1 7-7.94V3a1 1 0 0 1 1-1zm0 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm-2.5 5.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" fill="#fff"/></svg></span>' +
     '<span class="ea-title-text"></span></div>' +
     '<div class="ea-head-actions">' +
-    '<button id="ea-reset" type="button" title="Nový chat" aria-label="Založit nový chat">↻</button>' +
-    '<button id="ea-close" type="button" aria-label="Zavřít chat">✕</button></div></div>' +
+    '<button id="ea-reset" type="button">↻</button>' +
+    '<button id="ea-close" type="button">✕</button></div></div>' +
     '<div id="ea-msgs" aria-live="polite"></div>' +
     '<div id="ea-bottom"><form id="ea-form">' +
-    '<input id="ea-input" maxlength="1000" autocomplete="off" placeholder="Napište zprávu…" aria-label="Zpráva">' +
-    '<button id="ea-send" type="submit"><span class="ea-send-label">Odeslat</span></button>' +
+    '<input id="ea-input" maxlength="1000" autocomplete="off">' +
+    '<button id="ea-send" type="submit"><span class="ea-send-label"></span></button>' +
     '</form><div id="ea-count" aria-hidden="true"></div></div>';
   panel.querySelector(".ea-title-text").textContent = title;
 
- document.body.appendChild(panel);
+  document.body.appendChild(panel);
   document.body.appendChild(bubble);
 
- var messages = panel.querySelector("#ea-msgs");
+  var messages = panel.querySelector("#ea-msgs");
   var form = panel.querySelector("#ea-form");
   var input = panel.querySelector("#ea-input");
   var send = panel.querySelector("#ea-send");
-  var sendLabel = send.querySelector(".ea-send-label");
   var countEl = panel.querySelector("#ea-count");
   var resetBtn = panel.querySelector("#ea-reset");
   var closeBtn = panel.querySelector("#ea-close");
 
- function scrollToBottom() {
-   try {
-     messages.scrollTo({ top: messages.scrollHeight, behavior: "smooth" });
-   } catch (_) {
-     messages.scrollTop = messages.scrollHeight;
-   }
- }
+  resetBtn.title = T.newChat;
+  resetBtn.setAttribute("aria-label", T.newChatAria);
+  closeBtn.setAttribute("aria-label", T.close);
+  input.placeholder = T.placeholder;
+  input.setAttribute("aria-label", T.message);
 
- function addMessage(text, role, extraClass) {
-   var element = document.createElement("div");
-   element.className = "ea-msg " + (role === "user" ? "ea-user" : "ea-bot") +
-     (extraClass ? " " + extraClass : "");
-   element.textContent = text;
-   messages.appendChild(element);
-   scrollToBottom();
-   return element;
- }
+  function setSendIdle() {
+    send.disabled = false;
+    send.innerHTML = '<span class="ea-send-label"></span>';
+    send.querySelector(".ea-send-label").textContent = T.send;
+  }
+  function setSendBusy() {
+    send.disabled = true;
+    send.innerHTML = '<span class="ea-spinner" aria-hidden="true"></span><span class="ea-send-label"></span>';
+    send.querySelector(".ea-send-label").textContent = T.sending;
+  }
+  setSendIdle();
 
- function addTypingIndicator() {
-   var element = document.createElement("div");
-   element.className = "ea-msg ea-bot ea-wait";
-   element.setAttribute("aria-label", "Asistent píše odpověď");
-   var dots = document.createElement("span");
-   dots.className = "ea-typing";
-   dots.innerHTML = "<span></span><span></span><span></span>";
-   element.appendChild(dots);
-   messages.appendChild(element);
-   scrollToBottom();
-   return element;
- }
+  function scrollToBottom() {
+    try {
+      messages.scrollTo({ top: messages.scrollHeight, behavior: "smooth" });
+    } catch (_) {
+      messages.scrollTop = messages.scrollHeight;
+    }
+  }
 
- addMessage(greeting, "assistant");
+  function addMessage(text, role, extraClass) {
+    var element = document.createElement("div");
+    element.className = "ea-msg " + (role === "user" ? "ea-user" : "ea-bot") +
+      (extraClass ? " " + extraClass : "");
+    element.textContent = text;
+    messages.appendChild(element);
+    scrollToBottom();
+    return element;
+  }
 
- setTimeout(function () {
-   if (panel.classList.contains("ea-open")) return;
-   bubble.classList.add("ea-attention");
-   setTimeout(function () { bubble.classList.remove("ea-attention"); }, 3300);
- }, 1200);
+  function addTypingIndicator() {
+    var element = document.createElement("div");
+    element.className = "ea-msg ea-bot ea-wait";
+    element.setAttribute("aria-label", T.typing);
+    var dots = document.createElement("span");
+    dots.className = "ea-typing";
+    dots.innerHTML = "<span></span><span></span><span></span>";
+    element.appendChild(dots);
+    messages.appendChild(element);
+    scrollToBottom();
+    return element;
+  }
 
- function setOpen(isOpen) {
-   panel.classList.toggle("ea-open", isOpen);
-   bubble.classList.toggle("ea-open", isOpen);
-   bubble.setAttribute("aria-expanded", isOpen ? "true" : "false");
-   bubble.setAttribute("aria-label", isOpen ? "Zavřít chat" : "Otevřít chat");
-   if (isOpen) {
-     bubble.classList.remove("ea-attention");
-     input.focus();
-   }
- }
+  addMessage(greeting, "assistant");
 
- bubble.addEventListener("click", function () {
-   setOpen(!panel.classList.contains("ea-open"));
- });
+  setTimeout(function () {
+    if (panel.classList.contains("ea-open")) return;
+    bubble.classList.add("ea-attention");
+    setTimeout(function () { bubble.classList.remove("ea-attention"); }, 3300);
+  }, 1200);
 
- closeBtn.addEventListener("click", function () {
-   setOpen(false);
- });
+  function setOpen(isOpen) {
+    panel.classList.toggle("ea-open", isOpen);
+    bubble.classList.toggle("ea-open", isOpen);
+    bubble.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    bubble.setAttribute("aria-label", isOpen ? T.close : T.open);
+    if (isOpen) {
+      bubble.classList.remove("ea-attention");
+      input.focus();
+    }
+  }
 
- document.addEventListener("keydown", function (event) {
-   if (event.key === "Escape" && panel.classList.contains("ea-open")) setOpen(false);
- });
+  bubble.addEventListener("click", function () {
+    setOpen(!panel.classList.contains("ea-open"));
+  });
 
- document.addEventListener("click", function (event) {
-   if (!panel.classList.contains("ea-open")) return;
-   if (panel.contains(event.target) || bubble.contains(event.target)) return;
-   setOpen(false);
- });
+  closeBtn.addEventListener("click", function () {
+    setOpen(false);
+  });
 
- var resetConfirmTimer = null;
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && panel.classList.contains("ea-open")) setOpen(false);
+  });
+
+  document.addEventListener("click", function (event) {
+    if (!panel.classList.contains("ea-open")) return;
+    if (panel.contains(event.target) || bubble.contains(event.target)) return;
+    setOpen(false);
+  });
+
+  var resetConfirmTimer = null;
   function armResetConfirm() {
     resetBtn.classList.add("ea-confirming");
-    resetBtn.setAttribute("aria-label", "Opravdu smazat historii? Klikněte znovu pro potvrzení");
-    resetBtn.title = "Klikněte znovu pro potvrzení";
+    resetBtn.setAttribute("aria-label", T.confirmResetAria);
+    resetBtn.title = T.confirmReset;
     resetConfirmTimer = setTimeout(disarmResetConfirm, 3000);
   }
   function disarmResetConfirm() {
     clearTimeout(resetConfirmTimer);
     resetBtn.classList.remove("ea-confirming");
-    resetBtn.setAttribute("aria-label", "Založit nový chat");
-    resetBtn.title = "Nový chat";
+    resetBtn.setAttribute("aria-label", T.newChatAria);
+    resetBtn.title = T.newChat;
   }
 
- resetBtn.addEventListener("click", function () {
-   if (!resetBtn.classList.contains("ea-confirming")) {
-     armResetConfirm();
-     return;
-   }
-   disarmResetConfirm();
-   activeCase = { id: newCaseId(), touchedAt: Date.now() };
-   history = [];
-   messages.innerHTML = "";
-   addMessage(greeting, "assistant");
-   saveCase();
-   input.focus();
- });
+  resetBtn.addEventListener("click", function () {
+    if (!resetBtn.classList.contains("ea-confirming")) {
+      armResetConfirm();
+      return;
+    }
+    disarmResetConfirm();
+    activeCase = { id: newCaseId(), touchedAt: Date.now() };
+    history = [];
+    messages.innerHTML = "";
+    addMessage(greeting, "assistant");
+    saveCase();
+    input.focus();
+  });
 
- input.addEventListener("input", function () {
-   var len = input.value.length;
-   if (len > 800) {
-     countEl.textContent = len + " / 1000";
-     countEl.classList.add("ea-show");
-   } else {
-     countEl.classList.remove("ea-show");
-   }
- });
+  input.addEventListener("input", function () {
+    var len = input.value.length;
+    if (len > 800) {
+      countEl.textContent = len + " / 1000";
+      countEl.classList.add("ea-show");
+    } else {
+      countEl.classList.remove("ea-show");
+    }
+  });
 
- async function sendChatRequest(endpoint, payload) {
-   var response;
-   try {
-     response = await fetch(endpoint, {
-       method: "POST",
-       headers: { "Content-Type": "application/json" },
-       body: JSON.stringify(payload),
-     });
-   } catch (error) {
-     error.canUseFallback = true;
-     throw error;
-   }
+  function chatError(message, canUseFallback) {
+    var error = new Error(message);
+    error.canUseFallback = Boolean(canUseFallback);
+    return error;
+  }
 
-  var contentType = response.headers.get("content-type") || "";
-   if (contentType.indexOf("application/json") === -1) {
-     var invalidResponse = new Error("Chatbot právě neodpovídá.");
-     invalidResponse.canUseFallback = true;
-     throw invalidResponse;
-   }
+  async function sendChatRequest(endpoint, payload) {
+    var response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (_) {
+      throw chatError(T.offline, true);
+    }
 
-  var data = await response.json().catch(function () { return {}; });
-   if (!response.ok) throw new Error(data.error || "Chatbot právě neodpovídá.");
-   if (!data.reply) throw new Error("Chatbot vrátil neúplnou odpověď.");
-   return data;
- }
+    var contentType = response.headers.get("content-type") || "";
+    if (contentType.indexOf("application/json") === -1) throw chatError(T.offline, true);
 
- form.addEventListener("submit", async function (event) {
-   event.preventDefault();
-   var text = input.value.trim();
-   if (!text || send.disabled) return;
-   ensureActiveCase();
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+      // Server messages are Czech; show them only on Czech/Slovak storefronts.
+      var serverMessage = (langCode === "cs" || langCode === "sk") && data.error ? data.error : "";
+      if (response.status === 429) throw chatError(serverMessage || T.busy, false);
+      throw chatError(serverMessage || T.offline, false);
+    }
+    if (!data.reply) throw chatError(T.incomplete, false);
+    return data;
+  }
 
-                       input.value = "";
-   countEl.classList.remove("ea-show");
-   addMessage(text, "user");
-   history.push({ role: "user", content: text });
-   send.disabled = true;
-   send.innerHTML = '<span class="ea-spinner" aria-hidden="true"></span><span class="ea-send-label">Odesílám</span>';
-   var waiting = addTypingIndicator();
+  form.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    var text = input.value.trim();
+    if (!text || send.disabled) return;
+    ensureActiveCase();
 
-                       try {
-                         var payload = {
-                           caseId: activeCase.id,
-                           message: text,
-                           history: history.slice(-10),
-                         };
-                         var data;
-                         try {
-                           data = await sendChatRequest(api, payload);
-                         } catch (proxyError) {
-                           if (!fallbackApi || !proxyError.canUseFallback) throw proxyError;
-                           data = await sendChatRequest(fallbackApi, payload);
-                         }
-                         waiting.remove();
-                         addMessage(data.reply, "assistant");
-                         history.push({ role: "assistant", content: data.reply });
-                         if (data.caseId) activeCase.id = data.caseId;
-                         saveCase();
-                       } catch (error) {
-                         waiting.remove();
-                         addMessage(error.message || "Omlouvám se, nastala chyba.", "assistant", "ea-error");
-                       } finally {
-                         send.disabled = false;
-                         send.innerHTML = '<span class="ea-send-label">Odeslat</span>';
-                         input.focus();
-                       }
- });
+    input.value = "";
+    countEl.classList.remove("ea-show");
+    addMessage(text, "user");
+    history.push({ role: "user", content: text });
+    setSendBusy();
+    var waiting = addTypingIndicator();
+
+    try {
+      var payload = {
+        caseId: activeCase.id,
+        message: text,
+        history: history.slice(-10),
+      };
+      var data;
+      try {
+        data = await sendChatRequest(api, payload);
+      } catch (proxyError) {
+        if (!fallbackApi || !proxyError.canUseFallback) throw proxyError;
+        data = await sendChatRequest(fallbackApi, payload);
+      }
+      waiting.remove();
+      addMessage(data.reply, "assistant");
+      history.push({ role: "assistant", content: data.reply });
+      if (data.caseId) activeCase.id = data.caseId;
+      saveCase();
+    } catch (error) {
+      waiting.remove();
+      addMessage(error.message || T.generic, "assistant", "ea-error");
+    } finally {
+      setSendIdle();
+      input.focus();
+    }
+  });
 })();
