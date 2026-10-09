@@ -1,0 +1,20 @@
+{
+  "embed": {
+    "name": "Chatnelo Chat",
+    "settings": {
+      "color": {
+        "label": "Chat color"
+      },
+      "title": {
+        "label": "Title",
+        "info": "Leave the default to show it in each customer's language.",
+        "default": "Ask us"
+      },
+      "greeting": {
+        "label": "Welcome message",
+        "info": "Leave the default to show it in each customer's language.",
+        "default": "Hi, I'm this store's assistant. Ask me about products or their availability."
+      }
+    }
+  }
+}

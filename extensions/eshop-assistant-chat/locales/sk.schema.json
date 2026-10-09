@@ -1,0 +1,20 @@
+{
+  "embed": {
+    "name": "Chatnelo Chat",
+    "settings": {
+      "color": {
+        "label": "Farba chatu"
+      },
+      "title": {
+        "label": "Nadpis",
+        "info": "Predvolený text sa zákazníkom zobrazí v ich jazyku.",
+        "default": "Opýtajte sa nás"
+      },
+      "greeting": {
+        "label": "Uvítacia správa",
+        "info": "Predvolený text sa zákazníkom zobrazí v ich jazyku.",
+        "default": "Dobrý deň, som asistent tohto e-shopu. Opýtajte sa na produkty alebo ich dostupnosť."
+      }
+    }
+  }
+}

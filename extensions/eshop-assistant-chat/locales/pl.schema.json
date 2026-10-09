@@ -1,0 +1,20 @@
+{
+  "embed": {
+    "name": "Chatnelo Chat",
+    "settings": {
+      "color": {
+        "label": "Kolor czatu"
+      },
+      "title": {
+        "label": "Tytuł",
+        "info": "Domyślny tekst wyświetli się klientom w ich języku.",
+        "default": "Zapytaj nas"
+      },
+      "greeting": {
+        "label": "Wiadomość powitalna",
+        "info": "Domyślny tekst wyświetli się klientom w ich języku.",
+        "default": "Dzień dobry, jestem asystentem tego sklepu. Zapytaj o produkty lub ich dostępność."
+      }
+    }
+  }
+}

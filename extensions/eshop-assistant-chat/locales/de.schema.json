@@ -1,0 +1,20 @@
+{
+  "embed": {
+    "name": "Chatnelo Chat",
+    "settings": {
+      "color": {
+        "label": "Chat-Farbe"
+      },
+      "title": {
+        "label": "Titel",
+        "info": "Der Standardtext wird Kunden in ihrer Sprache angezeigt.",
+        "default": "Fragen Sie uns"
+      },
+      "greeting": {
+        "label": "Begrüßungsnachricht",
+        "info": "Der Standardtext wird Kunden in ihrer Sprache angezeigt.",
+        "default": "Hallo, ich bin der Assistent dieses Shops. Fragen Sie nach Produkten oder deren Verfügbarkeit."
+      }
+    }
+  }
+}
