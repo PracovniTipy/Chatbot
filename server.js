@@ -1515,6 +1515,29 @@ function toPlainText(text) {
 
 const PLAIN_TEXT_RULE = "FORMAT: Plain text only, no Markdown (no **, no #, no bullet stars). Use numbered lines for lists.";
 
+// Lightweight language hint; the model otherwise tends to drift into Czech.
+function detectLanguage(text) {
+  const value = String(text || "").toLowerCase();
+  if (/[ěščřžůť]/.test(value) && !/[ľĺŕô]/.test(value)) return "Czech";
+  if (/[ľĺŕôä]/.test(value) && /[ščžýáíé]/.test(value)) return "Slovak";
+  if (/[ąćęłńśźż]/.test(value)) return "Polish";
+  if (/[äöüß]/.test(value)) return "German";
+  if (/[àâçèêëîïôûœ]/.test(value)) return "French";
+  if (/[ñ¿¡]/.test(value)) return "Spanish";
+  const words = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").match(/[a-z]+/g) || [];
+  const score = (list) => words.filter((word) => list.includes(word)).length;
+  const english = score(["the", "you", "do", "does", "is", "are", "what", "how", "have", "sell", "any", "in", "stock", "price", "much", "which", "can", "i", "a", "your", "my", "for", "of", "to", "and", "with", "cheapest", "ship", "shipping", "return"]);
+  const czech = score(["mate", "je", "jaky", "jake", "kolik", "stoji", "skladem", "prosim", "chci", "nejlevnejsi", "doprava", "a", "na", "do", "se", "to"]);
+  const german = score(["haben", "sie", "ist", "das", "der", "die", "wie", "viel", "kostet", "gibt", "es", "und", "ich"]);
+  if (english >= 2 && english > czech && english > german) return "English";
+  if (german >= 2 && german > english) return "German";
+  const polish = score(["czy", "macie", "jest", "ile", "kosztuje", "prosze", "dostawa", "mam", "jak"]);
+  if (czech >= 2 && czech > english) return "Czech";
+  if (polish >= 2 && polish > english) return "Polish";
+  if (czech >= 1 && /[áéíýú]/.test(value) && english === 0) return "Czech";
+  return null;
+}
+
 async function callOpenAiChat(system, message, history) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY není nastaven.");
 
@@ -1525,9 +1548,12 @@ async function callOpenAiChat(system, message, history) {
   if (history.at(-1)?.role !== "user" || history.at(-1)?.content !== message) {
     messages.push({ role: "user", content: message });
   }
+  const detected = detectLanguage(message);
   messages.push({
     role: "system",
-    content: "Reminder: write your reply in exactly the same language as the customer's last message above.",
+    content: detected
+      ? `The customer's last message is written in ${detected}. Your whole reply MUST be in ${detected}.`
+      : "Reminder: write your reply in exactly the same language as the customer's last message above.",
   });
 
   const response = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
