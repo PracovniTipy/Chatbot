@@ -56,20 +56,21 @@
   var langCode = String(document.documentElement.lang || "en").toLowerCase().split("-")[0];
   var T = UI[langCode] || UI.en;
 
-  // The theme editor stores the Czech defaults when the merchant never edits
-  // them; on non-Czech storefronts show the localized default instead.
-  var CZECH_DEFAULT_TITLE = UI.cs.title;
-  var CZECH_DEFAULT_GREETING = UI.cs.greeting;
-  function localizedSetting(value, czechDefault, localized) {
-    if (!value) return localized;
-    return value === czechDefault ? localized : value;
+  // When the merchant keeps a default text (in any of our languages), show the
+  // default in the storefront's language instead.
+  function isDefaultText(value, key) {
+    return Object.keys(UI).some(function (code) { return UI[code][key] === value; });
+  }
+  function localizedSetting(value, key) {
+    if (!value || isDefaultText(String(value).trim(), key)) return T[key];
+    return value;
   }
 
   var api = window.ESHOP_ASSISTANT_API || "/apps/eshop-assistant/chat";
   var fallbackApi = window.ESHOP_ASSISTANT_FALLBACK_API || "";
   var color = window.ESHOP_ASSISTANT_COLOR || "#173b70";
-  var title = localizedSetting(window.ESHOP_ASSISTANT_TITLE, CZECH_DEFAULT_TITLE, T.title);
-  var greeting = localizedSetting(window.ESHOP_ASSISTANT_GREETING, CZECH_DEFAULT_GREETING, T.greeting);
+  var title = localizedSetting(window.ESHOP_ASSISTANT_TITLE, "title");
+  var greeting = localizedSetting(window.ESHOP_ASSISTANT_GREETING, "greeting");
   var history = [];
   var caseStorageKey = "eshop-assistant-case-v1";
   var caseTtlMs = 24 * 60 * 60 * 1000;
