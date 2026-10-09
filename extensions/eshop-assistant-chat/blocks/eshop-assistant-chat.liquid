@@ -11,26 +11,28 @@
 
 {% schema %}
 {
-  "name": "Chatnelo Chat",
+  "name": "t:embed.name",
   "target": "body",
   "settings": [
     {
       "type": "color",
       "id": "color",
-      "label": "Barva chatu",
+      "label": "t:embed.settings.color.label",
       "default": "#173b70"
     },
     {
       "type": "text",
       "id": "title",
-      "label": "Nadpis",
-      "default": "Zeptejte se nás"
+      "label": "t:embed.settings.title.label",
+      "info": "t:embed.settings.title.info",
+      "default": "t:embed.settings.title.default"
     },
     {
       "type": "textarea",
       "id": "greeting",
-      "label": "Uvítací zpráva",
-      "default": "Dobrý den, jsem asistent tohoto e-shopu. Zeptejte se na produkty nebo jejich dostupnost."
+      "label": "t:embed.settings.greeting.label",
+      "info": "t:embed.settings.greeting.info",
+      "default": "t:embed.settings.greeting.default"
     }
   ]
 }
