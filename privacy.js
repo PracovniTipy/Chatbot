@@ -14,7 +14,7 @@ const SECTIONS = [
   {
     title: "Jaká data appka zpracovává — obchodníci na Shopify",
     body:
-      "Po instalaci appka uloží přístupový token k vašemu Shopify obchodu (šifrovaný, uložený jen pro účel čtení produktů a skladu), doménu a interní ID obchodu, a počet měsíčně vyřešených chatových případů pro účely tarifikace. Appka neukládá žádné osobní údaje vašich zákazníků.",
+      "Po instalaci appka uloží přístupový token k vašemu Shopify obchodu (šifrovaný, uložený jen pro účel čtení produktů, skladu a obchodních podmínek obchodu, např. dopravy a vrácení zboží), doménu a interní ID obchodu, a počet měsíčně vyřešených chatových případů pro účely tarifikace. Appka neukládá žádné osobní údaje vašich zákazníků.",
   },
   {
     title: "Jaká data appka zpracovává — obchody mimo Shopify",
