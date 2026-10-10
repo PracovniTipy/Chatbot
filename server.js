@@ -2187,7 +2187,22 @@ td button:active{transform:translateY(0)}
         render();
         window.fetch("/api/bootstrap", { method: "POST" })
           .then(readJson)
-          .then(function (data) { state.data = data; render(); })
+          .then(function (data) {
+            state.data = data;
+            render();
+            // Deep link from the pricing page: ?plan=<handle> starts that plan's
+            // Shopify Billing approval right away (the merchant still approves it).
+            var wanted = new URLSearchParams(window.location.search).get("plan");
+            var usage = data && data.usage;
+            if (wanted && usage && !(usage.subscribed && usage.plan && usage.plan.handle === wanted)) {
+              var target = document.querySelector('button[data-plan="' + wanted.replace(/[^a-z0-9-]/gi, "") + '"]');
+              if (target) {
+                target.scrollIntoView({ block: "center" });
+                target.focus();
+                setTimeout(function () { target.click(); }, 1200);
+              }
+            }
+          })
           .catch(function () { state.error = true; render(); });
       });
     })();
