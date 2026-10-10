@@ -308,6 +308,19 @@
   root.className = "ea-root ea-style-" + windowStyle;
   document.body.appendChild(root);
 
+  // Title of the product the customer is looking at, so "this snowboard"
+  // can be answered without asking for the name.
+  function currentProductTitle() {
+    if (!/\/products\//.test(window.location.pathname)) return "";
+    var meta = document.querySelector('meta[property="og:title"]');
+    var title = meta && meta.getAttribute("content");
+    if (!title) {
+      var heading = document.querySelector(".product__title h1, h1.product__title, .product-single__title, main h1");
+      title = heading && heading.textContent;
+    }
+    return String(title || "").replace(/\s+/g, " ").trim().slice(0, 200);
+  }
+
   // Keep the launcher above bars pinned to the bottom of the screen, e.g. the
   // Shopify preview bar that staff and reviewers see on the storefront.
   function updateLift() {
@@ -637,6 +650,8 @@
 
     try {
       var payload = { caseId: activeCase.id, message: text, history: history.slice(-10) };
+      var viewed = currentProductTitle();
+      if (viewed) payload.page = { product: viewed };
       var data;
       try {
         data = await sendChatRequest(api, payload);
