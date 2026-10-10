@@ -2022,12 +2022,13 @@ td button:active{transform:translateY(0)}
   <main>
     <h1>Chatnelo</h1>
     <p data-i18n="root.intro">Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
-    <section class="setup-card">
-      <strong id="setup-title">Zapněte chat ve svém obchodě</strong>
-      <p class="muted" id="setup-text">Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit).</p>
-      <a id="setup-link" class="setup-button" href="#" target="_top">Otevřít editor šablony</a>
-    </section>
-    <section class="usage-card" aria-live="polite">
+    <section class="usage-card" id="plans" aria-live="polite">
+      <h2 id="plans-title" style="margin:0 0 6px;font-size:1.3rem">Vyberte tarif</h2>
+      <p class="muted" id="plans-text" style="margin:0 0 18px">Platba probíhá bezpečně přes Shopify (Shopify Billing). Tarif můžete kdykoli změnit.</p>
+      <table style="margin:0 0 22px">
+        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th><th></th></tr></thead>
+        <tbody id="pricing-tiers">${publicPlans().map((plan) => `<tr><td>${escapeHtml(plan.name)}</td><td>${plan.limit.toLocaleString("cs-CZ")}</td><td>${Number.isFinite(plan.priceUsd) ? `$${plan.priceUsd} (≈ ${plan.priceCzk.toLocaleString("cs-CZ")} Kč)` : `${plan.priceCzk.toLocaleString("cs-CZ")} Kč`}</td><td><button type="button" data-plan="${escapeHtml(plan.handle)}">Vybrat</button></td></tr>`).join("")}</tbody>
+      </table>
       <div class="usage-row">
         <div>
           <strong data-i18n="root.usageCardTitle">Spotřeba v tomto období</strong>
@@ -2040,11 +2041,12 @@ td button:active{transform:translateY(0)}
       </div>
       <progress id="usage-progress" max="70" value="0"></progress>
       <div class="muted" id="usage-period"></div>
-      <table>
-        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th><th></th></tr></thead>
-        <tbody id="pricing-tiers"></tbody>
-      </table>
       <p class="muted" id="billing-note"></p>
+    </section>
+    <section class="setup-card">
+      <strong id="setup-title">Zapněte chat ve svém obchodě</strong>
+      <p class="muted" id="setup-text">Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit).</p>
+      <a id="setup-link" class="setup-button" href="#" target="_top">Otevřít editor šablony</a>
     </section>
   </main>
   <script src="/i18n.js"></script>
@@ -2052,11 +2054,11 @@ td button:active{transform:translateY(0)}
     window.CHATBOT_API = "";
     (function () {
       var STRINGS = {
-        cs: { loading: "Načítám…", loadError: "Nelze načíst", meteringOff: "Měření vypnuto", plan: "Tarif", planPrice: "Cena tarifu", period: "Období", caseHint: "Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.", select: "Vybrat", active: "Aktivní", payError: "Nepodařilo se zahájit platbu.", setupTitle: "Zapněte chat ve svém obchodě", setupText: "Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit). Tam si také vyberete ikonu tlačítka (nebo vlastní obrázek), jeden z 5 stylů okna a barvy podle své značky.", setupButton: "Zapnout a upravit vzhled chatu", billingNote: "Platba probíhá přes Shopify v USD; částka v Kč je orientační.", noSubscription: "Zatím bez placeného tarifu" },
-        en: { loading: "Loading…", loadError: "Could not load", meteringOff: "Metering disabled", plan: "Plan", planPrice: "Plan price", period: "Period", caseHint: "One case is one chat thread with a successful answer.", select: "Select", active: "Active", payError: "Could not start the payment.", setupTitle: "Turn on the chat in your store", setupText: "Customers see the chat once you enable it in the theme editor (App embeds → Chatnelo Chat → Save). There you also pick the button icon (or your own image), one of 5 window styles and your brand colors.", setupButton: "Enable and customize the chat", billingNote: "Billing is handled by Shopify in USD; CZK amounts are approximate.", noSubscription: "No paid plan yet" },
-        sk: { loading: "Načítavam…", loadError: "Nepodarilo sa načítať", meteringOff: "Meranie vypnuté", plan: "Tarif", planPrice: "Cena tarifu", period: "Obdobie", caseHint: "Jeden prípad je jedno chatové vlákno s úspešnou odpoveďou.", select: "Vybrať", active: "Aktívny", payError: "Platbu sa nepodarilo spustiť.", setupTitle: "Zapnite chat vo svojom obchode", setupText: "Chat sa zákazníkom zobrazí až po zapnutí v editore šablóny (Vloženia aplikácií → Chatnelo Chat → Uložiť). Tam si tiež vyberiete ikonu tlačidla (alebo vlastný obrázok), jeden z 5 štýlov okna a farby podľa svojej značky.", setupButton: "Zapnúť a upraviť vzhľad chatu", billingNote: "Platba prebieha cez Shopify v USD; suma v Kč je orientačná.", noSubscription: "Zatiaľ bez plateného tarifu" },
-        de: { loading: "Wird geladen…", loadError: "Konnte nicht geladen werden", meteringOff: "Messung deaktiviert", plan: "Tarif", planPrice: "Tarifpreis", period: "Zeitraum", caseHint: "Ein Fall ist ein Chat-Verlauf mit erfolgreicher Antwort.", select: "Auswählen", active: "Aktiv", payError: "Zahlung konnte nicht gestartet werden.", setupTitle: "Chat im Shop aktivieren", setupText: "Kunden sehen den Chat, sobald Sie ihn im Theme-Editor aktivieren (App-Einbettungen → Chatnelo Chat → Speichern). Dort wählen Sie auch das Button-Symbol (oder ein eigenes Bild), einen von 5 Fensterstilen und Ihre Markenfarben.", setupButton: "Chat aktivieren und gestalten", billingNote: "Die Abrechnung erfolgt über Shopify in USD; CZK-Beträge sind Richtwerte.", noSubscription: "Noch kein bezahlter Tarif" },
-        pl: { loading: "Ładowanie…", loadError: "Nie udało się wczytać", meteringOff: "Pomiar wyłączony", plan: "Plan", planPrice: "Cena planu", period: "Okres", caseHint: "Jeden przypadek to jeden wątek czatu z udaną odpowiedzią.", select: "Wybierz", active: "Aktywny", payError: "Nie udało się rozpocząć płatności.", setupTitle: "Włącz czat w sklepie", setupText: "Klienci zobaczą czat po włączeniu go w edytorze motywu (Osadzenia aplikacji → Chatnelo Chat → Zapisz). Tam wybierzesz też ikonę przycisku (lub własny obraz), jeden z 5 stylów okna i kolory marki.", setupButton: "Włącz i dostosuj czat", billingNote: "Płatność obsługuje Shopify w USD; kwoty w CZK są orientacyjne.", noSubscription: "Brak płatnego planu" },
+        cs: { plansTitle: "Vyberte tarif", plansText: "Platba probíhá bezpečně přes Shopify (Shopify Billing). Tarif můžete kdykoli změnit.", loading: "Načítám…", loadError: "Nelze načíst", meteringOff: "Měření vypnuto", plan: "Tarif", planPrice: "Cena tarifu", period: "Období", caseHint: "Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.", select: "Vybrat", active: "Aktivní", payError: "Nepodařilo se zahájit platbu.", setupTitle: "Zapněte chat ve svém obchodě", setupText: "Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit). Tam si také vyberete ikonu tlačítka (nebo vlastní obrázek), jeden z 5 stylů okna a barvy podle své značky.", setupButton: "Zapnout a upravit vzhled chatu", billingNote: "Platba probíhá přes Shopify v USD; částka v Kč je orientační.", noSubscription: "Zatím bez placeného tarifu" },
+        en: { plansTitle: "Choose your plan", plansText: "Billing is handled securely by Shopify (Shopify Billing). You can change your plan at any time.", loading: "Loading…", loadError: "Could not load", meteringOff: "Metering disabled", plan: "Plan", planPrice: "Plan price", period: "Period", caseHint: "One case is one chat thread with a successful answer.", select: "Select", active: "Active", payError: "Could not start the payment.", setupTitle: "Turn on the chat in your store", setupText: "Customers see the chat once you enable it in the theme editor (App embeds → Chatnelo Chat → Save). There you also pick the button icon (or your own image), one of 5 window styles and your brand colors.", setupButton: "Enable and customize the chat", billingNote: "Billing is handled by Shopify in USD; CZK amounts are approximate.", noSubscription: "No paid plan yet" },
+        sk: { plansTitle: "Vyberte si tarif", plansText: "Platba prebieha bezpečne cez Shopify (Shopify Billing). Tarif môžete kedykoľvek zmeniť.", loading: "Načítavam…", loadError: "Nepodarilo sa načítať", meteringOff: "Meranie vypnuté", plan: "Tarif", planPrice: "Cena tarifu", period: "Obdobie", caseHint: "Jeden prípad je jedno chatové vlákno s úspešnou odpoveďou.", select: "Vybrať", active: "Aktívny", payError: "Platbu sa nepodarilo spustiť.", setupTitle: "Zapnite chat vo svojom obchode", setupText: "Chat sa zákazníkom zobrazí až po zapnutí v editore šablóny (Vloženia aplikácií → Chatnelo Chat → Uložiť). Tam si tiež vyberiete ikonu tlačidla (alebo vlastný obrázok), jeden z 5 štýlov okna a farby podľa svojej značky.", setupButton: "Zapnúť a upraviť vzhľad chatu", billingNote: "Platba prebieha cez Shopify v USD; suma v Kč je orientačná.", noSubscription: "Zatiaľ bez plateného tarifu" },
+        de: { plansTitle: "Tarif wählen", plansText: "Die Abrechnung erfolgt sicher über Shopify (Shopify Billing). Sie können den Tarif jederzeit ändern.", loading: "Wird geladen…", loadError: "Konnte nicht geladen werden", meteringOff: "Messung deaktiviert", plan: "Tarif", planPrice: "Tarifpreis", period: "Zeitraum", caseHint: "Ein Fall ist ein Chat-Verlauf mit erfolgreicher Antwort.", select: "Auswählen", active: "Aktiv", payError: "Zahlung konnte nicht gestartet werden.", setupTitle: "Chat im Shop aktivieren", setupText: "Kunden sehen den Chat, sobald Sie ihn im Theme-Editor aktivieren (App-Einbettungen → Chatnelo Chat → Speichern). Dort wählen Sie auch das Button-Symbol (oder ein eigenes Bild), einen von 5 Fensterstilen und Ihre Markenfarben.", setupButton: "Chat aktivieren und gestalten", billingNote: "Die Abrechnung erfolgt über Shopify in USD; CZK-Beträge sind Richtwerte.", noSubscription: "Noch kein bezahlter Tarif" },
+        pl: { plansTitle: "Wybierz plan", plansText: "Płatność obsługuje bezpiecznie Shopify (Shopify Billing). Plan możesz zmienić w każdej chwili.", loading: "Ładowanie…", loadError: "Nie udało się wczytać", meteringOff: "Pomiar wyłączony", plan: "Plan", planPrice: "Cena planu", period: "Okres", caseHint: "Jeden przypadek to jeden wątek czatu z udaną odpowiedzią.", select: "Wybierz", active: "Aktywny", payError: "Nie udało się rozpocząć płatności.", setupTitle: "Włącz czat w sklepie", setupText: "Klienci zobaczą czat po włączeniu go w edytorze motywu (Osadzenia aplikacji → Chatnelo Chat → Zapisz). Tam wybierzesz też ikonę przycisku (lub własny obraz), jeden z 5 stylów okna i kolory marki.", setupButton: "Włącz i dostosuj czat", billingNote: "Płatność obsługuje Shopify w USD; kwoty w CZK są orientacyjne.", noSubscription: "Brak płatnego planu" },
       };
       var LOCALES = { cs: "cs-CZ", en: "en-US", sk: "sk-SK", de: "de-DE", pl: "pl-PL" };
       var state = { data: null, error: false };
@@ -2083,6 +2085,8 @@ td button:active{transform:translateY(0)}
         byId("setup-text").textContent = t("setupText");
         byId("setup-link").textContent = t("setupButton");
         byId("billing-note").textContent = t("billingNote");
+        byId("plans-title").textContent = t("plansTitle");
+        byId("plans-text").textContent = t("plansText");
         var counter = byId("usage-count");
         if (state.error) {
           counter.textContent = t("loadError");
