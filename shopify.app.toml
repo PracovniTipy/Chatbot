@@ -19,7 +19,7 @@ compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"
 uri = "/webhooks"
 
 [access_scopes]
-scopes = "read_inventory,read_legal_policies,read_products,write_app_proxy"
+scopes = "read_inventory,read_legal_policies,read_online_store_pages,read_products,write_app_proxy"
 optional_scopes = []
 use_legacy_install_flow = false
 
