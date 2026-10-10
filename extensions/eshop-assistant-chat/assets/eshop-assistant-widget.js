@@ -14,7 +14,7 @@
       confirmReset: "Klikněte znovu pro potvrzení", confirmResetAria: "Opravdu smazat historii? Klikněte znovu pro potvrzení",
       placeholder: "Napište zprávu…", message: "Zpráva", send: "Odeslat", sending: "Odesílám", typing: "Asistent píše odpověď",
       offline: "Chatbot právě neodpovídá. Zkuste to prosím za chvíli.", incomplete: "Chatbot vrátil neúplnou odpověď.",
-      busy: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu.", generic: "Omlouvám se, nastala chyba.",
+      busy: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu.", generic: "Omlouvám se, nastala chyba.", view: "Zobrazit produkt", soldOut: "Vyprodáno",
     },
     sk: {
       title: "Opýtajte sa nás",
@@ -23,7 +23,7 @@
       confirmReset: "Kliknite znova pre potvrdenie", confirmResetAria: "Naozaj zmazať históriu? Kliknite znova pre potvrdenie",
       placeholder: "Napíšte správu…", message: "Správa", send: "Odoslať", sending: "Odosielam", typing: "Asistent píše odpoveď",
       offline: "Chatbot práve neodpovedá. Skúste to prosím o chvíľu.", incomplete: "Chatbot vrátil neúplnú odpoveď.",
-      busy: "Príliš veľa otázok, skúste to prosím o chvíľu znova.", generic: "Ospravedlňujem sa, nastala chyba.",
+      busy: "Príliš veľa otázok, skúste to prosím o chvíľu znova.", generic: "Ospravedlňujem sa, nastala chyba.", view: "Zobraziť produkt", soldOut: "Vypredané",
     },
     de: {
       title: "Fragen Sie uns",
@@ -32,7 +32,7 @@
       confirmReset: "Zum Bestätigen erneut klicken", confirmResetAria: "Verlauf wirklich löschen? Zum Bestätigen erneut klicken",
       placeholder: "Nachricht schreiben…", message: "Nachricht", send: "Senden", sending: "Sende", typing: "Der Assistent schreibt",
       offline: "Der Chat antwortet gerade nicht. Bitte versuchen Sie es gleich noch einmal.", incomplete: "Unvollständige Antwort erhalten.",
-      busy: "Zu viele Anfragen, bitte versuchen Sie es gleich noch einmal.", generic: "Entschuldigung, es ist ein Fehler aufgetreten.",
+      busy: "Zu viele Anfragen, bitte versuchen Sie es gleich noch einmal.", generic: "Entschuldigung, es ist ein Fehler aufgetreten.", view: "Produkt ansehen", soldOut: "Ausverkauft",
     },
     pl: {
       title: "Zapytaj nas",
@@ -41,7 +41,7 @@
       confirmReset: "Kliknij ponownie, aby potwierdzić", confirmResetAria: "Na pewno usunąć historię? Kliknij ponownie, aby potwierdzić",
       placeholder: "Napisz wiadomość…", message: "Wiadomość", send: "Wyślij", sending: "Wysyłam", typing: "Asystent pisze odpowiedź",
       offline: "Czat chwilowo nie odpowiada. Spróbuj ponownie za chwilę.", incomplete: "Otrzymano niepełną odpowiedź.",
-      busy: "Zbyt wiele pytań, spróbuj ponownie za chwilę.", generic: "Przepraszamy, wystąpił błąd.",
+      busy: "Zbyt wiele pytań, spróbuj ponownie za chwilę.", generic: "Przepraszamy, wystąpił błąd.", view: "Zobacz produkt", soldOut: "Wyprzedane",
     },
     en: {
       title: "Ask us",
@@ -50,7 +50,7 @@
       confirmReset: "Click again to confirm", confirmResetAria: "Clear the conversation? Click again to confirm",
       placeholder: "Type a message…", message: "Message", send: "Send", sending: "Sending", typing: "The assistant is typing",
       offline: "The chat is not responding right now. Please try again in a moment.", incomplete: "The chat returned an incomplete answer.",
-      busy: "Too many questions, please try again in a moment.", generic: "Sorry, something went wrong.",
+      busy: "Too many questions, please try again in a moment.", generic: "Sorry, something went wrong.", view: "View product", soldOut: "Sold out",
     },
   };
   var langCode = String(document.documentElement.lang || "en").toLowerCase().split("-")[0];
@@ -182,6 +182,14 @@
     "@keyframes ea-spin{to{transform:rotate(360deg)}}" +
     "#ea-count{font-size:11px;color:#9aa0ab;text-align:right;padding:0 14px 6px;min-height:15px;opacity:0;transition:opacity .15s ease}" +
     "#ea-count.ea-show{opacity:1}" +
+    ".ea-cards{display:flex;flex-direction:column;gap:8px;margin:-4px 0 12px;max-width:84%}" +
+    ".ea-card{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid #e3e6ee;border-radius:12px;background:#fff;color:#1f2430;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:border-color .15s ease,box-shadow .15s ease}" +
+    ".ea-card:hover{border-color:" + color + ";box-shadow:0 2px 8px rgba(" + colorRgb + ",.18)}" +
+    ".ea-card-img{width:52px;height:52px;border-radius:8px;object-fit:cover;background:#f1f3f7;flex:none}" +
+    ".ea-card-body{min-width:0;display:flex;flex-direction:column;gap:2px}" +
+    ".ea-card-title{font-weight:600;font-size:14px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}" +
+    ".ea-card-meta{font-size:13px;color:#5b6170}" +
+    ".ea-card-cta{font-size:12px;font-weight:700;color:" + color + "}" +
     "@media (prefers-reduced-motion:reduce){#ea-bubble,#ea-panel,.ea-msg,.ea-typing span,#ea-bubble .ea-icon,#ea-bubble.ea-attention{animation:none!important;transition:none!important}}";
   document.head.appendChild(style);
 
@@ -293,6 +301,57 @@
     messages.appendChild(element);
     scrollToBottom();
     return element;
+  }
+
+  function formatPrice(amount, currency) {
+    if (typeof amount !== "number") return "";
+    try {
+      return new Intl.NumberFormat(document.documentElement.lang || "en", { style: "currency", currency: currency || "USD" }).format(amount);
+    } catch (_) {
+      return amount + " " + (currency || "");
+    }
+  }
+
+  // Clickable cards for the products mentioned in the answer.
+  function addProductCards(products) {
+    if (!products || !products.length) return;
+    var list = document.createElement("div");
+    list.className = "ea-cards";
+    products.slice(0, 3).forEach(function (product) {
+      if (!product || !product.url) return;
+      var card = document.createElement("a");
+      card.className = "ea-card";
+      card.href = product.url;
+      if (product.image) {
+        var image = document.createElement("img");
+        image.className = "ea-card-img";
+        image.src = product.image;
+        image.alt = "";
+        image.loading = "lazy";
+        card.appendChild(image);
+      }
+      var body = document.createElement("span");
+      body.className = "ea-card-body";
+      var name = document.createElement("span");
+      name.className = "ea-card-title";
+      name.textContent = product.title;
+      var meta = document.createElement("span");
+      meta.className = "ea-card-meta";
+      meta.textContent = [formatPrice(product.price, product.currency), product.inStock === false ? T.soldOut : ""]
+        .filter(Boolean).join(" · ");
+      var cta = document.createElement("span");
+      cta.className = "ea-card-cta";
+      cta.textContent = T.view + " →";
+      body.appendChild(name);
+      if (meta.textContent) body.appendChild(meta);
+      body.appendChild(cta);
+      card.appendChild(body);
+      list.appendChild(card);
+    });
+    if (list.children.length) {
+      messages.appendChild(list);
+      scrollToBottom();
+    }
   }
 
   addMessage(greeting, "assistant");
@@ -430,6 +489,7 @@
       }
       waiting.remove();
       addMessage(data.reply, "assistant");
+      addProductCards(data.products);
       history.push({ role: "assistant", content: data.reply });
       if (data.caseId) activeCase.id = data.caseId;
       saveCase();
