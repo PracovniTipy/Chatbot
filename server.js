@@ -1583,7 +1583,11 @@ function validateChatBody(body) {
       }))
     : [];
 
-  return { caseId, message, history };
+  const viewedProduct = typeof body?.page?.product === "string"
+    ? body.page.product.replace(/[\r\n"`]+/g, " ").trim().slice(0, 200)
+    : "";
+
+  return { caseId, message, history, viewedProduct };
 }
 
 // The chat widgets show plain text, so strip the Markdown the model sometimes
@@ -1634,7 +1638,12 @@ async function callOpenAiChat(system, message, history) {
   if (history.at(-1)?.role !== "user" || history.at(-1)?.content !== message) {
     messages.push({ role: "user", content: message });
   }
-  const detected = detectLanguage(message);
+  // A bare product name ("The Collection Snowboard") says nothing about the
+  // language, so fall back to the customer's earlier messages.
+  let detected = detectLanguage(message);
+  for (let i = history.length - 1; !detected && i >= 0; i -= 1) {
+    if (history[i].role === "user") detected = detectLanguage(history[i].content);
+  }
   messages.push({
     role: "system",
     content: detected
@@ -1683,8 +1692,11 @@ STORE DATA:
 ${JSON.stringify({ storeInfo: catalog.storeInfo || undefined, pages: catalog.infoPages, policies: catalog.policies, products: catalog.products })}`;
 }
 
-async function generateAnswer(catalog, message, history) {
-  return callOpenAiChat(shopifySystemPrompt(catalog), message, history);
+async function generateAnswer(catalog, message, history, viewedProduct) {
+  const context = viewedProduct
+    ? `\nCONTEXT: The customer is currently on the product page of "${viewedProduct}". Words like "this", "it", "this product" refer to that product unless the customer names another one.`
+    : "";
+  return callOpenAiChat(`${shopifySystemPrompt(catalog)}${context}`, message, history);
 }
 
 async function generateGenericAnswer(store, catalog, message, history) {
@@ -1757,8 +1769,8 @@ async function generateMarketingAnswer(message, history) {
 }
 
 async function answerChat(shop, accessToken, body, { metered = true } = {}) {
-  const { caseId, message, history } = validateChatBody(body);
-  const catalog = await loadCatalog(shop, accessToken, message);
+  const { caseId, message, history, viewedProduct } = validateChatBody(body);
+  const catalog = await loadCatalog(shop, accessToken, viewedProduct ? `${message} ${viewedProduct}` : message);
   if (SHOPIFY_SUBSCRIPTION_REQUIRED && !catalog.subscription) {
     const error = new Error("Obchod nemá aktivní předplatné Chatnelo.");
     error.statusCode = 402;
@@ -1770,7 +1782,7 @@ async function answerChat(shop, accessToken, body, { metered = true } = {}) {
     ? await reserveUsage(shop, catalog.shop.id, catalog.subscription, caseId)
     : null;
   try {
-    const reply = await generateAnswer(catalog, message, history);
+    const reply = await generateAnswer(catalog, message, history, viewedProduct);
     await finalizeUsageReservation(reservation);
     setImmediate(() => flushPendingBillingEvents().catch((error) => {
       console.error("Shopify Billing fronta:", error);
