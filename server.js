@@ -651,7 +651,7 @@ async function getUsageSummary(shop, accessToken, subscription) {
       limit: plan.limit,
       monthlyPriceCzk: plan.priceCzk,
       plan,
-      plans: publicPlans(),
+      plans: shopifyPlans(),
     };
   }
   requireMeteringDatabase();
@@ -675,7 +675,7 @@ async function getUsageSummary(shop, accessToken, subscription) {
     plan,
     periodStart: periodStart.toISOString(),
     periodEnd: periodEnd.toISOString(),
-    plans: publicPlans(),
+    plans: shopifyPlans(),
   };
 }
 
@@ -2039,7 +2039,7 @@ td button:active{transform:translateY(0)}
       <p class="muted" id="plans-text" style="margin:0 0 18px">Platba probíhá bezpečně přes Shopify (Shopify Billing). Tarif můžete kdykoli změnit.</p>
       <table style="margin:0 0 22px">
         <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th><th></th></tr></thead>
-        <tbody id="pricing-tiers">${publicPlans().map((plan) => `<tr><td>${escapeHtml(plan.name)}</td><td>${plan.limit.toLocaleString("cs-CZ")}</td><td>${Number.isFinite(plan.priceUsd) ? `$${plan.priceUsd} (≈ ${plan.priceCzk.toLocaleString("cs-CZ")} Kč)` : `${plan.priceCzk.toLocaleString("cs-CZ")} Kč`}</td><td><button type="button" data-plan="${escapeHtml(plan.handle)}">Vybrat</button></td></tr>`).join("")}</tbody>
+        <tbody id="pricing-tiers">${shopifyPlans().map((plan) => `<tr><td>${escapeHtml(plan.name)}</td><td>${plan.limit.toLocaleString("cs-CZ")}</td><td>${Number.isFinite(plan.priceUsd) ? `$${plan.priceUsd} (≈ ${plan.priceCzk.toLocaleString("cs-CZ")} Kč)` : `${plan.priceCzk.toLocaleString("cs-CZ")} Kč`}</td><td><button type="button" data-plan="${escapeHtml(plan.handle)}">Vybrat</button></td></tr>`).join("")}</tbody>
       </table>
       <div class="usage-row">
         <div>
@@ -3013,10 +3013,16 @@ app.get("/api/usage", async (req, res) => {
   }
 });
 
+// Shopify App Store listings allow at most 4 public plans, so the Shopify
+// app offers the first four; larger plans stay for non-Shopify stores.
+function shopifyPlans() {
+  return publicPlans().filter((plan) => Number.isFinite(plan.priceUsd)).slice(0, 4);
+}
+
 app.post("/api/billing/subscribe", async (req, res) => {
   try {
     const plan = getPlan(req.body && req.body.plan);
-    if (!plan || !plan.public || !Number.isFinite(plan.priceUsd)) {
+    if (!plan || !shopifyPlans().some((item) => item.handle === plan.handle) || !Number.isFinite(plan.priceUsd)) {
       throw httpError("Neplatný tarif.", 400);
     }
     const result = await withAdminAccess(req, async (shop, accessToken) => {
