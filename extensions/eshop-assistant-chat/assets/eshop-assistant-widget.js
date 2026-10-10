@@ -205,7 +205,7 @@
   var panelOffset = launcherSize + 32;
   var css = [
     ".ea-root{--ea-primary:" + primary + ";--ea-primary-dark:" + primaryDark + ";--ea-primary-rgb:" + primaryRgb + ";--ea-accent:" + accent + ";--ea-accent-dark:" + accentDark + ";--ea-header-text:" + headerText + ";--ea-bg:" + background + ";--ea-bot:" + botBubble + ";--ea-text:" + textColor + ";--ea-radius:" + radius + "px;--ea-launcher:" + launcherSize + "px}",
-    "#ea-bubble{position:fixed;" + side + ":22px;bottom:22px;width:var(--ea-launcher);height:var(--ea-launcher);border:0;padding:0;border-radius:50%;background:linear-gradient(135deg,var(--ea-primary),var(--ea-primary-dark));cursor:pointer;z-index:2147483646;box-shadow:0 10px 28px rgba(var(--ea-primary-rgb),.35),0 3px 10px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s ease;animation:ea-pop .45s cubic-bezier(.34,1.56,.64,1)}",
+    "#ea-bubble{position:fixed;" + side + ":22px;bottom:calc(22px + var(--ea-lift,0px));width:var(--ea-launcher);height:var(--ea-launcher);border:0;padding:0;border-radius:50%;background:linear-gradient(135deg,var(--ea-primary),var(--ea-primary-dark));cursor:pointer;z-index:2147483646;box-shadow:0 10px 28px rgba(var(--ea-primary-rgb),.35),0 3px 10px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;overflow:hidden;transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s ease;animation:ea-pop .45s cubic-bezier(.34,1.56,.64,1)}",
     "#ea-bubble::after{content:'';position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 2px rgba(255,255,255,.18);pointer-events:none}",
     "#ea-bubble:hover{transform:translateY(-2px) scale(1.06);box-shadow:0 14px 34px rgba(var(--ea-primary-rgb),.45),0 4px 12px rgba(0,0,0,.2)}",
     "#ea-bubble:active{transform:scale(.95)}",
@@ -218,7 +218,7 @@
     ".ea-launcher-img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}",
     "@keyframes ea-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}",
     "@keyframes ea-attn{0%,100%{box-shadow:0 10px 28px rgba(var(--ea-primary-rgb),.35),0 0 0 0 rgba(var(--ea-primary-rgb),.5)}50%{box-shadow:0 10px 28px rgba(var(--ea-primary-rgb),.35),0 0 0 12px rgba(var(--ea-primary-rgb),0)}}",
-    "#ea-panel{position:fixed;" + side + ":22px;bottom:" + panelOffset + "px;width:min(380px,calc(100vw - 24px));height:min(580px,calc(100vh - " + (panelOffset + 24) + "px));background:#fff;color:var(--ea-text);border-radius:var(--ea-radius);z-index:2147483646;box-shadow:0 24px 64px rgba(15,20,40,.22),0 6px 18px rgba(15,20,40,.12);overflow:hidden;font:15px/1.45 -apple-system,BlinkMacSystemFont,\"Segoe UI\",Inter,system-ui,sans-serif;display:flex;flex-direction:column;transform-origin:bottom " + side + ";transform:translateY(16px) scale(.96);opacity:0;visibility:hidden;pointer-events:none;transition:transform .28s cubic-bezier(.2,.9,.3,1.2),opacity .2s ease,visibility 0s linear .28s}",
+    "#ea-panel{position:fixed;" + side + ":22px;bottom:calc(" + panelOffset + "px + var(--ea-lift,0px));width:min(380px,calc(100vw - 24px));height:min(580px,calc(100vh - " + (panelOffset + 24) + "px - var(--ea-lift,0px)));background:#fff;color:var(--ea-text);border-radius:var(--ea-radius);z-index:2147483646;box-shadow:0 24px 64px rgba(15,20,40,.22),0 6px 18px rgba(15,20,40,.12);overflow:hidden;font:15px/1.45 -apple-system,BlinkMacSystemFont,\"Segoe UI\",Inter,system-ui,sans-serif;display:flex;flex-direction:column;transform-origin:bottom " + side + ";transform:translateY(16px) scale(.96);opacity:0;visibility:hidden;pointer-events:none;transition:transform .28s cubic-bezier(.2,.9,.3,1.2),opacity .2s ease,visibility 0s linear .28s}",
     "#ea-panel.ea-open{transform:translateY(0) scale(1);opacity:1;visibility:visible;pointer-events:auto;transition:transform .28s cubic-bezier(.2,.9,.3,1.2),opacity .2s ease,visibility 0s linear 0s}",
     "#ea-head{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,var(--ea-primary),var(--ea-primary-dark));color:var(--ea-header-text);padding:14px 14px 14px 16px;flex:none}",
     ".ea-head-title{display:flex;align-items:center;gap:11px;min-width:0}",
@@ -296,7 +296,7 @@
     ".ea-style-midnight .ea-card{background:#1a2033;color:#e8eaf3;border-color:rgba(255,255,255,.08)}",
     ".ea-style-midnight .ea-card-meta{color:#9aa1b8}",
     // --- small screens
-    "@media (max-width:480px){#ea-panel{" + side + ":8px;width:calc(100vw - 16px);height:calc(100vh - " + (panelOffset + 16) + "px);bottom:" + (panelOffset - 8) + "px}#ea-bubble{" + side + ":14px;bottom:14px}}",
+    "@media (max-width:480px){#ea-panel{" + side + ":8px;width:calc(100vw - 16px);height:calc(100vh - " + (panelOffset + 16) + "px - var(--ea-lift,0px));bottom:calc(" + (panelOffset - 8) + "px + var(--ea-lift,0px))}#ea-bubble{" + side + ":14px;bottom:calc(14px + var(--ea-lift,0px))}}",
     "@media (prefers-reduced-motion:reduce){#ea-bubble,#ea-panel,.ea-msg,.ea-typing span,#ea-bubble .ea-icon,#ea-bubble.ea-attention,.ea-card{animation:none!important;transition:none!important}}",
   ].join("");
 
@@ -307,6 +307,27 @@
   var root = document.createElement("div");
   root.className = "ea-root ea-style-" + windowStyle;
   document.body.appendChild(root);
+
+  // Keep the launcher above bars pinned to the bottom of the screen, e.g. the
+  // Shopify preview bar that staff and reviewers see on the storefront.
+  function updateLift() {
+    var lift = 0;
+    var bars = document.querySelectorAll("#PBarNextFrameWrapper, #preview-bar-iframe, #shopify-pc__banner");
+    for (var i = 0; i < bars.length; i++) {
+      var rect = bars[i].getBoundingClientRect();
+      var visible = rect.height > 0 && rect.height < window.innerHeight / 2 &&
+        rect.bottom >= window.innerHeight - 2 && getComputedStyle(bars[i]).visibility !== "hidden";
+      if (visible) lift = Math.max(lift, Math.ceil(rect.height));
+    }
+    root.style.setProperty("--ea-lift", lift + "px");
+  }
+  updateLift();
+  window.addEventListener("resize", updateLift);
+  var liftChecks = 0;
+  var liftTimer = setInterval(function () {
+    updateLift();
+    if (++liftChecks > 30) clearInterval(liftTimer);
+  }, 1000);
 
   // ---------------------------------------------------------------- launcher
   var bubble = document.createElement("button");
