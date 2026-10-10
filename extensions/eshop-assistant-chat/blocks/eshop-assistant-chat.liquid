@@ -1,8 +1,27 @@
+{%- liquid
+  assign launcher_image_url = ''
+  if block.settings.launcher_image != blank
+    assign launcher_image_url = block.settings.launcher_image | image_url: width: 240
+  endif
+-%}
 <script>
   window.ESHOP_ASSISTANT_API = "/apps/eshop-assistant/chat";
-  window.ESHOP_ASSISTANT_COLOR = {{ block.settings.color | json }};
-  window.ESHOP_ASSISTANT_TITLE = {{ block.settings.title | json }};
-  window.ESHOP_ASSISTANT_GREETING = {{ block.settings.greeting | json }};
+  window.ESHOP_ASSISTANT_CONFIG = {
+    color: {{ block.settings.color | json }},
+    accentColor: {{ block.settings.accent_color | json }},
+    headerTextColor: {{ block.settings.header_text_color | json }},
+    backgroundColor: {{ block.settings.background_color | json }},
+    botBubbleColor: {{ block.settings.bot_bubble_color | json }},
+    textColor: {{ block.settings.text_color | json }},
+    windowStyle: {{ block.settings.window_style | json }},
+    radius: {{ block.settings.radius | json }},
+    launcherIcon: {{ block.settings.launcher_icon | json }},
+    launcherImage: {{ launcher_image_url | json }},
+    launcherSize: {{ block.settings.launcher_size | json }},
+    position: {{ block.settings.position | json }},
+    title: {{ block.settings.title | json }},
+    greeting: {{ block.settings.greeting | json }}
+  };
   {% if shop.permanent_domain == 'eshop-assistant-test.myshopify.com' %}
     window.ESHOP_ASSISTANT_FALLBACK_API = "https://chatbot-production-6b09.up.railway.app/test-storefront/chat";
   {% endif %}
@@ -14,12 +33,80 @@
   "name": "t:embed.name",
   "target": "body",
   "settings": [
+    { "type": "header", "content": "t:embed.headers.launcher" },
     {
-      "type": "color",
-      "id": "color",
-      "label": "t:embed.settings.color.label",
-      "default": "#173b70"
+      "type": "select",
+      "id": "launcher_icon",
+      "label": "t:embed.settings.launcher_icon.label",
+      "options": [
+        { "value": "mascot", "label": "t:embed.settings.launcher_icon.options.mascot" },
+        { "value": "chat", "label": "t:embed.settings.launcher_icon.options.chat" },
+        { "value": "sparkle", "label": "t:embed.settings.launcher_icon.options.sparkle" },
+        { "value": "headset", "label": "t:embed.settings.launcher_icon.options.headset" },
+        { "value": "bag", "label": "t:embed.settings.launcher_icon.options.bag" },
+        { "value": "smile", "label": "t:embed.settings.launcher_icon.options.smile" },
+        { "value": "custom", "label": "t:embed.settings.launcher_icon.options.custom" }
+      ],
+      "default": "mascot"
     },
+    {
+      "type": "image_picker",
+      "id": "launcher_image",
+      "label": "t:embed.settings.launcher_image.label",
+      "info": "t:embed.settings.launcher_image.info"
+    },
+    {
+      "type": "range",
+      "id": "launcher_size",
+      "label": "t:embed.settings.launcher_size.label",
+      "min": 48,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 60
+    },
+    {
+      "type": "select",
+      "id": "position",
+      "label": "t:embed.settings.position.label",
+      "options": [
+        { "value": "right", "label": "t:embed.settings.position.options.right" },
+        { "value": "left", "label": "t:embed.settings.position.options.left" }
+      ],
+      "default": "right"
+    },
+    { "type": "header", "content": "t:embed.headers.window" },
+    {
+      "type": "select",
+      "id": "window_style",
+      "label": "t:embed.settings.window_style.label",
+      "options": [
+        { "value": "classic", "label": "t:embed.settings.window_style.options.classic" },
+        { "value": "minimal", "label": "t:embed.settings.window_style.options.minimal" },
+        { "value": "glass", "label": "t:embed.settings.window_style.options.glass" },
+        { "value": "bold", "label": "t:embed.settings.window_style.options.bold" },
+        { "value": "midnight", "label": "t:embed.settings.window_style.options.midnight" }
+      ],
+      "default": "classic"
+    },
+    {
+      "type": "range",
+      "id": "radius",
+      "label": "t:embed.settings.radius.label",
+      "min": 8,
+      "max": 28,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    { "type": "header", "content": "t:embed.headers.colors" },
+    { "type": "color", "id": "color", "label": "t:embed.settings.color.label", "default": "#173b70" },
+    { "type": "color", "id": "accent_color", "label": "t:embed.settings.accent_color.label", "default": "#27843b" },
+    { "type": "color", "id": "header_text_color", "label": "t:embed.settings.header_text_color.label", "default": "#ffffff" },
+    { "type": "color", "id": "background_color", "label": "t:embed.settings.background_color.label", "default": "#f6f7fb" },
+    { "type": "color", "id": "bot_bubble_color", "label": "t:embed.settings.bot_bubble_color.label", "default": "#eef0f5" },
+    { "type": "color", "id": "text_color", "label": "t:embed.settings.text_color.label", "info": "t:embed.settings.text_color.info", "default": "#1f2430" },
+    { "type": "header", "content": "t:embed.headers.texts" },
     {
       "type": "text",
       "id": "title",
