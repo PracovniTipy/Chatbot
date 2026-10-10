@@ -1,9 +1,70 @@
 {
   "embed": {
     "name": "Chatnelo Chat",
+    "headers": {
+      "launcher": "Chat-Button",
+      "window": "Chatfenster",
+      "colors": "Farben",
+      "texts": "Texte"
+    },
     "settings": {
+      "launcher_icon": {
+        "label": "Button-Symbol",
+        "options": {
+          "mascot": "Chatnelo-Maskottchen",
+          "chat": "Sprechblase",
+          "sparkle": "KI-Funke",
+          "headset": "Support-Headset",
+          "bag": "Einkaufstasche",
+          "smile": "Freundliches Lächeln",
+          "custom": "Eigenes Bild"
+        }
+      },
+      "launcher_image": {
+        "label": "Eigenes Bild",
+        "info": "Wird im Button und im Chat-Kopf angezeigt, wenn „Eigenes Bild“ gewählt ist. Verwenden Sie ein quadratisches Bild (Logo oder Foto)."
+      },
+      "launcher_size": {
+        "label": "Button-Größe"
+      },
+      "position": {
+        "label": "Position",
+        "options": {
+          "right": "Unten rechts",
+          "left": "Unten links"
+        }
+      },
+      "window_style": {
+        "label": "Fensterstil",
+        "options": {
+          "classic": "Klassisch",
+          "minimal": "Minimal",
+          "glass": "Glas",
+          "bold": "Kräftig",
+          "midnight": "Mitternacht (dunkel)"
+        }
+      },
+      "radius": {
+        "label": "Eckenrundung"
+      },
       "color": {
-        "label": "Chat-Farbe"
+        "label": "Markenfarbe"
+      },
+      "accent_color": {
+        "label": "Farbe des Senden-Buttons"
+      },
+      "header_text_color": {
+        "label": "Textfarbe im Kopf"
+      },
+      "background_color": {
+        "label": "Chat-Hintergrund"
+      },
+      "bot_bubble_color": {
+        "label": "Hintergrund der Assistenten-Nachrichten"
+      },
+      "text_color": {
+        "label": "Textfarbe",
+        "info": "Der Stil Mitternacht verwendet eigene dunkle Hintergrund- und Textfarben."
       },
       "title": {
         "label": "Titel",

@@ -1,9 +1,70 @@
 {
   "embed": {
     "name": "Chatnelo Chat",
+    "headers": {
+      "launcher": "Tlačidlo chatu",
+      "window": "Okno chatu",
+      "colors": "Farby",
+      "texts": "Texty"
+    },
     "settings": {
+      "launcher_icon": {
+        "label": "Ikona tlačidla",
+        "options": {
+          "mascot": "Maskot Chatnelo",
+          "chat": "Chatová bublina",
+          "sparkle": "AI iskra",
+          "headset": "Podpora (slúchadlá)",
+          "bag": "Nákupná taška",
+          "smile": "Priateľský úsmev",
+          "custom": "Vlastný obrázok"
+        }
+      },
+      "launcher_image": {
+        "label": "Vlastný obrázok",
+        "info": "Zobrazí sa v tlačidle a v hlavičke chatu, keď zvolíte „Vlastný obrázok“. Použite štvorcový obrázok (logo alebo fotku)."
+      },
+      "launcher_size": {
+        "label": "Veľkosť tlačidla"
+      },
+      "position": {
+        "label": "Umiestnenie",
+        "options": {
+          "right": "Vpravo dole",
+          "left": "Vľavo dole"
+        }
+      },
+      "window_style": {
+        "label": "Štýl okna",
+        "options": {
+          "classic": "Klasický",
+          "minimal": "Minimalistický",
+          "glass": "Sklo",
+          "bold": "Výrazný",
+          "midnight": "Polnoc (tmavý)"
+        }
+      },
+      "radius": {
+        "label": "Zaoblenie rohov"
+      },
       "color": {
-        "label": "Farba chatu"
+        "label": "Farba značky"
+      },
+      "accent_color": {
+        "label": "Farba tlačidla Odoslať"
+      },
+      "header_text_color": {
+        "label": "Farba textu v hlavičke"
+      },
+      "background_color": {
+        "label": "Pozadie chatu"
+      },
+      "bot_bubble_color": {
+        "label": "Pozadie správ asistenta"
+      },
+      "text_color": {
+        "label": "Farba textu",
+        "info": "Štýl Polnoc používa vlastné tmavé pozadie a farby textu."
       },
       "title": {
         "label": "Nadpis",

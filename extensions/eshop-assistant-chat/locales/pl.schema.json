@@ -1,9 +1,70 @@
 {
   "embed": {
     "name": "Chatnelo Chat",
+    "headers": {
+      "launcher": "Przycisk czatu",
+      "window": "Okno czatu",
+      "colors": "Kolory",
+      "texts": "Teksty"
+    },
     "settings": {
+      "launcher_icon": {
+        "label": "Ikona przycisku",
+        "options": {
+          "mascot": "Maskotka Chatnelo",
+          "chat": "Dymek czatu",
+          "sparkle": "Iskra AI",
+          "headset": "Wsparcie (słuchawki)",
+          "bag": "Torba zakupowa",
+          "smile": "Przyjazny uśmiech",
+          "custom": "Własny obraz"
+        }
+      },
+      "launcher_image": {
+        "label": "Własny obraz",
+        "info": "Wyświetla się w przycisku i nagłówku czatu po wybraniu „Własny obraz”. Użyj kwadratowego obrazu (logo lub zdjęcia)."
+      },
+      "launcher_size": {
+        "label": "Rozmiar przycisku"
+      },
+      "position": {
+        "label": "Pozycja",
+        "options": {
+          "right": "Prawy dolny róg",
+          "left": "Lewy dolny róg"
+        }
+      },
+      "window_style": {
+        "label": "Styl okna",
+        "options": {
+          "classic": "Klasyczny",
+          "minimal": "Minimalistyczny",
+          "glass": "Szkło",
+          "bold": "Wyrazisty",
+          "midnight": "Północ (ciemny)"
+        }
+      },
+      "radius": {
+        "label": "Zaokrąglenie rogów"
+      },
       "color": {
-        "label": "Kolor czatu"
+        "label": "Kolor marki"
+      },
+      "accent_color": {
+        "label": "Kolor przycisku Wyślij"
+      },
+      "header_text_color": {
+        "label": "Kolor tekstu w nagłówku"
+      },
+      "background_color": {
+        "label": "Tło czatu"
+      },
+      "bot_bubble_color": {
+        "label": "Tło wiadomości asystenta"
+      },
+      "text_color": {
+        "label": "Kolor tekstu",
+        "info": "Styl Północ używa własnego ciemnego tła i kolorów tekstu."
       },
       "title": {
         "label": "Tytuł",

@@ -1,9 +1,70 @@
 {
   "embed": {
     "name": "Chatnelo Chat",
+    "headers": {
+      "launcher": "Chat button",
+      "window": "Chat window",
+      "colors": "Colors",
+      "texts": "Texts"
+    },
     "settings": {
+      "launcher_icon": {
+        "label": "Button icon",
+        "options": {
+          "mascot": "Chatnelo mascot",
+          "chat": "Chat bubble",
+          "sparkle": "AI sparkle",
+          "headset": "Support headset",
+          "bag": "Shopping bag",
+          "smile": "Friendly smile",
+          "custom": "Your own image"
+        }
+      },
+      "launcher_image": {
+        "label": "Your own image",
+        "info": "Shown in the button and the chat header when “Your own image” is selected. Use a square image (logo or photo)."
+      },
+      "launcher_size": {
+        "label": "Button size"
+      },
+      "position": {
+        "label": "Position",
+        "options": {
+          "right": "Bottom right",
+          "left": "Bottom left"
+        }
+      },
+      "window_style": {
+        "label": "Window style",
+        "options": {
+          "classic": "Classic",
+          "minimal": "Minimal",
+          "glass": "Glass",
+          "bold": "Bold",
+          "midnight": "Midnight (dark)"
+        }
+      },
+      "radius": {
+        "label": "Corner roundness"
+      },
       "color": {
-        "label": "Chat color"
+        "label": "Brand color"
+      },
+      "accent_color": {
+        "label": "Send button color"
+      },
+      "header_text_color": {
+        "label": "Header text color"
+      },
+      "background_color": {
+        "label": "Chat background"
+      },
+      "bot_bubble_color": {
+        "label": "Assistant message background"
+      },
+      "text_color": {
+        "label": "Text color",
+        "info": "The Midnight style uses its own dark background and text colors."
       },
       "title": {
         "label": "Title",

@@ -1,9 +1,70 @@
 {
   "embed": {
     "name": "Chatnelo Chat",
+    "headers": {
+      "launcher": "Tlačítko chatu",
+      "window": "Okno chatu",
+      "colors": "Barvy",
+      "texts": "Texty"
+    },
     "settings": {
+      "launcher_icon": {
+        "label": "Ikona tlačítka",
+        "options": {
+          "mascot": "Maskot Chatnelo",
+          "chat": "Chatová bublina",
+          "sparkle": "AI jiskra",
+          "headset": "Podpora (sluchátka)",
+          "bag": "Nákupní taška",
+          "smile": "Přátelský úsměv",
+          "custom": "Vlastní obrázek"
+        }
+      },
+      "launcher_image": {
+        "label": "Vlastní obrázek",
+        "info": "Zobrazí se v tlačítku a v hlavičce chatu, když zvolíte „Vlastní obrázek“. Použijte čtvercový obrázek (logo nebo fotku)."
+      },
+      "launcher_size": {
+        "label": "Velikost tlačítka"
+      },
+      "position": {
+        "label": "Umístění",
+        "options": {
+          "right": "Vpravo dole",
+          "left": "Vlevo dole"
+        }
+      },
+      "window_style": {
+        "label": "Styl okna",
+        "options": {
+          "classic": "Klasický",
+          "minimal": "Minimalistický",
+          "glass": "Sklo",
+          "bold": "Výrazný",
+          "midnight": "Půlnoc (tmavý)"
+        }
+      },
+      "radius": {
+        "label": "Zaoblení rohů"
+      },
       "color": {
-        "label": "Barva chatu"
+        "label": "Barva značky"
+      },
+      "accent_color": {
+        "label": "Barva tlačítka Odeslat"
+      },
+      "header_text_color": {
+        "label": "Barva textu v hlavičce"
+      },
+      "background_color": {
+        "label": "Pozadí chatu"
+      },
+      "bot_bubble_color": {
+        "label": "Pozadí zpráv asistenta"
+      },
+      "text_color": {
+        "label": "Barva textu",
+        "info": "Styl Půlnoc používá vlastní tmavé pozadí a barvy textu."
       },
       "title": {
         "label": "Nadpis",
