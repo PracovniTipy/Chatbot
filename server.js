@@ -2490,6 +2490,22 @@ app.get("/privacy", (req, res) => {
 </html>`);
 });
 
+// Appearance options can be tried on the preview page through the query
+// string, e.g. /widget-preview?store=ID&key=KEY&style=glass&icon=sparkle&color=%237c3aed
+function previewAttributes(query) {
+  const allowed = {
+    style: /^(classic|minimal|glass|bold|midnight)$/,
+    icon: /^(mascot|chat|sparkle|headset|bag|smile)$/,
+    color: /^#[0-9a-f]{3,6}$/i,
+    accent: /^#[0-9a-f]{3,6}$/i,
+    position: /^(left|right)$/,
+  };
+  return Object.entries(allowed)
+    .filter(([key, pattern]) => typeof query[key] === "string" && pattern.test(query[key]))
+    .map(([key]) => ` data-${key}="${escapeHtml(query[key])}"`)
+    .join("");
+}
+
 app.get("/widget-preview", (req, res) => {
   const storeId = escapeHtml(typeof req.query.store === "string" ? req.query.store : "");
   const apiKey = escapeHtml(typeof req.query.key === "string" ? req.query.key : "");
@@ -2527,7 +2543,7 @@ app.get("/widget-preview", (req, res) => {
       <p>Tady by normálně byly produkty vašeho e-shopu. Widget vpravo dole odpovídá podle katalogu, který jste vyplnili v řídicím panelu (/store/dashboard).</p>
     </div>
   </main>
-  <script src="/embed.js" data-store="${storeId}" data-key="${apiKey}" async></script>
+  <script src="/embed.js" data-store="${storeId}" data-key="${apiKey}"${previewAttributes(req.query)} async></script>
 </body>
 </html>`);
 });
