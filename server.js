@@ -1674,7 +1674,7 @@ RULES:
 - A product or variant is available only if "inStock" is true. "quantity" (when present) is the number of pieces left; when it is missing, do not mention a number.
 - When the customer names a specific product, answer about the product whose title matches that name. Do not list other products unless the customer asks for alternatives. "vendor" is the supplier, not a product line.
 - Products are listed with in-stock items first, each group sorted from the lowest price. For "cheapest X", answer with the first in-stock product of that kind (by title/type, e.g. snowboards); accessories of another kind do not count. For "most expensive X", use the last in-stock one of that kind.
-- Shipping (prices, countries, delivery times), returns, payment and contact: answer from "storeInfo" (written by the merchant in Chatnelo, most authoritative), then "pages" (the store's own information pages) and "policies". Quote prices, free-shipping thresholds and deadlines exactly. If none of them has the answer, say you do not have that information and suggest contacting the store.
+- Shipping (prices, countries, delivery times), returns, payment and contact: answer from "pages" (the store's own information pages), "policies" and "storeInfo". Quote prices, free-shipping thresholds and deadlines exactly. If none of them has the answer, say you do not have that information and suggest contacting the store.
 - Never claim a product suits a purpose, age, skill level or person (e.g. kids, beginners) unless its data says so. If asked, say the data does not specify it and offer options with the facts you have (price, stock, variants/sizes).
 - When you recommend or mention products, always use their exact titles so the customer gets clickable product cards.
 - If the answer is not in the data, say so openly. Keep answers short and concrete; prices in ${catalog.shop.currencyCode}.
@@ -2027,15 +2027,6 @@ td button:active{transform:translateY(0)}
       <p class="muted" id="setup-text">Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit).</p>
       <a id="setup-link" class="setup-button" href="#" target="_top">Otevřít editor šablony</a>
     </section>
-    <section class="setup-card" id="info-card">
-      <strong id="info-title">Informace pro zákazníky</strong>
-      <p class="muted" id="info-text">Doprava, vrácení zboží, platba, kontakt… Chatbot z tohoto textu odpovídá zákazníkům.</p>
-      <textarea id="info-input" rows="6" maxlength="4000" style="width:100%;box-sizing:border-box;border:1px solid #dfe3e8;border-radius:10px;padding:10px 12px;font:inherit;resize:vertical"></textarea>
-      <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
-        <button type="button" id="info-save" class="setup-button" style="border:0;cursor:pointer">Uložit</button>
-        <span class="muted" id="info-status"></span>
-      </div>
-    </section>
     <section class="usage-card" aria-live="polite">
       <div class="usage-row">
         <div>
@@ -2194,54 +2185,6 @@ td button:active{transform:translateY(0)}
           .then(readJson)
           .then(function (data) { state.data = data; render(); })
           .catch(function () { state.error = true; render(); });
-      });
-    })();
-  </script>
-  <script>
-    (function () {
-      var TEXTS = {
-        cs: { title: "Informace pro zákazníky", text: "Doprava (ceny, země, doba doručení), vrácení zboží, platba, kontakt… Chatbot z tohoto textu odpovídá zákazníkům.", placeholder: "Např.: Doprava do ČR 89 Kč, zdarma od 1 500 Kč, doručení 1–3 dny. Na Slovensko 149 Kč. Vrácení do 14 dnů.", save: "Uložit", saving: "Ukládám…", saved: "Uloženo", error: "Uložení se nezdařilo" },
-        en: { title: "Information for customers", text: "Shipping (prices, countries, delivery times), returns, payment, contact… The chatbot answers customers from this text.", placeholder: "E.g.: Shipping to the US $5, free over $50, delivery 2–4 days. Returns within 30 days.", save: "Save", saving: "Saving…", saved: "Saved", error: "Could not save" },
-        sk: { title: "Informácie pre zákazníkov", text: "Doprava (ceny, krajiny, doba doručenia), vrátenie tovaru, platba, kontakt… Chatbot z tohto textu odpovedá zákazníkom.", placeholder: "Napr.: Doprava na Slovensko 3,90 €, zdarma od 60 €, doručenie 1–3 dni. Vrátenie do 14 dní.", save: "Uložiť", saving: "Ukladám…", saved: "Uložené", error: "Uloženie zlyhalo" },
-        de: { title: "Informationen für Kunden", text: "Versand (Preise, Länder, Lieferzeiten), Rückgabe, Zahlung, Kontakt… Der Chatbot beantwortet Kundenfragen anhand dieses Textes.", placeholder: "Z. B.: Versand nach Deutschland 4,90 €, ab 50 € kostenlos, Lieferung 2–4 Tage. Rückgabe innerhalb von 14 Tagen.", save: "Speichern", saving: "Speichere…", saved: "Gespeichert", error: "Speichern fehlgeschlagen" },
-        pl: { title: "Informacje dla klientów", text: "Dostawa (ceny, kraje, czas dostawy), zwroty, płatność, kontakt… Chatbot odpowiada klientom na podstawie tego tekstu.", placeholder: "Np.: Dostawa do Polski 15 zł, gratis od 200 zł, dostawa 1–3 dni. Zwrot do 14 dni.", save: "Zapisz", saving: "Zapisuję…", saved: "Zapisano", error: "Nie udało się zapisać" },
-      };
-      function tx(key) {
-        var lang = TEXTS[window.CHATNELO_LANG] ? window.CHATNELO_LANG : "cs";
-        return TEXTS[lang][key];
-      }
-      function el(id) { return document.getElementById(id); }
-      function renderTexts() {
-        el("info-title").textContent = tx("title");
-        el("info-text").textContent = tx("text");
-        el("info-input").placeholder = tx("placeholder");
-        el("info-save").textContent = tx("save");
-      }
-      document.addEventListener("chatnelo:langchange", renderTexts);
-      window.addEventListener("DOMContentLoaded", function () {
-        renderTexts();
-        window.fetch("/api/settings")
-          .then(function (response) { return response.ok ? response.json() : {}; })
-          .then(function (data) { if (data && typeof data.storeInfo === "string") el("info-input").value = data.storeInfo; })
-          .catch(function () {});
-        el("info-save").addEventListener("click", function () {
-          var button = el("info-save");
-          button.disabled = true;
-          el("info-status").textContent = tx("saving");
-          window.fetch("/api/settings", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ storeInfo: el("info-input").value }),
-          })
-            .then(function (response) {
-              return response.json().catch(function () { return {}; }).then(function (data) {
-                if (!response.ok) throw new Error(data.error || tx("error"));
-                el("info-status").textContent = tx("saved");
-              });
-            })
-            .catch(function (error) { el("info-status").textContent = error.message || tx("error"); })
-            .then(function () { button.disabled = false; });
-        });
       });
     })();
   </script>
