@@ -585,7 +585,10 @@ async function reserveUsage(shop, shopId, subscription, caseId) {
       };
     }
 
-    if (currentUsage >= plan.limit) throw new UsageLimitError(plan);
+    if (currentUsage >= plan.limit) {
+      availabilityCache.set(shop, { at: Date.now(), value: { available: false, reason: "limit" } });
+      throw new UsageLimitError(plan);
+    }
 
     const id = crypto.randomUUID();
     await client.query(
@@ -2097,11 +2100,11 @@ td button:active{transform:translateY(0)}
     window.CHATBOT_API = "";
     (function () {
       var STRINGS = {
-        cs: { trialNote: "3 dny zdarma · plná verze", tryFree: "Vyzkoušet 3 dny zdarma", offer: "🎁 1. měsíc jen 99 Kč", popular: "Nejoblíbenější", perMonth: "/ měsíc", selectPlan: "Vybrat tarif", currentPlan: "✓ Váš aktuální tarif", fCases: "vyřešených konverzací měsíčně", f1: "AI odpovědi z vašich produktů a skladu", f2: "Klikací karty produktů v chatu", f3: "Vlastní ikona, styl okna a barvy", f4: "Odpovědi v jazyce zákazníka", trust: "🔒 3 dny zdarma, pak platba přes Shopify · bez závazků · kdykoli můžete změnit nebo zrušit", plansTitle: "Vyberte tarif", plansText: "Platba probíhá bezpečně přes Shopify (Shopify Billing). Tarif můžete kdykoli změnit.", loading: "Načítám…", loadError: "Nelze načíst", meteringOff: "Měření vypnuto", plan: "Tarif", planPrice: "Cena tarifu", period: "Období", caseHint: "Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.", select: "Vybrat", active: "Aktivní", payError: "Nepodařilo se zahájit platbu.", setupTitle: "Zapněte chat ve svém obchodě", setupText: "Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit). Tam si také vyberete ikonu tlačítka (nebo vlastní obrázek), jeden z 5 stylů okna a barvy podle své značky.", setupButton: "Zapnout a upravit vzhled chatu", billingNote: "Platba probíhá přes Shopify v USD; částka v Kč je orientační.", noSubscription: "Zatím bez placeného tarifu" },
-        en: { trialNote: "3-day free trial · full version", tryFree: "Start 3-day free trial", offer: "🎁 First month only $4.45", popular: "Most popular", perMonth: "/ month", selectPlan: "Choose plan", currentPlan: "✓ Your current plan", fCases: "resolved conversations per month", f1: "AI answers from your products and stock", f2: "Clickable product cards in chat", f3: "Custom icon, window style and colors", f4: "Replies in the customer's language", trust: "🔒 3 days free, then billed through Shopify · no commitment · change or cancel anytime", plansTitle: "Choose your plan", plansText: "Billing is handled securely by Shopify (Shopify Billing). You can change your plan at any time.", loading: "Loading…", loadError: "Could not load", meteringOff: "Metering disabled", plan: "Plan", planPrice: "Plan price", period: "Period", caseHint: "One case is one chat thread with a successful answer.", select: "Select", active: "Active", payError: "Could not start the payment.", setupTitle: "Turn on the chat in your store", setupText: "Customers see the chat once you enable it in the theme editor (App embeds → Chatnelo Chat → Save). There you also pick the button icon (or your own image), one of 5 window styles and your brand colors.", setupButton: "Enable and customize the chat", billingNote: "Billing is handled by Shopify in USD; CZK amounts are approximate.", noSubscription: "No paid plan yet" },
-        sk: { trialNote: "3 dni zdarma · plná verzia", tryFree: "Vyskúšať 3 dni zdarma", offer: "🎁 1. mesiac len 99 Kč", popular: "Najobľúbenejší", perMonth: "/ mesiac", selectPlan: "Vybrať tarif", currentPlan: "✓ Váš aktuálny tarif", fCases: "vyriešených konverzácií mesačne", f1: "AI odpovede z vašich produktov a skladu", f2: "Klikateľné karty produktov v chate", f3: "Vlastná ikona, štýl okna a farby", f4: "Odpovede v jazyku zákazníka", trust: "🔒 3 dni zdarma, potom platba cez Shopify · bez záväzkov · kedykoľvek zmeniť alebo zrušiť", plansTitle: "Vyberte si tarif", plansText: "Platba prebieha bezpečne cez Shopify (Shopify Billing). Tarif môžete kedykoľvek zmeniť.", loading: "Načítavam…", loadError: "Nepodarilo sa načítať", meteringOff: "Meranie vypnuté", plan: "Tarif", planPrice: "Cena tarifu", period: "Obdobie", caseHint: "Jeden prípad je jedno chatové vlákno s úspešnou odpoveďou.", select: "Vybrať", active: "Aktívny", payError: "Platbu sa nepodarilo spustiť.", setupTitle: "Zapnite chat vo svojom obchode", setupText: "Chat sa zákazníkom zobrazí až po zapnutí v editore šablóny (Vloženia aplikácií → Chatnelo Chat → Uložiť). Tam si tiež vyberiete ikonu tlačidla (alebo vlastný obrázok), jeden z 5 štýlov okna a farby podľa svojej značky.", setupButton: "Zapnúť a upraviť vzhľad chatu", billingNote: "Platba prebieha cez Shopify v USD; suma v Kč je orientačná.", noSubscription: "Zatiaľ bez plateného tarifu" },
-        de: { trialNote: "3 Tage kostenlos · Vollversion", tryFree: "3 Tage kostenlos testen", offer: "🎁 1. Monat nur 4,45 $", popular: "Am beliebtesten", perMonth: "/ Monat", selectPlan: "Tarif wählen", currentPlan: "✓ Ihr aktueller Tarif", fCases: "gelöste Gespräche pro Monat", f1: "KI-Antworten aus Ihren Produkten und Beständen", f2: "Klickbare Produktkarten im Chat", f3: "Eigenes Symbol, Fensterstil und Farben", f4: "Antworten in der Sprache des Kunden", trust: "🔒 3 Tage kostenlos, dann Abrechnung über Shopify · keine Bindung · jederzeit kündbar", plansTitle: "Tarif wählen", plansText: "Die Abrechnung erfolgt sicher über Shopify (Shopify Billing). Sie können den Tarif jederzeit ändern.", loading: "Wird geladen…", loadError: "Konnte nicht geladen werden", meteringOff: "Messung deaktiviert", plan: "Tarif", planPrice: "Tarifpreis", period: "Zeitraum", caseHint: "Ein Fall ist ein Chat-Verlauf mit erfolgreicher Antwort.", select: "Auswählen", active: "Aktiv", payError: "Zahlung konnte nicht gestartet werden.", setupTitle: "Chat im Shop aktivieren", setupText: "Kunden sehen den Chat, sobald Sie ihn im Theme-Editor aktivieren (App-Einbettungen → Chatnelo Chat → Speichern). Dort wählen Sie auch das Button-Symbol (oder ein eigenes Bild), einen von 5 Fensterstilen und Ihre Markenfarben.", setupButton: "Chat aktivieren und gestalten", billingNote: "Die Abrechnung erfolgt über Shopify in USD; CZK-Beträge sind Richtwerte.", noSubscription: "Noch kein bezahlter Tarif" },
-        pl: { trialNote: "3 dni za darmo · pełna wersja", tryFree: "Wypróbuj 3 dni za darmo", offer: "🎁 1. miesiąc tylko 4,45 $", popular: "Najpopularniejszy", perMonth: "/ miesiąc", selectPlan: "Wybierz plan", currentPlan: "✓ Twój obecny plan", fCases: "rozwiązanych rozmów miesięcznie", f1: "Odpowiedzi AI z Twoich produktów i stanów", f2: "Klikalne karty produktów w czacie", f3: "Własna ikona, styl okna i kolory", f4: "Odpowiedzi w języku klienta", trust: "🔒 3 dni za darmo, potem płatność przez Shopify · bez zobowiązań · anuluj w każdej chwili", plansTitle: "Wybierz plan", plansText: "Płatność obsługuje bezpiecznie Shopify (Shopify Billing). Plan możesz zmienić w każdej chwili.", loading: "Ładowanie…", loadError: "Nie udało się wczytać", meteringOff: "Pomiar wyłączony", plan: "Plan", planPrice: "Cena planu", period: "Okres", caseHint: "Jeden przypadek to jeden wątek czatu z udaną odpowiedzią.", select: "Wybierz", active: "Aktywny", payError: "Nie udało się rozpocząć płatności.", setupTitle: "Włącz czat w sklepie", setupText: "Klienci zobaczą czat po włączeniu go w edytorze motywu (Osadzenia aplikacji → Chatnelo Chat → Zapisz). Tam wybierzesz też ikonę przycisku (lub własny obraz), jeden z 5 stylów okna i kolory marki.", setupButton: "Włącz i dostosuj czat", billingNote: "Płatność obsługuje Shopify w USD; kwoty w CZK są orientacyjne.", noSubscription: "Brak płatnego planu" },
+        cs: { limitReached: "Limit je vyčerpán – chat se zákazníkům skryl. Vyberte vyšší tarif, nebo počkejte na nové období.", trialNote: "3 dny zdarma · plná verze", tryFree: "Vyzkoušet 3 dny zdarma", offer: "🎁 1. měsíc jen 99 Kč", popular: "Nejoblíbenější", perMonth: "/ měsíc", selectPlan: "Vybrat tarif", currentPlan: "✓ Váš aktuální tarif", fCases: "vyřešených konverzací měsíčně", f1: "AI odpovědi z vašich produktů a skladu", f2: "Klikací karty produktů v chatu", f3: "Vlastní ikona, styl okna a barvy", f4: "Odpovědi v jazyce zákazníka", trust: "🔒 3 dny zdarma, pak platba přes Shopify · bez závazků · kdykoli můžete změnit nebo zrušit", plansTitle: "Vyberte tarif", plansText: "Platba probíhá bezpečně přes Shopify (Shopify Billing). Tarif můžete kdykoli změnit.", loading: "Načítám…", loadError: "Nelze načíst", meteringOff: "Měření vypnuto", plan: "Tarif", planPrice: "Cena tarifu", period: "Období", caseHint: "Jeden případ je jedno chatové vlákno s úspěšnou odpovědí.", select: "Vybrat", active: "Aktivní", payError: "Nepodařilo se zahájit platbu.", setupTitle: "Zapněte chat ve svém obchodě", setupText: "Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit). Tam si také vyberete ikonu tlačítka (nebo vlastní obrázek), jeden z 5 stylů okna a barvy podle své značky.", setupButton: "Zapnout a upravit vzhled chatu", billingNote: "Platba probíhá přes Shopify v USD; částka v Kč je orientační.", noSubscription: "Zatím bez placeného tarifu" },
+        en: { limitReached: "Limit reached – the chat is hidden from customers. Choose a higher plan or wait for the next period.", trialNote: "3-day free trial · full version", tryFree: "Start 3-day free trial", offer: "🎁 First month only $4.45", popular: "Most popular", perMonth: "/ month", selectPlan: "Choose plan", currentPlan: "✓ Your current plan", fCases: "resolved conversations per month", f1: "AI answers from your products and stock", f2: "Clickable product cards in chat", f3: "Custom icon, window style and colors", f4: "Replies in the customer's language", trust: "🔒 3 days free, then billed through Shopify · no commitment · change or cancel anytime", plansTitle: "Choose your plan", plansText: "Billing is handled securely by Shopify (Shopify Billing). You can change your plan at any time.", loading: "Loading…", loadError: "Could not load", meteringOff: "Metering disabled", plan: "Plan", planPrice: "Plan price", period: "Period", caseHint: "One case is one chat thread with a successful answer.", select: "Select", active: "Active", payError: "Could not start the payment.", setupTitle: "Turn on the chat in your store", setupText: "Customers see the chat once you enable it in the theme editor (App embeds → Chatnelo Chat → Save). There you also pick the button icon (or your own image), one of 5 window styles and your brand colors.", setupButton: "Enable and customize the chat", billingNote: "Billing is handled by Shopify in USD; CZK amounts are approximate.", noSubscription: "No paid plan yet" },
+        sk: { limitReached: "Limit je vyčerpaný – chat sa zákazníkom skryl. Vyberte vyšší tarif alebo počkajte na nové obdobie.", trialNote: "3 dni zdarma · plná verzia", tryFree: "Vyskúšať 3 dni zdarma", offer: "🎁 1. mesiac len 99 Kč", popular: "Najobľúbenejší", perMonth: "/ mesiac", selectPlan: "Vybrať tarif", currentPlan: "✓ Váš aktuálny tarif", fCases: "vyriešených konverzácií mesačne", f1: "AI odpovede z vašich produktov a skladu", f2: "Klikateľné karty produktov v chate", f3: "Vlastná ikona, štýl okna a farby", f4: "Odpovede v jazyku zákazníka", trust: "🔒 3 dni zdarma, potom platba cez Shopify · bez záväzkov · kedykoľvek zmeniť alebo zrušiť", plansTitle: "Vyberte si tarif", plansText: "Platba prebieha bezpečne cez Shopify (Shopify Billing). Tarif môžete kedykoľvek zmeniť.", loading: "Načítavam…", loadError: "Nepodarilo sa načítať", meteringOff: "Meranie vypnuté", plan: "Tarif", planPrice: "Cena tarifu", period: "Obdobie", caseHint: "Jeden prípad je jedno chatové vlákno s úspešnou odpoveďou.", select: "Vybrať", active: "Aktívny", payError: "Platbu sa nepodarilo spustiť.", setupTitle: "Zapnite chat vo svojom obchode", setupText: "Chat sa zákazníkom zobrazí až po zapnutí v editore šablóny (Vloženia aplikácií → Chatnelo Chat → Uložiť). Tam si tiež vyberiete ikonu tlačidla (alebo vlastný obrázok), jeden z 5 štýlov okna a farby podľa svojej značky.", setupButton: "Zapnúť a upraviť vzhľad chatu", billingNote: "Platba prebieha cez Shopify v USD; suma v Kč je orientačná.", noSubscription: "Zatiaľ bez plateného tarifu" },
+        de: { limitReached: "Limit erreicht – der Chat ist für Kunden ausgeblendet. Wählen Sie einen höheren Tarif oder warten Sie auf den nächsten Zeitraum.", trialNote: "3 Tage kostenlos · Vollversion", tryFree: "3 Tage kostenlos testen", offer: "🎁 1. Monat nur 4,45 $", popular: "Am beliebtesten", perMonth: "/ Monat", selectPlan: "Tarif wählen", currentPlan: "✓ Ihr aktueller Tarif", fCases: "gelöste Gespräche pro Monat", f1: "KI-Antworten aus Ihren Produkten und Beständen", f2: "Klickbare Produktkarten im Chat", f3: "Eigenes Symbol, Fensterstil und Farben", f4: "Antworten in der Sprache des Kunden", trust: "🔒 3 Tage kostenlos, dann Abrechnung über Shopify · keine Bindung · jederzeit kündbar", plansTitle: "Tarif wählen", plansText: "Die Abrechnung erfolgt sicher über Shopify (Shopify Billing). Sie können den Tarif jederzeit ändern.", loading: "Wird geladen…", loadError: "Konnte nicht geladen werden", meteringOff: "Messung deaktiviert", plan: "Tarif", planPrice: "Tarifpreis", period: "Zeitraum", caseHint: "Ein Fall ist ein Chat-Verlauf mit erfolgreicher Antwort.", select: "Auswählen", active: "Aktiv", payError: "Zahlung konnte nicht gestartet werden.", setupTitle: "Chat im Shop aktivieren", setupText: "Kunden sehen den Chat, sobald Sie ihn im Theme-Editor aktivieren (App-Einbettungen → Chatnelo Chat → Speichern). Dort wählen Sie auch das Button-Symbol (oder ein eigenes Bild), einen von 5 Fensterstilen und Ihre Markenfarben.", setupButton: "Chat aktivieren und gestalten", billingNote: "Die Abrechnung erfolgt über Shopify in USD; CZK-Beträge sind Richtwerte.", noSubscription: "Noch kein bezahlter Tarif" },
+        pl: { limitReached: "Limit wyczerpany – czat jest ukryty dla klientów. Wybierz wyższy plan lub poczekaj na nowy okres.", trialNote: "3 dni za darmo · pełna wersja", tryFree: "Wypróbuj 3 dni za darmo", offer: "🎁 1. miesiąc tylko 4,45 $", popular: "Najpopularniejszy", perMonth: "/ miesiąc", selectPlan: "Wybierz plan", currentPlan: "✓ Twój obecny plan", fCases: "rozwiązanych rozmów miesięcznie", f1: "Odpowiedzi AI z Twoich produktów i stanów", f2: "Klikalne karty produktów w czacie", f3: "Własna ikona, styl okna i kolory", f4: "Odpowiedzi w języku klienta", trust: "🔒 3 dni za darmo, potem płatność przez Shopify · bez zobowiązań · anuluj w każdej chwili", plansTitle: "Wybierz plan", plansText: "Płatność obsługuje bezpiecznie Shopify (Shopify Billing). Plan możesz zmienić w każdej chwili.", loading: "Ładowanie…", loadError: "Nie udało się wczytać", meteringOff: "Pomiar wyłączony", plan: "Plan", planPrice: "Cena planu", period: "Okres", caseHint: "Jeden przypadek to jeden wątek czatu z udaną odpowiedzią.", select: "Wybierz", active: "Aktywny", payError: "Nie udało się rozpocząć płatności.", setupTitle: "Włącz czat w sklepie", setupText: "Klienci zobaczą czat po włączeniu go w edytorze motywu (Osadzenia aplikacji → Chatnelo Chat → Zapisz). Tam wybierzesz też ikonę przycisku (lub własny obraz), jeden z 5 stylów okna i kolory marki.", setupButton: "Włącz i dostosuj czat", billingNote: "Płatność obsługuje Shopify w USD; kwoty w CZK są orientacyjne.", noSubscription: "Brak płatnego planu" },
       };
       var LOCALES = { cs: "cs-CZ", en: "en-US", sk: "sk-SK", de: "de-DE", pl: "pl-PL" };
       var state = { data: null, error: false };
@@ -2155,7 +2158,9 @@ td button:active{transform:translateY(0)}
           counter.textContent = t("meteringOff");
           return;
         }
-        counter.textContent = usage.usage + " / " + usage.limit;
+        var percent = usage.limit ? Math.min(999, Math.round((usage.usage / usage.limit) * 100)) : 0;
+        counter.textContent = percent + " %";
+        counter.title = usage.usage + " / " + usage.limit;
         byId("plan-name").textContent = usage.subscribed
           ? t("plan") + " " + usage.plan.name
           : t("noSubscription");
@@ -2164,7 +2169,8 @@ td button:active{transform:translateY(0)}
         byId("usage-progress").value = usage.usage;
         var start = new Date(usage.periodStart).toLocaleDateString(locale());
         var end = new Date(usage.periodEnd).toLocaleDateString(locale());
-        byId("usage-period").textContent = t("period") + " " + start + " – " + end + ". " + t("caseHint");
+        byId("usage-period").textContent = usage.usage.toLocaleString(locale()) + " / " + usage.limit.toLocaleString(locale()) + " · " +
+          t("period") + " " + start + " – " + end + ". " + (percent >= 100 ? t("limitReached") : t("caseHint"));
         byId("pricing-tiers").innerHTML = usage.plans.map(function (plan, index) {
           var isCurrent = usage.subscribed && usage.plan && plan.handle === usage.plan.handle;
           var price = typeof plan.priceUsd === "number" ? "$" + plan.priceUsd.toFixed(2) : formatMoney(plan.priceCzk, "CZK");
@@ -3160,13 +3166,64 @@ function allowPasswordProtectedTestStore(req, res) {
 
   res.set({
     "Access-Control-Allow-Origin": PASSWORD_PROTECTED_TEST_ORIGIN,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Cache-Control": "no-store",
     Vary: "Origin",
   });
   return true;
 }
+
+// Whether the storefront should show the chat at all: no plan on a live
+// store, or the monthly limit used up -> the launcher stays hidden.
+const availabilityCache = new Map();
+const AVAILABILITY_CACHE_MS = 2 * 60 * 1000;
+
+async function storefrontAvailability(shop) {
+  const cached = availabilityCache.get(shop);
+  if (cached && Date.now() - cached.at < AVAILABILITY_CACHE_MS) return cached.value;
+  let value = { available: true };
+  try {
+    const accessToken = await getShopToken(shop);
+    if (!accessToken) {
+      value = { available: false, reason: "not_connected" };
+    } else {
+      const data = await shopifyGraphql(shop, accessToken, `{
+        shop { plan { partnerDevelopment } }
+        currentAppInstallation { activeSubscriptions { id name status createdAt currentPeriodEnd } }
+      }`);
+      const subscription = data.currentAppInstallation.activeSubscriptions[0] || null;
+      const isDevelopmentStore = Boolean(data.shop.plan && data.shop.plan.partnerDevelopment);
+      if (!subscription && (SHOPIFY_PLAN_REQUIRED || SHOPIFY_SUBSCRIPTION_REQUIRED) && !isDevelopmentStore) {
+        value = { available: false, reason: "no_plan" };
+      } else if (USAGE_METERING_ENABLED) {
+        const summary = await getUsageSummary(shop, accessToken, subscription);
+        if (summary.enabled && summary.usage >= summary.limit) value = { available: false, reason: "limit" };
+      }
+    }
+  } catch (error) {
+    // Fail open: a temporary error must not hide the chat on a paying store.
+    console.warn("Dostupnost chatu nelze ověřit:", { shop, error: error.message });
+    value = { available: true };
+  }
+  availabilityCache.set(shop, { at: Date.now(), value });
+  return value;
+}
+
+app.get("/proxy/status", async (req, res) => {
+  try {
+    const shop = verifyAppProxy(req);
+    res.set("Cache-Control", "no-store");
+    res.json(await storefrontAvailability(shop));
+  } catch (error) {
+    res.status(errorStatus(error)).json({ available: true });
+  }
+});
+
+app.get("/test-storefront/status", async (req, res) => {
+  if (!allowPasswordProtectedTestStore(req, res)) return res.status(403).json({ available: true });
+  return res.json(await storefrontAvailability(PASSWORD_PROTECTED_TEST_SHOP));
+});
 
 app.options("/test-storefront/chat", (req, res) => {
   if (!allowPasswordProtectedTestStore(req, res)) return res.sendStatus(403);
