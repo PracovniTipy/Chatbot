@@ -321,6 +321,26 @@
     return String(title || "").replace(/\s+/g, " ").trim().slice(0, 200);
   }
 
+  // Hide the whole chat when the store has no plan or used up its monthly
+  // limit. Errors keep it visible (fail open).
+  root.style.display = "none";
+  (function checkAvailability() {
+    var statusUrl = api.replace(/\/chat(\?.*)?$/, "/status");
+    var shown = false;
+    function show() { if (!shown) { shown = true; root.style.display = ""; } }
+    var fallback = setTimeout(show, 4000);
+    try {
+      fetch(statusUrl, { credentials: "same-origin" })
+        .then(function (response) { return response.ok ? response.json() : { available: true }; })
+        .then(function (data) {
+          clearTimeout(fallback);
+          if (data && data.available === false) { root.style.display = "none"; shown = true; return; }
+          show();
+        })
+        .catch(function () { clearTimeout(fallback); show(); });
+    } catch (_) { clearTimeout(fallback); show(); }
+  })();
+
   // Keep the launcher above bars pinned to the bottom of the screen, e.g. the
   // Shopify preview bar that staff and reviewers see on the storefront.
   function updateLift() {
