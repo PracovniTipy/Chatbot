@@ -476,6 +476,13 @@
 
   function detectLang() {
     try {
+      var forced = (new URLSearchParams(window.location.search).get("lang") || "").toLowerCase();
+      if (forced && LANGS.some(function (l) { return l.code === forced; })) {
+        try { window.localStorage.setItem(STORAGE_KEY, forced); } catch (e) {}
+        return forced;
+      }
+    } catch (e) {}
+    try {
       var saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved && LANGS.some(function (l) { return l.code === saved; })) return saved;
     } catch (e) {}
