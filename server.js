@@ -63,6 +63,8 @@ const SHOPIFY_SUBSCRIPTION_REQUIRED = process.env.SHOPIFY_SUBSCRIPTION_REQUIRED 
 // Live stores need a plan (every plan starts with a free trial); development
 // stores keep working without one so merchants and reviewers can test.
 const SHOPIFY_PLAN_REQUIRED = process.env.SHOPIFY_PLAN_REQUIRED !== "false";
+// Changes on every deploy so browsers fetch fresh admin scripts.
+const ASSET_VERSION = Date.now().toString(36);
 const SHOPIFY_TRIAL_DAYS = Number(process.env.SHOPIFY_TRIAL_DAYS || 3);
 // First-month offer for new subscribers: Basic for 99 CZK (≈ USD below).
 const FIRST_MONTH_OFFER = { limit: 150, priceUsd: 4.45, priceCzk: 99 };
@@ -2115,7 +2117,7 @@ td button:active{transform:translateY(0)}
       <a id="setup-link" class="setup-button" href="#" target="_top">Otevřít editor šablony</a>
     </section>
   </main>
-  <script src="/i18n.js"></script>
+  <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
     window.CHATBOT_API = "";
     (function () {
@@ -2303,7 +2305,7 @@ td button:active{transform:translateY(0)}
       });
     })();
   </script>
-  <script src="/widget.js" defer></script>
+  <script src="/widget.js?v=${ASSET_VERSION}" defer></script>
 </body>
 </html>`);
 });
@@ -2421,7 +2423,7 @@ app.get("/marketing", (req, res) => {
   <footer style="text-align:center;padding:24px;color:#637381;font-size:.85rem">
     <a href="/privacy" style="color:#637381" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
   </footer>
-  <script src="/i18n.js"></script>
+  <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
     (function () {
       var log = document.getElementById("marketing-chat-log");
@@ -2574,7 +2576,7 @@ app.get("/privacy", (req, res) => {
     ${sectionsHtml}
   </main>
   <script>window.CHATNELO_OPERATOR = ${JSON.stringify(operator).replace(/</g, "\\u003c")};</script>
-  <script src="/i18n.js"></script>
+  <script src="/i18n.js?v=${ASSET_VERSION}"></script>
 </body>
 </html>`);
 });
@@ -2769,7 +2771,7 @@ app.get("/store/dashboard", (req, res) => {
       <div id="save-message"></div>
     </section>
   </main>
-  <script src="/i18n.js"></script>
+  <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
     function T(key) {
       var value = window.CHATNELO_T && window.CHATNELO_T(key);
