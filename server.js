@@ -3070,10 +3070,15 @@ app.post("/api/billing/subscribe", async (req, res) => {
       const returnUrl = `https://admin.shopify.com/store/${storeHandle}/apps/${SHOPIFY_APP_HANDLE}`;
       const isTest = String(process.env.SHOPIFY_BILLING_TEST_CHARGES || "").toLowerCase() === "true";
       const history = await shopifyGraphql(shop, accessToken, `{
-        currentAppInstallation { allSubscriptions(first: 1) { nodes { id } } }
+        currentAppInstallation { allSubscriptions(first: 50) { nodes { status } } }
       }`).catch(() => null);
-      const firstTime = !(history && history.currentAppInstallation &&
-        history.currentAppInstallation.allSubscriptions.nodes.length);
+      // Only plans the merchant actually approved count; pending or declined
+      // approval screens do not use up the trial and first-month offer.
+      const usedBefore = history && history.currentAppInstallation
+        ? history.currentAppInstallation.allSubscriptions.nodes
+          .some((node) => !["PENDING", "DECLINED"].includes(node.status))
+        : false;
+      const firstTime = !usedBefore;
       const pricing = {
         price: { amount: plan.priceUsd, currencyCode: "USD" },
         interval: "EVERY_30_DAYS",
