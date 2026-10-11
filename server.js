@@ -2004,7 +2004,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-seri
 #chatnelo-lang-dropdown.open{display:flex}
 .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left;transition:background .12s ease}
 .chatnelo-lang-option:hover{background:rgba(255,255,255,.14)}
-main{max-width:900px;margin:32px auto 48px;padding:36px;background:#fff;border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 12px 32px rgba(20,20,50,.06)}
+main{max-width:1060px;margin:32px auto 48px;padding:36px;background:#fff;border-radius:18px;box-shadow:0 1px 3px rgba(0,0,0,.06),0 12px 32px rgba(20,20,50,.06)}
 h1{margin-top:0;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:1.8rem}
 .usage-card{margin-top:28px;padding:24px;border:1px solid #e6e8f0;border-radius:14px;background:linear-gradient(180deg,#fafbff,#f5f6fb)}
 .usage-row{display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
@@ -2027,8 +2027,8 @@ td button:active{transform:translateY(0)}
 .plan-popular{border:2px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#7e22ce,#0891b2) border-box;box-shadow:0 16px 40px rgba(126,34,206,.18)}
 .plan-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:5px 12px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 16px rgba(126,34,206,.35)}
 .plan-name{font-weight:700;font-size:1.02rem;color:#1c1f26}
-.plan-price{display:flex;align-items:baseline;gap:6px;margin-top:12px}
-.plan-amount{font-size:2rem;font-weight:800;letter-spacing:-.02em;background:linear-gradient(90deg,#4c1d95,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
+.plan-price{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:6px;margin-top:12px}
+.plan-amount{font-size:1.7rem;white-space:nowrap;font-weight:800;letter-spacing:-.02em;background:linear-gradient(90deg,#4c1d95,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
 .plan-per{color:#637381;font-size:.88rem}
 .plan-czk{color:#8a94a6;font-size:.82rem;margin-top:2px}
 .plan-features{list-style:none;padding:0;margin:16px 0 18px;display:grid;gap:9px;font-size:.88rem;color:#3b4252;flex:1}
@@ -2156,7 +2156,7 @@ td button:active{transform:translateY(0)}
         byId("usage-period").textContent = t("period") + " " + start + " – " + end + ". " + t("caseHint");
         byId("pricing-tiers").innerHTML = usage.plans.map(function (plan, index) {
           var isCurrent = usage.subscribed && usage.plan && plan.handle === usage.plan.handle;
-          var price = typeof plan.priceUsd === "number" ? formatMoney(plan.priceUsd, "USD") : formatMoney(plan.priceCzk, "CZK");
+          var price = typeof plan.priceUsd === "number" ? "$" + plan.priceUsd.toFixed(2) : formatMoney(plan.priceCzk, "CZK");
           var czk = typeof plan.priceUsd === "number" ? "≈ " + formatMoney(plan.priceCzk, "CZK") : "";
           return '<article class="plan-card' + (index === 2 ? " plan-popular" : "") + '">' +
             (index === 2 ? '<span class="plan-badge">' + escapeText(t("popular")) + "</span>" : "") +
