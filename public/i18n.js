@@ -479,8 +479,14 @@
       var saved = window.localStorage.getItem(STORAGE_KEY);
       if (saved && LANGS.some(function (l) { return l.code === saved; })) return saved;
     } catch (e) {}
-    var nav = ((navigator.language || "cs").split("-")[0] || "cs").toLowerCase();
-    return LANGS.some(function (l) { return l.code === nav; }) ? nav : "cs";
+    // Shopify passes the merchant's admin language as ?locale=xx-YY.
+    var fromShopify = "";
+    try {
+      fromShopify = ((new URLSearchParams(window.location.search).get("locale") || "").split("-")[0] || "").toLowerCase();
+    } catch (e) {}
+    if (fromShopify) return LANGS.some(function (l) { return l.code === fromShopify; }) ? fromShopify : "en";
+    var nav = ((navigator.language || "en").split("-")[0] || "en").toLowerCase();
+    return LANGS.some(function (l) { return l.code === nav; }) ? nav : "en";
   }
 
   function applyLang(lang) {
