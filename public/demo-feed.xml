@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SHOP>
+<SHOPITEM><ITEM_ID>D1</ITEM_ID><PRODUCTNAME>Mikina Nordic</PRODUCTNAME><DESCRIPTION>Teplá bavlněná mikina s kapucí, velikosti S–XL.</DESCRIPTION><URL>https://chatbot-production-6b09.up.railway.app/marketing#mikina</URL><IMGURL>https://chatbot-production-6b09.up.railway.app/mascot.png</IMGURL><PRICE_VAT>1290</PRICE_VAT><DELIVERY_DATE>0</DELIVERY_DATE><CATEGORYTEXT>Oblečení | Mikiny</CATEGORYTEXT><MANUFACTURER>Nordic</MANUFACTURER></SHOPITEM>
+<SHOPITEM><ITEM_ID>D2</ITEM_ID><PRODUCTNAME>Bunda Alpine</PRODUCTNAME><DESCRIPTION>Zimní nepromokavá bunda.</DESCRIPTION><URL>https://chatbot-production-6b09.up.railway.app/marketing#bunda</URL><PRICE_VAT>2490</PRICE_VAT><DELIVERY_DATE>0</DELIVERY_DATE><CATEGORYTEXT>Oblečení | Bundy</CATEGORYTEXT></SHOPITEM>
+<SHOPITEM><ITEM_ID>D3</ITEM_ID><PRODUCTNAME>Kožená peněženka Classic</PRODUCTNAME><DESCRIPTION>Pánská kožená peněženka, ideální dárek.</DESCRIPTION><URL>https://chatbot-production-6b09.up.railway.app/marketing#penezenka</URL><PRICE_VAT>890</PRICE_VAT><DELIVERY_DATE>0</DELIVERY_DATE><CATEGORYTEXT>Doplňky | Peněženky</CATEGORYTEXT></SHOPITEM>
+<SHOPITEM><ITEM_ID>D4</ITEM_ID><PRODUCTNAME>Čepice Polar</PRODUCTNAME><DESCRIPTION>Pletená zimní čepice.</DESCRIPTION><URL>https://chatbot-production-6b09.up.railway.app/marketing#cepice</URL><PRICE_VAT>390</PRICE_VAT><DELIVERY_DATE>14</DELIVERY_DATE><CATEGORYTEXT>Doplňky | Čepice</CATEGORYTEXT></SHOPITEM>
+</SHOP>
