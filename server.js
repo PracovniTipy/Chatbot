@@ -25,6 +25,7 @@ const {
   validateCatalogInput,
   validateSignupInput,
 } = require("./stores");
+const { parseFeed, fetchFeed, validateFeedUrl, selectRelevantProducts } = require("./feed");
 
 const app = express();
 app.set("trust proxy", true);
@@ -273,6 +274,9 @@ async function initializeDatabase() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await database.query("ALTER TABLE generic_catalog ADD COLUMN IF NOT EXISTS feed_url TEXT");
+  await database.query("ALTER TABLE generic_catalog ADD COLUMN IF NOT EXISTS feed_synced_at TIMESTAMPTZ");
+  await database.query("ALTER TABLE generic_catalog ADD COLUMN IF NOT EXISTS feed_error TEXT");
   await database.query(`
     CREATE TABLE IF NOT EXISTS generic_usage_events (
       id TEXT PRIMARY KEY,
@@ -746,11 +750,47 @@ async function requireStoreApiKey(body) {
 
 async function getStoreCatalog(storeId) {
   const result = await database.query(
-    "SELECT products, rules FROM generic_catalog WHERE store_id = $1",
+    "SELECT products, rules, feed_url, feed_synced_at, feed_error FROM generic_catalog WHERE store_id = $1",
     [storeId],
   );
-  if (!result.rowCount) return { products: [], rules: {} };
-  return { products: result.rows[0].products || [], rules: result.rows[0].rules || {} };
+  if (!result.rowCount) return { products: [], rules: {}, feed: null };
+  const row = result.rows[0];
+  return {
+    products: row.products || [],
+    rules: row.rules || {},
+    feed: row.feed_url ? { url: row.feed_url, syncedAt: row.feed_synced_at, error: row.feed_error } : null,
+  };
+}
+
+// Downloads the store's product feed (Heureka / Zboží / Google XML) and
+// replaces the product list with it. Errors are stored so the dashboard can
+// show them; the previous products stay in place.
+async function syncStoreFeed(storeId, feedUrl) {
+  try {
+    const xml = await fetchFeed(feedUrl);
+    const products = parseFeed(xml);
+    if (!products.length) throw new Error("Ve feedu jsme nenašli žádné produkty (podporujeme Heureka, Zboží.cz a Google XML).");
+    await database.query(
+      `UPDATE generic_catalog SET products = $2, feed_synced_at = NOW(), feed_error = NULL, updated_at = NOW()
+       WHERE store_id = $1`,
+      [storeId, JSON.stringify(products)],
+    );
+    return { count: products.length };
+  } catch (error) {
+    await database.query("UPDATE generic_catalog SET feed_error = $2 WHERE store_id = $1",
+      [storeId, String(error.message || error).slice(0, 300)]).catch(() => {});
+    throw httpError(error.message || "Feed se nepodařilo načíst.", 400);
+  }
+}
+
+async function syncAllStoreFeeds() {
+  if (!database) return;
+  const result = await database.query("SELECT store_id, feed_url FROM generic_catalog WHERE feed_url IS NOT NULL");
+  for (const row of result.rows) {
+    await syncStoreFeed(row.store_id, row.feed_url).catch((error) => {
+      console.warn("Synchronizace feedu:", { storeId: row.store_id, error: error.message });
+    });
+  }
 }
 
 async function saveStoreCatalog(storeId, { products, rules }) {
@@ -936,6 +976,7 @@ async function answerGenericChat(store, body) {
     return {
       caseId,
       reply,
+      products: genericProductCards(catalog.products, reply),
       usage: reservation ? reservation.usageAfterSuccess : null,
       usageLimit: planForStore(store).limit,
     };
@@ -1718,11 +1759,38 @@ async function generateAnswer(catalog, message, history, viewedProduct) {
 }
 
 async function generateGenericAnswer(store, catalog, message, history) {
+  const query = [message, ...history.filter((item) => item.role === "user").slice(-2).map((item) => item.content)].join(" ");
+  const products = selectRelevantProducts(catalog.products, query, 60);
   return callOpenAiChat(
-    `${LANGUAGE_RULE}\n${buildGenericSystemPrompt(store.name, catalog.products, catalog.rules)}`,
+    `${LANGUAGE_RULE}\n${buildGenericSystemPrompt(store.name, products, catalog.rules)}`,
     message,
     history,
   );
+}
+
+function genericProductCards(products, reply) {
+  const haystack = normalizeForMatch(reply);
+  const matches = (products || [])
+    .filter((product) => product && product.nazev && typeof product.url === "string")
+    .map((product) => ({ product, index: haystack.indexOf(normalizeForMatch(product.nazev)) }))
+    .filter((match) => match.index !== -1)
+    .sort((a, b) => a.index - b.index || b.product.nazev.length - a.product.nazev.length);
+  const cards = []; const used = [];
+  for (const { product, index } of matches) {
+    const end = index + normalizeForMatch(product.nazev).length;
+    if (used.some(([from, to]) => index >= from && end <= to)) continue;
+    used.push([index, end]);
+    cards.push({
+      title: product.nazev,
+      url: product.url,
+      price: Number.isFinite(product.cena) ? product.cena : null,
+      currency: product.mena || null,
+      inStock: product.dostupnost ? product.dostupnost === "skladem" : (Number.isFinite(product.sklad) ? product.sklad > 0 : undefined),
+      image: typeof product.obrazek === "string" && /^https?:\/\//.test(product.obrazek) ? product.obrazek : null,
+    });
+    if (cards.length === 3) break;
+  }
+  return cards;
 }
 
 function isMarketingChatRateLimited(ip) {
@@ -2762,6 +2830,14 @@ app.get("/store/dashboard", (req, res) => {
       <div id="plan-list"></div>
       <div id="billing-error" class="error"></div>
     </section>
+    <section id="feed-section" style="display:none">
+      <h2>Produkty z XML feedu (doporučeno)</h2>
+      <p class="muted">Vložte odkaz na produktový XML feed pro Heureku, Zboží.cz nebo Google Nákupy. Najdete ho v administraci e-shopu (Shoptet: Propojení → Srovnávače zboží; WooCommerce: plugin pro Google/Heureka feed). Chatbot si produkty, ceny, dostupnost, odkazy a obrázky načte sám a každých 6 hodin je aktualizuje.</p>
+      <label for="feed-url">Adresa feedu</label>
+      <input id="feed-url" type="url" placeholder="https://vas-eshop.cz/heureka.xml" style="width:100%;box-sizing:border-box">
+      <button id="feed-btn" type="button">Načíst produkty z feedu</button>
+      <div id="feed-status" class="muted"></div>
+    </section>
     <section id="app-section2" style="display:none">
       <h2 data-i18n="dashboard.catalogHeading">Katalog produktů a pravidla obchodu</h2>
       <p class="muted" data-i18n="dashboard.catalogIntro">Pole products je pole objektů s klíči id, nazev, cena, mena, sklad, popis. Pole rules může obsahovat doprava, vraceni, platba.</p>
@@ -2802,7 +2878,16 @@ app.get("/store/dashboard", (req, res) => {
           document.getElementById("usage-summary").textContent =
             T("dashboard.usagePrefix") + data.usage.usage + " / " + data.usage.limit + " (" + T("dashboard.planWord") + " " + data.usage.plan.name + ")";
         }
-        document.getElementById("catalog-json").value = JSON.stringify(data.catalog, null, 2);
+        window.__feed = data.catalog && data.catalog.feed;
+        document.getElementById("feed-section").style.display = "block";
+        document.getElementById("feed-url").value = window.__feed ? window.__feed.url : "";
+        document.getElementById("feed-status").textContent = window.__feed
+          ? (window.__feed.error ? "Chyba feedu: " + window.__feed.error
+            : "Načteno " + (data.catalog.products || []).length + " produktů" + (window.__feed.syncedAt ? " (" + new Date(window.__feed.syncedAt).toLocaleString() + ")" : ""))
+          : "";
+        document.getElementById("catalog-json").value = JSON.stringify(window.__feed
+          ? { rules: data.catalog.rules || {} }
+          : { products: data.catalog.products || [], rules: data.catalog.rules || {} }, null, 2);
         renderBilling(data);
       } catch (error) {
         document.getElementById(errorElementId).textContent = error.message;
@@ -2900,6 +2985,7 @@ app.get("/store/dashboard", (req, res) => {
       messageEl.textContent = T("dashboard.saving");
       try {
         var catalog = JSON.parse(document.getElementById("catalog-json").value);
+        if (window.__feed) catalog = { rules: catalog.rules || {} };
         var response = await fetch("/store/" + encodeURIComponent(storeId) + "/catalog", {
           method: "PUT",
           headers: authHeaders(),
@@ -2912,6 +2998,31 @@ app.get("/store/dashboard", (req, res) => {
       } catch (error) {
         messageEl.className = "error";
         messageEl.textContent = error.message;
+      }
+    });
+    document.getElementById("feed-btn").addEventListener("click", async function () {
+      var statusEl = document.getElementById("feed-status");
+      var btn = document.getElementById("feed-btn");
+      btn.disabled = true;
+      statusEl.className = "muted";
+      statusEl.textContent = "Načítám feed…";
+      try {
+        var response = await fetch("/store/" + encodeURIComponent(storeId) + "/feed", {
+          method: "PUT",
+          headers: authHeaders(),
+          body: JSON.stringify({ feedUrl: document.getElementById("feed-url").value.trim() }),
+        });
+        var data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Feed se nepodařilo načíst.");
+        window.__feed = data.catalog ? data.catalog.feed : null;
+        statusEl.className = "ok";
+        statusEl.textContent = data.count ? "Hotovo – načteno " + data.count + " produktů." : "Feed odebrán.";
+        if (data.catalog) document.getElementById("catalog-json").value = JSON.stringify({ rules: data.catalog.rules || {} }, null, 2);
+      } catch (error) {
+        statusEl.className = "error";
+        statusEl.textContent = error.message;
+      } finally {
+        btn.disabled = false;
       }
     });
   </script>
@@ -3012,14 +3123,36 @@ app.put("/store/:id/catalog", async (req, res) => {
     const store = await requireStoreAdmin(req);
     let catalog;
     try {
-      catalog = validateCatalogInput(req.body);
+      const hasFeed = Boolean((await getStoreCatalog(store.id)).feed);
+      catalog = validateCatalogInput(hasFeed ? { ...req.body, products: [] } : req.body);
     } catch (error) {
       throw httpError(error.message, 400);
     }
+    const current = await getStoreCatalog(store.id);
+    if (current.feed) {
+      // Products come from the feed; only the store rules are edited by hand.
+      catalog.products = current.products;
+    }
     await saveStoreCatalog(store.id, catalog);
-    res.json({ ok: true, catalog });
+    res.json({ ok: true, catalog: { ...catalog, feed: current.feed } });
   } catch (error) {
     logRouteError("Store catalog update", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+app.put("/store/:id/feed", async (req, res) => {
+  try {
+    const store = await requireStoreAdmin(req);
+    let feedUrl;
+    try { feedUrl = validateFeedUrl(req.body?.feedUrl); } catch (error) { throw httpError(error.message, 400); }
+    await database.query("UPDATE generic_catalog SET feed_url = $2, feed_error = NULL WHERE store_id = $1",
+      [store.id, feedUrl || null]);
+    if (!feedUrl) return res.json({ ok: true, feed: null });
+    const result = await syncStoreFeed(store.id, feedUrl);
+    res.json({ ok: true, count: result.count, catalog: await getStoreCatalog(store.id) });
+  } catch (error) {
+    logRouteError("Store feed", error);
     res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
@@ -3352,6 +3485,9 @@ initializeDatabase()
       console.log(`Chatnelo běží na portu ${port}`);
     });
     setInterval(pruneRateLimits, 10 * 60 * 1000).unref();
+    setInterval(() => {
+      syncAllStoreFeeds().catch((error) => console.error("Synchronizace feedů:", error));
+    }, 6 * 60 * 60 * 1000).unref();
     setInterval(() => {
       refreshExpiringShopTokens().catch((error) => {
         console.error("Plánovaná obnova tokenů:", error);
