@@ -1,31 +1,33 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Chatnelo – app review screencast</title>
-<style>
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;background:#f4f5f9;color:#1c1f26}
-main{max-width:1100px;margin:32px auto;padding:0 20px}
-h1{font-size:1.6rem;margin:0 0 8px}
-ol{line-height:1.6;padding-left:20px}
-video,img{width:100%;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.15);background:#000}
-.muted{color:#637381;font-size:.92rem}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/png" href="/mascot.png">
+  <title>Chatnelo — app screencast</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;background:#0f0d2e;color:#e0e7ff}
+    main{max-width:1200px;margin:0 auto;padding:32px 20px 48px}
+    h1{margin:0 0 6px;font-size:28px;color:#fff}
+    p{margin:0 0 20px;color:#c7d2fe;line-height:1.5}
+    video{display:block;width:100%;aspect-ratio:16/9;border-radius:16px;background:#000;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+    ol{margin:24px 0 0;padding-left:22px;color:#c7d2fe;line-height:1.8}
+    a{color:#a5b4fc}
+  </style>
 </head>
 <body>
 <main>
-  <h1>Chatnelo – screencast for Shopify app review</h1>
+  <h1>Chatnelo — how it works</h1>
+  <p>Install the app, pick a plan (3-day free trial), turn on the chat in the theme editor — your customers get instant answers from your real products, stock and shipping.</p>
+  <video src="/chatnelo-screencast.mp4?v=2" poster="/app-icon-1200.jpg" controls playsinline preload="auto" muted autoplay loop></video>
   <ol>
-    <li>Chatnelo admin page (English): the 3-day free trial starts automatically, and the "Choose your plan" section shows 4 plans (Start 70, Basic 150, Growth 400, Pro 1000) billed through the Shopify Billing API.</li>
-    <li>"Enable and customize the chat" opens the theme editor with the <b>Chatnelo Chat</b> app embed turned on; the chat launcher is visible in the preview. Save.</li>
-    <li>Online Store product page: the chat launcher is visible (above the Shopify preview bar). The customer asks "Is this snowboard in stock and how much is shipping?" and gets an answer from live store data with a clickable product card.</li>
-    <li>Cart page: the chat launcher and conversation are available.</li>
-    <li>Choosing the Basic 150 plan opens Shopify's native "Approve subscription" page: 3-day free trial, first-month discount, test charge on the development store.</li>
+    <li>Open Chatnelo in Shopify admin and pick a plan.</li>
+    <li>Approve the subscription with Shopify Billing (3 days free).</li>
+    <li>Turn on the <b>Chatnelo Chat</b> app embed in the theme editor.</li>
+    <li>The chat bubble appears on your storefront.</li>
+    <li>Customers get instant answers about stock, prices and shipping, with clickable product cards.</li>
   </ol>
-  <video src="/chatnelo-screencast.mp4?v=2" controls playsinline preload="metadata"></video>
-  <p class="muted">Animated version (if the video does not play in your browser):</p>
-  <img src="/chatnelo-screencast.gif?v=2" alt="Chatnelo screencast">
 </main>
 </body>
 </html>
