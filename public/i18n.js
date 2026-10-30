@@ -17,6 +17,7 @@
         privacyLink: "Zásady ochrany osobních údajů",
       },
       marketing: {
+        pageTitle: "AI chatbot pro e-shopy",
         tagline: "AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.",
         cta: "Vyzkoušet zdarma",
         stepsHeading: "Jak to funguje",
@@ -107,6 +108,7 @@
     en: {
       common: { tryFree: "Try it for free", privacyLink: "Privacy policy" },
       marketing: {
+        pageTitle: "AI chatbot for online stores",
         tagline: "An AI chatbot that answers your customers for you — based on your real products and stock. Works on Shopify and on any other website.",
         cta: "Try it for free",
         stepsHeading: "How it works",
@@ -197,6 +199,7 @@
     sk: {
       common: { tryFree: "Vyskúšať zdarma", privacyLink: "Zásady ochrany osobných údajov" },
       marketing: {
+        pageTitle: "AI chatbot pre e-shopy",
         tagline: "AI chatbot, ktorý za vás na e-shope odpovedá zákazníkom — podľa reálnych produktov a skladu. Funguje na Shopify aj na akomkoľvek inom webe.",
         cta: "Vyskúšať zdarma",
         stepsHeading: "Ako to funguje",
@@ -287,6 +290,7 @@
     de: {
       common: { tryFree: "Kostenlos testen", privacyLink: "Datenschutzerklärung" },
       marketing: {
+        pageTitle: "KI-Chatbot für Onlineshops",
         tagline: "Ein KI-Chatbot, der Ihre Kunden automatisch beantwortet — auf Basis Ihrer echten Produkte und Lagerbestände. Funktioniert mit Shopify und jeder anderen Website.",
         cta: "Kostenlos testen",
         stepsHeading: "So funktioniert es",
@@ -377,6 +381,7 @@
     pl: {
       common: { tryFree: "Wypróbuj za darmo", privacyLink: "Polityka prywatności" },
       marketing: {
+        pageTitle: "Chatbot AI dla sklepów internetowych",
         tagline: "Chatbot AI, który odpowiada Twoim klientom automatycznie — na podstawie rzeczywistych produktów i stanu magazynowego. Działa na Shopify i na dowolnej innej stronie.",
         cta: "Wypróbuj za darmo",
         stepsHeading: "Jak to działa",
@@ -500,6 +505,11 @@
     var dict = translations[lang] || translations.cs;
 
     document.documentElement.lang = lang;
+    try {
+      var titleMeta = document.querySelector('meta[name="i18n-title"]');
+      var titleText = titleMeta && getPath(dict, titleMeta.getAttribute("content"));
+      if (titleText) document.title = "Chatnelo — " + titleText;
+    } catch (e) {}
 
     var nodes = document.querySelectorAll("[data-i18n]");
     for (var i = 0; i < nodes.length; i++) {
