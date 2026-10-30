@@ -2490,6 +2490,7 @@ app.get("/marketing", (req, res) => {
   </main>
   <footer style="text-align:center;padding:24px;color:#637381;font-size:.85rem">
     <a href="/privacy" style="color:#637381" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
+    <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>
   </footer>
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
@@ -2594,11 +2595,16 @@ app.post("/social/reply", async (req, res) => {
   }
 });
 
+const STUDIO_NAME = process.env.STUDIO_NAME || "BrosWars Studio";
+function studioOperatorName(legalName) {
+  return legalName.includes(STUDIO_NAME) ? legalName : `${STUDIO_NAME} (${legalName})`;
+}
+
 const PRIVACY_LAST_UPDATED = process.env.PRIVACY_LAST_UPDATED || "2026-10-02";
 
 app.get("/privacy", (req, res) => {
   const operator = {
-    name: process.env.PRIVACY_OPERATOR_NAME || OPERATOR_PLACEHOLDER.name,
+    name: studioOperatorName(process.env.PRIVACY_OPERATOR_NAME || OPERATOR_PLACEHOLDER.name),
     contactEmail: process.env.PRIVACY_CONTACT_EMAIL || OPERATOR_PLACEHOLDER.contactEmail,
     address: process.env.PRIVACY_OPERATOR_ADDRESS || OPERATOR_PLACEHOLDER.address,
   };
