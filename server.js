@@ -2071,7 +2071,7 @@ app.get("/", (req, res) => {
   const host = escapeHtml(req.query.host || "");
   const apiKey = escapeHtml(SHOPIFY_CLIENT_ID || "");
   res.type("html").send(`<!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2402,12 +2402,13 @@ app.get("/marketing", (req, res) => {
         </details>`).join("");
 
   res.type("html").send(`<!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="/mascot.png">
-  <title>Chatnelo — chatbot pro váš Shopify obchod</title>
+  <title>Chatnelo — AI chatbot for online stores</title>
+  <meta name="i18n-title" content="marketing.pageTitle">
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.5}
     header{background:radial-gradient(circle at 20% 20%,#1e1b4b 0%,#0b1020 55%,#05060d 100%);color:#fff;padding:64px 24px 72px;text-align:center;position:relative;overflow:hidden}
@@ -2615,12 +2616,13 @@ app.get("/privacy", (req, res) => {
         </section>`).join("");
 
   res.type("html").send(`<!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="/mascot.png">
-  <title>Chatnelo — Zásady ochrany osobních údajů</title>
+  <title>Chatnelo — Privacy Policy</title>
+  <meta name="i18n-title" content="privacy.title">
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}
     header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);color:#fff;padding:36px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative}
@@ -2682,11 +2684,11 @@ app.get("/widget-preview", (req, res) => {
     return;
   }
   res.type("html").send(`<!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Chatnelo — ukázka widgetu</title>
+  <title>Chatnelo — widget preview</title>
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
     header{background:#173b70;color:#fff;padding:32px 24px}
@@ -2757,12 +2759,13 @@ app.post("/store/signup", async (req, res) => {
 
 app.get("/store/dashboard", (req, res) => {
   res.type("html").send(`<!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="/mascot.png">
-  <title>Chatnelo — Řídicí panel</title>
+  <title>Chatnelo — Store dashboard</title>
+  <meta name="i18n-title" content="dashboard.title">
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
     .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
