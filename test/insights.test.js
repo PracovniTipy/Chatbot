@@ -3,9 +3,12 @@ const assert = require("node:assert");
 const insights = require("../insights");
 
 test("splitNoAnswer strips the marker and flags unanswered", () => {
-  assert.deepStrictEqual(insights.splitNoAnswer("Nevím, kontaktujte obchod. [[NO_ANSWER]]"),
-    { reply: "Nevím, kontaktujte obchod.", unanswered: true });
-  assert.deepStrictEqual(insights.splitNoAnswer("Ano, skladem."), { reply: "Ano, skladem.", unanswered: false });
+  const a = insights.splitNoAnswer("Nevím, kontaktujte obchod. [[NO_ANSWER]]");
+  assert.strictEqual(a.reply, "Nevím, kontaktujte obchod.");
+  assert.strictEqual(a.unanswered, true);
+  const b = insights.splitNoAnswer("Ano, skladem.");
+  assert.strictEqual(b.reply, "Ano, skladem.");
+  assert.strictEqual(b.unanswered, false);
   assert.strictEqual(insights.splitNoAnswer("Sorry\n[[ no_answer ]]").unanswered, true);
 });
 
@@ -51,4 +54,15 @@ test("getInsights shapes the result and hides undecryptable leads", async () => 
   assert.strictEqual(r.leads.length, 1);
   assert.strictEqual(r.leads[0].email, "a@b.cz");
   assert.strictEqual(r.openLeads, 1);
+});
+
+test("splitNoAnswer extracts the canonical topic and hides it", () => {
+  const r = insights.splitNoAnswer("Doprava stojí 89 Kč.\n[[Q: How much does shipping cost?]]");
+  assert.strictEqual(r.reply, "Doprava stojí 89 Kč.");
+  assert.strictEqual(r.topic, "How much does shipping cost?");
+  assert.strictEqual(r.unanswered, false);
+  const both = insights.splitNoAnswer("Nevím. [[NO_ANSWER]]\n[[Q: Do you offer gift wrapping?]]");
+  assert.strictEqual(both.reply, "Nevím.");
+  assert.strictEqual(both.unanswered, true);
+  assert.strictEqual(insights.splitNoAnswer("Odpověď [[Q: useknut").reply, "Odpověď");
 });
