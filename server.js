@@ -1793,11 +1793,14 @@ async function callOpenAiChatRaw(system, message, history) {
   for (let i = history.length - 1; !detected && i >= 0; i -= 1) {
     if (history[i].role === "user") detected = detectLanguage(history[i].content);
   }
+  const hiddenLines = system.includes("[[Q:")
+    ? " After the reply, ALWAYS add the hidden last line [[Q: short generic English question]] (and [[NO_ANSWER]] before it when you could not answer), regardless of the reply language."
+    : "";
   messages.push({
     role: "system",
-    content: detected
+    content: (detected
       ? `The customer's last message is written in ${detected}. Your whole reply MUST be in ${detected}.`
-      : "Reminder: write your reply in exactly the same language as the customer's last message above.",
+      : "Reminder: write your reply in exactly the same language as the customer's last message above.") + hiddenLines,
   });
 
   const response = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
