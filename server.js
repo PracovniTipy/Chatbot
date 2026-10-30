@@ -1794,7 +1794,7 @@ async function callOpenAiChatRaw(system, message, history) {
     if (history[i].role === "user") detected = detectLanguage(history[i].content);
   }
   const hiddenLines = system.includes("[[Q:")
-    ? " After the reply, ALWAYS add the hidden last line [[Q: short generic English question]] (and [[NO_ANSWER]] before it when you could not answer), regardless of the reply language."
+    ? " After the reply, ALWAYS add the hidden last line [[Q: short English topic]] (and [[NO_ANSWER]] before it when you could not answer), regardless of the reply language."
     : "";
   messages.push({
     role: "system",
@@ -2397,7 +2397,10 @@ td button:active{transform:translateY(0)}
         var banner = byId("trial-banner");
         var trial = data.trial;
         var subscribedNow = data.usage && data.usage.subscribed;
-        if (trial && trial.endsAt && !subscribedNow) {
+        // Development stores keep the chat on after the trial, so the
+        // "trial ended / chat hidden" warning would be misleading there.
+        var chatStillOn = data.availability && data.availability.available;
+        if (trial && trial.endsAt && !subscribedNow && (trial.active || !chatStillOn)) {
           var endDate = new Date(trial.endsAt).toLocaleDateString(locale());
           banner.hidden = false;
           banner.className = "trial-banner" + (trial.active ? "" : " ended");
@@ -3412,6 +3415,7 @@ app.post("/api/bootstrap", async (req, res) => {
       apiKey: SHOPIFY_CLIENT_ID,
       trial: await getTrialInfo(shop),
       usage: await getUsageSummary(shop, accessToken),
+      availability: await storefrontAvailability(shop),
     }));
     res.json(result);
   } catch (error) {

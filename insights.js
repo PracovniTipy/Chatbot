@@ -14,7 +14,7 @@ const RETENTION_DAYS = 90;
 const NO_ANSWER_TOKEN = "[[NO_ANSWER]]";
 const NO_ANSWER_RULE =
   `- If the customer's question cannot be answered from the data (you had to say you don't have that information or suggest contacting the store), end your reply with the exact marker ${NO_ANSWER_TOKEN} on its own. Never use the marker when you did answer.
-- After your reply, on a new last line, add [[Q: the customer's question rewritten as a short, generic English question of at most 8 words, without names, e-mails or numbers]]. Example: [[Q: How much does shipping cost?]]. This line is hidden from the customer.`;
+- After your reply, on a new last line, add [[Q: topic]] where topic is the customer's question as a short lowercase English topic of 2-4 words, without names, e-mails or numbers. Always use the most common wording, e.g. "shipping cost", "delivery time", "return policy", "payment methods", "product availability", "product price", "gift wrapping", "discount code", "order status". This line is hidden from the customer.`;
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 
 function splitNoAnswer(reply) {
