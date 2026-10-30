@@ -1971,11 +1971,11 @@ async function answerChat(shop, accessToken, body, { metered = true } = {}) {
     ? await reserveUsage(shop, catalog.shop.id, catalog.subscription, caseId)
     : null;
   try {
-    const { reply, unanswered } = await generateAnswer(catalog, message, history, viewedProduct);
+    const { reply, unanswered, topic } = await generateAnswer(catalog, message, history, viewedProduct);
     await finalizeUsageReservation(reservation);
     // Admin preview chats are not real customers, so they stay out of the stats.
     if (metered && database && databaseReady) {
-      insights.recordQuestion(database, shop, message, !unanswered).catch((error) => {
+      insights.recordQuestion(database, shop, message, !unanswered, topic).catch((error) => {
         console.warn("Uložení dotazu do přehledu:", error.message);
       });
     }

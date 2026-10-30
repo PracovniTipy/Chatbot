@@ -13,14 +13,22 @@ const crypto = require("crypto");
 const RETENTION_DAYS = 90;
 const NO_ANSWER_TOKEN = "[[NO_ANSWER]]";
 const NO_ANSWER_RULE =
-  `- If the customer's question cannot be answered from the data (you had to say you don't have that information or suggest contacting the store), end your reply with the exact marker ${NO_ANSWER_TOKEN} on its own. Never use the marker when you did answer.`;
+  `- If the customer's question cannot be answered from the data (you had to say you don't have that information or suggest contacting the store), end your reply with the exact marker ${NO_ANSWER_TOKEN} on its own. Never use the marker when you did answer.
+- After your reply, on a new last line, add [[Q: the customer's question rewritten as a short, generic English question of at most 8 words, without names, e-mails or numbers]]. Example: [[Q: How much does shipping cost?]]. This line is hidden from the customer.`;
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,24}$/;
 
 function splitNoAnswer(reply) {
-  const text = String(reply || "");
-  const unanswered = text.includes(NO_ANSWER_TOKEN) || /\[\[\s*NO_ANSWER\s*\]\]/i.test(text);
-  const clean = text.replace(/\[\[\s*NO_ANSWER\s*\]\]/gi, "").replace(/[ \t]+\n/g, "\n").trim();
-  return { reply: clean, unanswered };
+  let text = String(reply || "");
+  const unanswered = /\[\[\s*NO_ANSWER\s*\]\]/i.test(text);
+  const topicMatch = text.match(/\[\[\s*Q\s*:\s*([^\]]{1,160})\]\]/i);
+  const topic = topicMatch ? topicMatch[1].trim().slice(0, 120) : "";
+  text = text
+    .replace(/\[\[\s*NO_ANSWER\s*\]\]/gi, "")
+    .replace(/\[\[\s*Q\s*:[^\]]*\]\]/gi, "")
+    .replace(/\[\[[^\]]*$/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+  return { reply: text, unanswered, topic };
 }
 
 function sanitizeQuestion(text) {
@@ -81,9 +89,11 @@ async function ensureTables(db) {
   );
 }
 
-async function recordQuestion(db, shop, question, answered) {
+async function recordQuestion(db, shop, question, answered, topic) {
   const clean = sanitizeQuestion(question);
-  const norm = normalizeQuestion(clean);
+  // Group by the model's canonical English rewrite when available, so
+  // "Kolik stojí doprava?" and "How much is shipping?" count together.
+  const norm = normalizeQuestion(topic ? `t ${sanitizeQuestion(topic)}` : clean);
   if (!norm) return;
   await db.query(
     "INSERT INTO chat_questions (shop, question, norm, answered) VALUES ($1, $2, $3, $4)",
