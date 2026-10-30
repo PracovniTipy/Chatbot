@@ -18,6 +18,7 @@
       offline: "Chatbot právě neodpovídá. Zkuste to prosím za chvíli.", incomplete: "Chatbot vrátil neúplnou odpověď.",
       busy: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu.", generic: "Omlouvám se, nastala chyba.",
       view: "Zobrazit produkt", soldOut: "Vyprodáno",
+      leadAsk: "Chcete, aby vám obchod odpověděl e-mailem? Nechte nám adresu:", leadPlaceholder: "váš@email.cz", leadSend: "Odeslat", leadThanks: "Děkujeme! Obchod vám odpoví na {email}.", leadNote: "E-mail použijeme jen k odpovědi na váš dotaz.", leadInvalid: "Zadejte prosím platný e-mail.",
     },
     sk: {
       title: "Opýtajte sa nás",
@@ -29,6 +30,7 @@
       offline: "Chatbot práve neodpovedá. Skúste to prosím o chvíľu.", incomplete: "Chatbot vrátil neúplnú odpoveď.",
       busy: "Príliš veľa otázok, skúste to prosím o chvíľu znova.", generic: "Ospravedlňujem sa, nastala chyba.",
       view: "Zobraziť produkt", soldOut: "Vypredané",
+      leadAsk: "Chcete, aby vám obchod odpovedal e-mailom? Nechajte nám adresu:", leadPlaceholder: "vas@email.sk", leadSend: "Odoslať", leadThanks: "Ďakujeme! Obchod vám odpovie na {email}.", leadNote: "E-mail použijeme len na odpoveď na vašu otázku.", leadInvalid: "Zadajte prosím platný e-mail.",
     },
     de: {
       title: "Fragen Sie uns",
@@ -40,6 +42,7 @@
       offline: "Der Chat antwortet gerade nicht. Bitte versuchen Sie es gleich noch einmal.", incomplete: "Unvollständige Antwort erhalten.",
       busy: "Zu viele Anfragen, bitte versuchen Sie es gleich noch einmal.", generic: "Entschuldigung, es ist ein Fehler aufgetreten.",
       view: "Produkt ansehen", soldOut: "Ausverkauft",
+      leadAsk: "Möchten Sie eine Antwort vom Shop per E-Mail? Hinterlassen Sie Ihre Adresse:", leadPlaceholder: "ihre@email.de", leadSend: "Senden", leadThanks: "Danke! Der Shop antwortet Ihnen an {email}.", leadNote: "Wir verwenden die E-Mail nur, um Ihre Frage zu beantworten.", leadInvalid: "Bitte geben Sie eine gültige E-Mail ein.",
     },
     pl: {
       title: "Zapytaj nas",
@@ -51,6 +54,7 @@
       offline: "Czat chwilowo nie odpowiada. Spróbuj ponownie za chwilę.", incomplete: "Otrzymano niepełną odpowiedź.",
       busy: "Zbyt wiele pytań, spróbuj ponownie za chwilę.", generic: "Przepraszamy, wystąpił błąd.",
       view: "Zobacz produkt", soldOut: "Wyprzedane",
+      leadAsk: "Chcesz, aby sklep odpowiedział e-mailem? Zostaw adres:", leadPlaceholder: "twoj@email.pl", leadSend: "Wyślij", leadThanks: "Dziękujemy! Sklep odpowie na {email}.", leadNote: "Użyjemy e-maila wyłącznie do odpowiedzi na Twoje pytanie.", leadInvalid: "Podaj prawidłowy adres e-mail.",
     },
     en: {
       title: "Ask us",
@@ -62,6 +66,7 @@
       offline: "The chat is not responding right now. Please try again in a moment.", incomplete: "The chat returned an incomplete answer.",
       busy: "Too many questions, please try again in a moment.", generic: "Sorry, something went wrong.",
       view: "View product", soldOut: "Sold out",
+      leadAsk: "Would you like the store to reply by e-mail? Leave your address:", leadPlaceholder: "you@email.com", leadSend: "Send", leadThanks: "Thank you! The store will reply to {email}.", leadNote: "We use your e-mail only to answer your question.", leadInvalid: "Please enter a valid e-mail.",
     },
   };
   var langCode = String(document.documentElement.lang || "en").toLowerCase().split("-")[0];
@@ -253,6 +258,16 @@
     ".ea-card-title{font-weight:600;font-size:14px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}",
     ".ea-card-meta{font-size:13px;color:#5b6170}",
     ".ea-card-cta{font-size:12px;font-weight:700;color:var(--ea-primary)}",
+    ".ea-lead{max-width:88%;margin:-4px 0 12px;padding:12px;border:1px solid rgba(var(--ea-primary-rgb),.25);border-radius:14px;background:#fff;color:#1f2430;box-shadow:0 2px 8px rgba(15,20,40,.06)}",
+    ".ea-lead p{margin:0 0 8px;font-size:13.5px;line-height:1.4}",
+    ".ea-lead form{display:flex;gap:6px}",
+    ".ea-lead input{flex:1;min-width:0;border:1px solid rgba(0,0,0,.15);border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;color:#1f2430;background:#fff}",
+    ".ea-lead input:focus{outline:2px solid rgba(var(--ea-primary-rgb),.35);border-color:var(--ea-primary)}",
+    ".ea-lead button{border:0;border-radius:10px;padding:0 14px;font-weight:700;font-size:13.5px;color:#fff;background:linear-gradient(135deg,var(--ea-accent),var(--ea-accent-dark));cursor:pointer}",
+    ".ea-lead button:disabled{opacity:.7;cursor:wait}",
+    ".ea-lead small{display:block;margin-top:7px;font-size:11.5px;color:#7b8190}",
+    ".ea-lead .ea-lead-err{color:#b42318}",
+    ".ea-lead-done{font-size:13.5px;color:#14532d}",
     "#ea-bottom{border-top:1px solid rgba(0,0,0,.07);background:#fff;flex:none}",
     "#ea-form{display:flex;align-items:center}",
     "#ea-input{min-width:0;flex:1;border:0;padding:15px 6px 15px 16px;font:inherit;outline:none;background:transparent;color:inherit}",
@@ -523,6 +538,72 @@
     }
   }
 
+  // Human handoff: when the bot has no answer, the customer can leave an
+  // e-mail and the store replies personally.
+  var leadApi = api.replace(/\/chat(\?.*)?$/, "/lead");
+  var leadFallbackApi = fallbackApi ? fallbackApi.replace(/\/chat(\?.*)?$/, "/lead") : "";
+  async function postLead(payload) {
+    var endpoints = [leadApi].concat(leadFallbackApi ? [leadFallbackApi] : []);
+    var lastError;
+    for (var i = 0; i < endpoints.length; i++) {
+      try {
+        var response = await fetch(endpoints[i], { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        var contentType = response.headers.get("content-type") || "";
+        if (contentType.indexOf("application/json") === -1) throw new Error("offline");
+        var data = await response.json().catch(function () { return {}; });
+        if (!response.ok) throw new Error(response.status === 400 ? T.leadInvalid : T.generic);
+        return data;
+      } catch (error) { lastError = error; }
+    }
+    throw lastError || new Error(T.generic);
+  }
+  function renderLeadForm(item) {
+    var box = document.createElement("div");
+    box.className = "ea-lead";
+    if (item.email) {
+      var done = document.createElement("div");
+      done.className = "ea-lead-done";
+      done.textContent = "✓ " + T.leadThanks.replace("{email}", item.email);
+      box.appendChild(done);
+      messages.appendChild(box);
+      scrollToBottom();
+      return;
+    }
+    var text = document.createElement("p");
+    text.textContent = T.leadAsk;
+    var leadForm = document.createElement("form");
+    var field = document.createElement("input");
+    field.type = "email"; field.required = true; field.autocomplete = "email";
+    field.placeholder = T.leadPlaceholder; field.setAttribute("aria-label", T.leadPlaceholder);
+    var submit = document.createElement("button");
+    submit.type = "submit"; submit.textContent = T.leadSend;
+    var note = document.createElement("small");
+    note.textContent = T.leadNote;
+    leadForm.appendChild(field); leadForm.appendChild(submit);
+    box.appendChild(text); box.appendChild(leadForm); box.appendChild(note);
+    leadForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      var email = field.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { note.textContent = T.leadInvalid; note.className = "ea-lead-err"; return; }
+      submit.disabled = true;
+      try {
+        await postLead({ caseId: activeCase && activeCase.id, email: email, question: item.question || "" });
+        item.email = email;
+        saveCase();
+        box.innerHTML = "";
+        var ok = document.createElement("div");
+        ok.className = "ea-lead-done";
+        ok.textContent = "✓ " + T.leadThanks.replace("{email}", email);
+        box.appendChild(ok);
+      } catch (error) {
+        submit.disabled = false;
+        note.textContent = error.message || T.generic; note.className = "ea-lead-err";
+      }
+    });
+    messages.appendChild(box);
+    scrollToBottom();
+  }
+
   function addTypingIndicator() {
     var element = document.createElement("div");
     element.className = "ea-msg ea-bot ea-wait";
@@ -544,7 +625,7 @@
       else if (item.role === "assistant") {
         renderMessage(item.text, "assistant");
         renderProductCards(item.products);
-      }
+      } else if (item.role === "lead") renderLeadForm(item);
     });
   }
   renderTranscript();
@@ -685,6 +766,12 @@
       transcript.push({ role: "assistant", text: data.reply, products: data.products || [] });
       history.push({ role: "assistant", content: data.reply });
       if (data.caseId) activeCase.id = data.caseId;
+      var alreadyAsked = transcript.some(function (entry) { return entry.role === "lead"; });
+      if (data.handoff && !alreadyAsked) {
+        var leadItem = { role: "lead", question: text, email: "" };
+        transcript.push(leadItem);
+        renderLeadForm(leadItem);
+      }
       saveCase();
     } catch (error) {
       waiting.remove();
