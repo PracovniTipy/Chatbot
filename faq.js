@@ -48,7 +48,7 @@ const FAQ = [
   },
   {
     question: "Jsou data zákazníků v bezpečí?",
-    answer: "Appka neukládá zákaznické osobní údaje. Podporuje povinné Shopify compliance webhooky (žádost o data, výmaz zákazníka, výmaz obchodu) a všechny webhooky ověřuje podpisem HMAC.",
+    answer: "Appka ukládá osobní údaje zákazníka jen tehdy, když v chatu sám zanechá e-mail (šifrovaně, nejvýše 90 dní). Podporuje povinné Shopify compliance webhooky (žádost o data, výmaz zákazníka, výmaz obchodu) a všechny webhooky ověřuje podpisem HMAC.",
   },
   {
     question: "Jak appku odinstaluji?",
