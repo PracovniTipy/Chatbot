@@ -386,6 +386,72 @@ function refreshShopToken(shop, refreshToken) {
   return promise;
 }
 
+// Installs from before expiring tokens were introduced still hold a
+// non-expiring offline token (no expiry, no refresh token). Shopify stops
+// accepting those on January 1, 2027, so convert them in place with the
+// direct migration exchange. The legacy token stays stored until the new pair
+// is saved; retrying with it within 7 days returns the same pair.
+const tokenMigrationInFlight = new Map();
+
+async function requestMigratedToken(shop, legacyToken) {
+  const response = await fetchWithTimeout(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+      client_id: SHOPIFY_CLIENT_ID,
+      client_secret: SHOPIFY_CLIENT_SECRET,
+      subject_token: legacyToken,
+      subject_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+      requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+      expiring: "1",
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.access_token || !data.refresh_token) {
+    console.warn("Migrace Shopify tokenu selhala:", { shop, status: response.status, error: data.error });
+    return null;
+  }
+  await saveShopToken(
+    shop,
+    data.access_token,
+    data.refresh_token,
+    data.expires_in,
+    data.refresh_token_expires_in,
+  );
+  console.log("Shopify token převeden na expirující:", shop);
+  return data.access_token;
+}
+
+function migrateLegacyShopToken(shop, legacyToken) {
+  const running = tokenMigrationInFlight.get(shop);
+  if (running) return running;
+  const promise = requestMigratedToken(shop, legacyToken)
+    .catch((error) => {
+      console.warn("Migrace Shopify tokenu selhala:", { shop, error: error.message });
+      return null;
+    })
+    .finally(() => tokenMigrationInFlight.delete(shop));
+  tokenMigrationInFlight.set(shop, promise);
+  return promise;
+}
+
+async function migrateLegacyShopTokens() {
+  if (!database || !databaseReady) return;
+  const result = await database.query(
+    `SELECT shop, access_token FROM shop_sessions
+     WHERE refresh_token IS NULL AND access_token_expires_at IS NULL
+     LIMIT 200`,
+  );
+  for (const row of result.rows) {
+    try {
+      await migrateLegacyShopToken(row.shop, decryptToken(row.access_token));
+    } catch (error) {
+      console.warn("Plánovaná migrace tokenu:", { shop: row.shop, error: error.message });
+    }
+  }
+}
+
 async function loadShopSession(shop) {
   let record = shopTokens.get(shop);
   if (!record && database) {
@@ -417,6 +483,10 @@ async function getShopToken(shop) {
   if (!needsRefresh) return record.accessToken;
 
   if (!record.refreshToken) {
+    if (expiresAtMs === null && record.accessToken) {
+      const migrated = await migrateLegacyShopToken(shop, record.accessToken);
+      if (migrated) return migrated;
+    }
     shopTokens.delete(shop);
     return null;
   }
@@ -3498,14 +3568,20 @@ initializeDatabase()
       syncAllStoreFeeds().catch((error) => console.error("Synchronizace feedů:", error));
     }, 6 * 60 * 60 * 1000).unref();
     setInterval(() => {
-      refreshExpiringShopTokens().catch((error) => {
-        console.error("Plánovaná obnova tokenů:", error);
-      });
+      migrateLegacyShopTokens()
+        .catch((error) => console.error("Plánovaná migrace tokenů:", error))
+        .then(() => refreshExpiringShopTokens())
+        .catch((error) => {
+          console.error("Plánovaná obnova tokenů:", error);
+        });
     }, 12 * 60 * 60 * 1000).unref();
     setTimeout(() => {
-      refreshExpiringShopTokens().catch((error) => {
-        console.error("Plánovaná obnova tokenů:", error);
-      });
+      migrateLegacyShopTokens()
+        .catch((error) => console.error("Plánovaná migrace tokenů:", error))
+        .then(() => refreshExpiringShopTokens())
+        .catch((error) => {
+          console.error("Plánovaná obnova tokenů:", error);
+        });
     }, 60_000).unref();
     if (SHOPIFY_USAGE_BILLING_ENABLED) {
       setInterval(() => {
