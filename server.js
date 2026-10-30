@@ -42,6 +42,21 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   next();
 });
+// Canonical public domain: www.chatnelo.com -> chatnelo.com.
+const CANONICAL_HOST = (process.env.CANONICAL_HOST || "chatnelo.com").toLowerCase();
+app.use((req, res, next) => {
+  const host = String(req.headers.host || "").toLowerCase().split(":")[0];
+  if (host === `www.${CANONICAL_HOST}`) {
+    return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+  }
+  // A visitor opening the bare domain (not the Shopify admin, which always
+  // sends shop/host/embedded) gets the public product page.
+  if (req.path === "/" && req.method === "GET" && !req.query.shop && !req.query.host && !req.query.embedded && !req.query.hmac) {
+    const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
+    req.url = `/marketing${qs}`;
+  }
+  return next();
+});
 // public/index.html is a leftover local demo page; never serve it.
 app.use((req, res, next) => {
   if (req.path === "/index.html") return res.status(404).json({ error: "Nenalezeno." });
@@ -2703,6 +2718,7 @@ app.get("/marketing", (req, res) => {
   </main>
   <footer style="text-align:center;padding:24px;color:#637381;font-size:.85rem">
     <a href="/privacy" style="color:#637381" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
+    ${process.env.PRIVACY_CONTACT_EMAIL ? ` · <a href="mailto:${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}" style="color:#637381">${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}</a>` : ""}
     <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>
   </footer>
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
