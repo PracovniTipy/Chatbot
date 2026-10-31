@@ -170,8 +170,26 @@ class CaseMessageLimitError extends Error {
 const FREE_PLAN_LIMIT = Math.max(0, Number(process.env.FREE_PLAN_LIMIT ?? 30) || 0);
 const FREE_PLAN = Object.freeze({ handle: "free", name: "Free", limit: FREE_PLAN_LIMIT, priceCzk: 0, priceUsd: 0, public: false });
 
+// Promo: selected stores (PROMO_PRO_SHOPS, comma-separated *.myshopify.com
+// domains) get the top Shopify plan free for PROMO_PRO_DAYS days instead of
+// the normal trial. No payment screen; afterwards the normal rules apply.
+const PROMO_PRO_SHOPS = new Set(String(process.env.PROMO_PRO_SHOPS || "")
+  .split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
+const PROMO_PRO_DAYS = Math.max(1, Number(process.env.PROMO_PRO_DAYS) || 30);
+const PROMO_PLAN_HANDLE = process.env.PROMO_PLAN_HANDLE || "pro-1000";
+
+function isPromoShop(shop) {
+  return PROMO_PRO_SHOPS.has(String(shop || "").toLowerCase());
+}
+
 async function effectivePlan(shop, subscription) {
-  if (subscription || !FREE_PLAN_LIMIT) return planForSubscription(subscription);
+  if (subscription) return planForSubscription(subscription);
+  if (isPromoShop(shop)) {
+    const trial = await getTrialInfo(shop);
+    const promoPlan = getPlan(PROMO_PLAN_HANDLE);
+    if (trial.active && promoPlan) return promoPlan;
+  }
+  if (!FREE_PLAN_LIMIT) return planForSubscription(null);
   const trial = await getTrialInfo(shop);
   return trial.active ? planForSubscription(null) : FREE_PLAN;
 }
@@ -3657,7 +3675,8 @@ async function getTrialInfo(shop) {
     await database.query("INSERT INTO shop_trials (shop_hash) VALUES ($1) ON CONFLICT DO NOTHING", [shopHash]);
     const result = await database.query("SELECT started_at FROM shop_trials WHERE shop_hash = $1", [shopHash]);
     const startedAt = new Date(result.rows[0].started_at);
-    const endsAt = new Date(startedAt.getTime() + SHOPIFY_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    const trialDays = isPromoShop(shop) ? PROMO_PRO_DAYS : SHOPIFY_TRIAL_DAYS;
+    const endsAt = new Date(startedAt.getTime() + trialDays * 24 * 60 * 60 * 1000);
     const msLeft = endsAt.getTime() - Date.now();
     return { active: msLeft > 0, endsAt: endsAt.toISOString(), daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)) };
   } catch (error) {

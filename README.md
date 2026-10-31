@@ -36,6 +36,7 @@ Jeden případ je jedno chatové vlákno, ve kterém chatbot úspěšně odpově
 - `SHOPIFY_SUBSCRIPTION_REQUIRED=false` – ponechat `false` během testování; změnit na `true` až po vytvoření a ověření plánů v Shopify.
 - `SHOPIFY_USAGE_BILLING_ENABLED=false` – u pevných měsíčních tarifů musí zůstat `false`, aby se každý případ navíc neúčtoval jako samostatná položka.
 - `SHOPIFY_BILLING_TEST_CHARGES` – už se nepoužívá. Testovací platby dostávají automaticky jen vývojové obchody Shopify (partner development stores); reálné obchody platí vždy naostro.
+- `PROMO_PRO_SHOPS` – čárkou oddělené domény `*.myshopify.com`, které mají místo běžného trialu tarif Pro 1000 zdarma na `PROMO_PRO_DAYS` dní (výchozí 30), počítáno od prvního otevření appky. Bez platební obrazovky; po skončení platí běžná pravidla.
 - `MAX_MESSAGES_PER_CASE=20` – ochrana proti nekonečnému vláknu.
 - `STRIPE_SECRET_KEY` – tajný klíč Stripe účtu; bez něj běží univerzální (mimo Shopify) tarify jen v testovacím režimu.
 - `STRIPE_WEBHOOK_SECRET` – podpisový klíč webhooku `POST /stripe/webhook`, který ve Stripe napojte na eventy `checkout.session.completed`, `customer.subscription.updated` a `customer.subscription.deleted`.
