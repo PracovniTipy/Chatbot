@@ -2788,6 +2788,40 @@ app.post("/marketing/chat", async (req, res) => {
   }
 });
 
+// BrosWars Studio website assistant ("Ask us" on the studio site).
+function studioSystemPrompt() {
+  const contact = process.env.PRIVACY_CONTACT_EMAIL || "dudypetr1@seznam.cz";
+  return `You are the friendly assistant of BrosWars Studio, a small independent Czech studio that makes games and AI tools.
+${LANGUAGE_RULE}
+Facts you may use (do not invent anything else):
+- Castle WARS: a strategy game – build your army, defend your castle and conquer rivals. Play it at https://battlecastle.itch.io/castle-wars
+- Chatnelo: an AI chatbot for online stores that answers shoppers 24/7 from the store's real products, stock, prices and shipping/returns pages, in the customer's language, with clickable product cards. Shopify app: https://apps.shopify.com/chatnelo (3-day free trial, plans from $16.99/month). Website: https://chatnelo.com. Also works on other websites and has a WooCommerce plugin.
+- Free CV builder: a professional CV in Czech and English, ready in about five minutes, free: https://pracovnitipyai-production.up.railway.app/cv?src=broswars
+- More projects are in development.
+- Contact / business enquiries / collaboration: ${contact}
+Rules: answer briefly (2-4 sentences), be warm and professional, include the relevant link. If you don't know something (prices of future projects, release dates, jobs, personal details), say so and offer the contact e-mail. Never share personal data, never promise anything on the studio's behalf.`;
+}
+
+app.options("/studio/chat", (req, res) => {
+  res.set({ "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400" });
+  res.sendStatus(204);
+});
+
+app.post("/studio/chat", async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  try {
+    if (isMarketingChatRateLimited(req.ip)) {
+      return res.status(429).json({ error: "Too many messages, please try again in a moment." });
+    }
+    const { message, history } = validateChatBody(req.body);
+    const reply = await callOpenAiChat(studioSystemPrompt(), message, history);
+    res.json({ reply });
+  } catch (error) {
+    logRouteError("Studio chat", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
 function isSocialAutomationRateLimited() {
   const now = Date.now();
   if (now - socialAutomationCount.windowStart > SOCIAL_AUTOMATION_RATE_WINDOW_MS) {
