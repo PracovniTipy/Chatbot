@@ -58,6 +58,10 @@ const FAQ = [
     question: "V jakém jazyce chatbot odpovídá?",
     answer: "Podle jazyka zákazníka — appka odpovídá ve stejném jazyce, ve kterém se zákazník zeptá, ať už česky, anglicky, německy nebo jinak. Odpovídá jen na základě reálných dat z vašeho obchodu, nic si nevymýšlí.",
   },
+  {
+    question: "Je k dispozici zkušební verze zdarma?",
+    answer: "Ano. Na Shopify má každý nový obchod 3 dny plné verze zdarma. Zkušební verze se spustí sama při prvním otevření appky, bez zadávání platebních údajů. Potom si vyberete placený tarif (od $16.99 měsíčně, noví předplatitelé mají tarif Basic 150 první měsíc za $4.45). Když si tarif nevyberete, chat běží dál na tarifu Zdarma s až 30 konverzacemi měsíčně. Mimo Shopify je registrace zdarma a tarif zvolíte až později v řídicím panelu.",
+  },
 ];
 
 module.exports = { HOW_IT_WORKS, FAQ };

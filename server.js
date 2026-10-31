@@ -2674,6 +2674,8 @@ app.get("/marketing", (req, res) => {
     details{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:10px;box-shadow:0 1px 4px #00000012;border-left:3px solid #a855f7}
     summary{font-weight:600;cursor:pointer}
     details p{margin:10px 0 0;color:#4b5563}
+    .cta-secondary{position:relative;display:block;margin-top:14px;color:#cbd5e1;font-size:.95rem;text-decoration:underline;text-underline-offset:3px}
+    .cta-secondary:hover{color:#fff}
     #marketing-chat{background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012;padding:24px}
     #marketing-chat-log{min-height:120px;max-height:320px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
     .msg{padding:10px 14px;border-radius:10px;max-width:80%}
@@ -2699,7 +2701,8 @@ app.get("/marketing", (req, res) => {
       <img src="/mascot.png" alt="Chatnelo maskot">
       <h1>Chatnelo</h1>
       <p data-i18n="marketing.tagline">AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
-      <a class="cta-button" href="/store/dashboard" data-i18n="marketing.cta">Vyzkoušet zdarma</a>
+      <a class="cta-button" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-i18n="marketing.ctaShopify">Nainstalovat na Shopify · 3 dny zdarma</a>
+      <a class="cta-secondary" href="/store/dashboard" data-i18n="marketing.ctaOther">Jiný web? Registrace zdarma</a>
     </div>
   </header>
   <main>
