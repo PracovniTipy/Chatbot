@@ -1881,10 +1881,37 @@ STORE DATA:
 ${JSON.stringify({ storeInfo: catalog.storeInfo || undefined, pages: catalog.infoPages, policies: catalog.policies, products: catalog.products })}`;
 }
 
+// Approximate value of 1 unit in USD; only used to turn a customer's budget
+// in a foreign currency into the store currency for the model.
+const APPROX_USD_RATES = { USD: 1, CZK: 0.043, EUR: 1.08, PLN: 0.25, GBP: 1.27, CHF: 1.12, HUF: 0.0027, SEK: 0.093, DKK: 0.145, NOK: 0.092, CAD: 0.73, AUD: 0.65 };
+const CURRENCY_PATTERNS = [
+  ["CZK", /(\d[\d\s.,]*)\s*(?:kč|kc|czk|korun\p{L}*)(?!\p{L})/iu],
+  ["EUR", /(?:(\d[\d\s.,]*)\s*(?:€|eur\p{L}*)|€\s*(\d[\d\s.,]*))/iu],
+  ["PLN", /(\d[\d\s.,]*)\s*(?:zł|zl|pln)(?!\p{L})/iu],
+  ["GBP", /(?:£\s*(\d[\d\s.,]*)|(\d[\d\s.,]*)\s*(?:gbp|pounds?)(?!\p{L}))/iu],
+  ["USD", /(?:\$\s*(\d[\d\s.,]*)|(\d[\d\s.,]*)\s*(?:usd|dollars?|dolar\p{L}*)(?!\p{L}))/iu],
+];
+
+function currencyHint(message, storeCurrency) {
+  const target = String(storeCurrency || "").toUpperCase();
+  if (!APPROX_USD_RATES[target]) return "";
+  for (const [code, pattern] of CURRENCY_PATTERNS) {
+    const match = String(message || "").match(pattern);
+    if (!match || code === target) continue;
+    const raw = (match[1] || match[2] || "").replace(/\s/g, "").replace(/,(?=\d{3}\b)/g, "").replace(",", ".");
+    const amount = Number.parseFloat(raw);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const converted = (amount * APPROX_USD_RATES[code]) / APPROX_USD_RATES[target];
+    const rounded = converted >= 100 ? Math.round(converted) : Math.round(converted * 100) / 100;
+    return `\nCURRENCY NOTE: The customer's amount ${amount} ${code} is approximately ${rounded} ${target} (store currency). Use ${rounded} ${target} for any price comparison, mention that the conversion is approximate, and only list products priced at or below it.`;
+  }
+  return "";
+}
+
 async function generateAnswer(catalog, message, history, viewedProduct) {
-  const context = viewedProduct
+  const context = (viewedProduct
     ? `\nCONTEXT: The customer is currently on the product page of "${viewedProduct}". Words like "this", "it", "this product" refer to that product unless the customer names another one.`
-    : "";
+    : "") + currencyHint(message, catalog.shop.currencyCode);
   return callOpenAiChatDetailed(`${shopifySystemPrompt(catalog)}${context}`, message, history);
 }
 
