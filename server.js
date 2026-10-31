@@ -3542,10 +3542,15 @@ app.post("/api/billing/subscribe", async (req, res) => {
     const result = await withAdminAccess(req, async (shop, accessToken) => {
       const storeHandle = shop.replace(/\.myshopify\.com$/i, "");
       const returnUrl = `https://admin.shopify.com/store/${storeHandle}/apps/${SHOPIFY_APP_HANDLE}`;
-      const isTest = String(process.env.SHOPIFY_BILLING_TEST_CHARGES || "").toLowerCase() === "true";
       const history = await shopifyGraphql(shop, accessToken, `{
+        shop { plan { partnerDevelopment } }
         currentAppInstallation { allSubscriptions(first: 50) { nodes { status } } }
       }`).catch(() => null);
+      // Real stores are always charged for real. Only Shopify development
+      // stores (our test store, App Store reviewers) get test charges, which
+      // Shopify requires there. SHOPIFY_BILLING_TEST_CHARGES no longer turns
+      // live stores into free test subscriptions.
+      const isTest = Boolean(history && history.shop && history.shop.plan && history.shop.plan.partnerDevelopment);
       // Only plans the merchant actually approved count; pending or declined
       // approval screens do not use up the trial and first-month offer.
       const usedBefore = history && history.currentAppInstallation
