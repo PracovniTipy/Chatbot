@@ -1903,7 +1903,7 @@ function currencyHint(message, storeCurrency) {
     if (!Number.isFinite(amount) || amount <= 0) continue;
     const converted = (amount * APPROX_USD_RATES[code]) / APPROX_USD_RATES[target];
     const rounded = converted >= 100 ? Math.round(converted) : Math.round(converted * 100) / 100;
-    return `\nCURRENCY NOTE: The customer's amount ${amount} ${code} is approximately ${rounded} ${target} (store currency). Use ${rounded} ${target} for any price comparison, mention that the conversion is approximate, and only list products priced at or below it.`;
+    return `\nCURRENCY NOTE: The customer's amount ${amount} ${code} is approximately ${rounded} ${target} (store currency). Use ${rounded} ${target} as the budget, mention once that the conversion is approximate, and list ONLY products whose price is at most ${rounded} ${target}. Never list or mention products above it. If none fit, say so and name the cheapest in-stock product.`;
   }
   return "";
 }
