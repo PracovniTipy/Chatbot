@@ -9,6 +9,7 @@
   // UI strings follow the storefront language (<html lang>), English fallback.
   var UI = {
     cs: {
+      mic: "Mluvit", micStop: "Zastavit nahrávání", listening: "Poslouchám…", micDenied: "Mikrofon není povolený. Povolte ho v prohlížeči, nebo dotaz napište.", 
       title: "Zeptejte se nás",
       greeting: "Dobrý den, jsem asistent tohoto e-shopu. Zeptejte se na produkty nebo jejich dostupnost.",
       status: "Odpovídáme hned",
@@ -21,6 +22,7 @@
       leadAsk: "Chcete, aby vám obchod odpověděl e-mailem? Nechte nám adresu:", leadPlaceholder: "váš@email.cz", leadSend: "Odeslat", leadThanks: "Děkujeme! Obchod vám odpoví na {email}.", leadNote: "E-mail použijeme jen k odpovědi na váš dotaz.", leadInvalid: "Zadejte prosím platný e-mail.",
     },
     sk: {
+      mic: "Hovoriť", micStop: "Zastaviť nahrávanie", listening: "Počúvam…", micDenied: "Mikrofón nie je povolený. Povoľte ho v prehliadači alebo otázku napíšte.", 
       title: "Opýtajte sa nás",
       greeting: "Dobrý deň, som asistent tohto e-shopu. Opýtajte sa na produkty alebo ich dostupnosť.",
       status: "Odpovedáme hneď",
@@ -33,6 +35,7 @@
       leadAsk: "Chcete, aby vám obchod odpovedal e-mailom? Nechajte nám adresu:", leadPlaceholder: "vas@email.sk", leadSend: "Odoslať", leadThanks: "Ďakujeme! Obchod vám odpovie na {email}.", leadNote: "E-mail použijeme len na odpoveď na vašu otázku.", leadInvalid: "Zadajte prosím platný e-mail.",
     },
     de: {
+      mic: "Sprechen", micStop: "Aufnahme stoppen", listening: "Ich höre zu…", micDenied: "Mikrofon nicht erlaubt. Bitte im Browser erlauben oder die Frage eintippen.", 
       title: "Fragen Sie uns",
       greeting: "Hallo, ich bin der Assistent dieses Shops. Fragen Sie nach Produkten oder deren Verfügbarkeit.",
       status: "Wir antworten sofort",
@@ -45,6 +48,7 @@
       leadAsk: "Möchten Sie eine Antwort vom Shop per E-Mail? Hinterlassen Sie Ihre Adresse:", leadPlaceholder: "ihre@email.de", leadSend: "Senden", leadThanks: "Danke! Der Shop antwortet Ihnen an {email}.", leadNote: "Wir verwenden die E-Mail nur, um Ihre Frage zu beantworten.", leadInvalid: "Bitte geben Sie eine gültige E-Mail ein.",
     },
     pl: {
+      mic: "Mów", micStop: "Zatrzymaj nagrywanie", listening: "Słucham…", micDenied: "Mikrofon jest zablokowany. Zezwól na niego w przeglądarce lub wpisz pytanie.", 
       title: "Zapytaj nas",
       greeting: "Dzień dobry, jestem asystentem tego sklepu. Zapytaj o produkty lub ich dostępność.",
       status: "Odpowiadamy od razu",
@@ -57,6 +61,7 @@
       leadAsk: "Chcesz, aby sklep odpowiedział e-mailem? Zostaw adres:", leadPlaceholder: "twoj@email.pl", leadSend: "Wyślij", leadThanks: "Dziękujemy! Sklep odpowie na {email}.", leadNote: "Użyjemy e-maila wyłącznie do odpowiedzi na Twoje pytanie.", leadInvalid: "Podaj prawidłowy adres e-mail.",
     },
     en: {
+      mic: "Speak", micStop: "Stop recording", listening: "Listening…", micDenied: "Microphone access is blocked. Allow it in your browser or type your question.", 
       title: "Ask us",
       greeting: "Hi, I'm this store's assistant. Ask me about products or their availability.",
       status: "We reply instantly",
@@ -275,6 +280,11 @@
     "#ea-send:hover:not(:disabled){filter:brightness(1.06)}",
     "#ea-send:active:not(:disabled){transform:scale(.96)}",
     "#ea-send:disabled{opacity:.75;cursor:wait}",
+    "#ea-mic{border:0;background:transparent;color:inherit;opacity:.7;width:40px;height:40px;margin:8px 0;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:opacity .15s ease,background .15s ease}",
+    "#ea-mic:hover{opacity:1;background:rgba(var(--ea-primary-rgb),.08)}",
+    "#ea-mic.ea-listening{opacity:1;color:#fff;background:#e5484d;animation:ea-mic-pulse 1.2s ease-in-out infinite}",
+    "@keyframes ea-mic-pulse{0%,100%{box-shadow:0 0 0 0 rgba(229,72,77,.45)}50%{box-shadow:0 0 0 7px rgba(229,72,77,0)}}",
+    "#ea-mic:focus-visible{outline:2px solid rgba(var(--ea-primary-rgb),.45);outline-offset:1px}",
     "#ea-send:focus-visible,#ea-input:focus-visible{outline:2px solid rgba(var(--ea-primary-rgb),.45);outline-offset:1px}",
     ".ea-spinner{width:13px;height:13px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:ea-spin .7s linear infinite;display:inline-block}",
     "@keyframes ea-spin{to{transform:rotate(360deg)}}",
@@ -429,6 +439,7 @@
     '<div id="ea-msgs" aria-live="polite"></div>' +
     '<div id="ea-bottom"><form id="ea-form">' +
     '<input id="ea-input" maxlength="1000" autocomplete="off">' +
+    '<button id="ea-mic" type="button" hidden><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
     '<button id="ea-send" type="submit"><span class="ea-send-label"></span></button>' +
     '</form><div id="ea-count" aria-hidden="true"></div></div>';
   panel.querySelector(".ea-title-text").textContent = title;
@@ -460,6 +471,92 @@
   closeBtn.setAttribute("aria-label", T.close);
   input.placeholder = T.placeholder;
   input.setAttribute("aria-label", T.message);
+
+  // ---------------------------------------------------------------- voice
+  // Speak a question (browser speech recognition) and hear the answer read
+  // aloud. Runs entirely in the shopper's browser; no audio is sent to us.
+  var micBtn = panel.querySelector("#ea-mic");
+  var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var speechLang = String(document.documentElement.lang || navigator.language || "en");
+  if (speechLang.indexOf("-") === -1) {
+    speechLang = ({ cs: "cs-CZ", sk: "sk-SK", de: "de-DE", pl: "pl-PL", en: "en-US" })[speechLang.toLowerCase()] || speechLang;
+  }
+  var recognition = null;
+  var listening = false;
+  var lastInputWasVoice = false;
+  function stopSpeaking() {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (_) {}
+  }
+  function speakReply(text) {
+    if (!lastInputWasVoice || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+    var clean = String(text || "").replace(/https?:\/\/\S+/g, "").replace(/[*_#`>]/g, "").replace(/\s+/g, " ").trim();
+    if (!clean) return;
+    try {
+      stopSpeaking();
+      var utterance = new SpeechSynthesisUtterance(clean.slice(0, 1200));
+      utterance.lang = speechLang;
+      var voices = window.speechSynthesis.getVoices ? window.speechSynthesis.getVoices() : [];
+      var base = speechLang.toLowerCase().split("-")[0];
+      var voice = voices.filter(function (v) { return String(v.lang || "").toLowerCase().indexOf(base) === 0; })[0];
+      if (voice) utterance.voice = voice;
+      window.speechSynthesis.speak(utterance);
+    } catch (_) {}
+  }
+  function setMicState(on) {
+    listening = on;
+    micBtn.classList.toggle("ea-listening", on);
+    micBtn.title = on ? T.micStop : T.mic;
+    micBtn.setAttribute("aria-label", on ? T.micStop : T.mic);
+    micBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    input.placeholder = on ? T.listening : T.placeholder;
+  }
+  if (SpeechRec && micBtn) {
+    micBtn.hidden = false;
+    setMicState(false);
+    micBtn.addEventListener("click", function () {
+      if (listening && recognition) { try { recognition.stop(); } catch (_) {} return; }
+      stopSpeaking();
+      try {
+        recognition = new SpeechRec();
+        recognition.lang = speechLang;
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+        recognition.continuous = false;
+        var finalText = "";
+        recognition.onresult = function (event) {
+          var interim = "";
+          for (var i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+            else interim += event.results[i][0].transcript;
+          }
+          input.value = (finalText + interim).trim();
+        };
+        recognition.onerror = function (event) {
+          if (event && (event.error === "not-allowed" || event.error === "service-not-allowed")) {
+            renderMessage(T.micDenied, "assistant", "ea-error");
+          }
+        };
+        recognition.onend = function () {
+          setMicState(false);
+          var text = (finalText || input.value).trim();
+          if (text) {
+            input.value = text;
+            lastInputWasVoice = true;
+            if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event("submit", { cancelable: true }));
+          }
+        };
+        recognition.start();
+        setMicState(true);
+      } catch (_) {
+        setMicState(false);
+      }
+    });
+    input.addEventListener("keydown", function () { lastInputWasVoice = false; });
+    closeBtn.addEventListener("click", function () {
+      stopSpeaking();
+      if (listening && recognition) { try { recognition.abort(); } catch (_) {} }
+    });
+  }
 
   function setSendIdle() {
     send.disabled = false;
@@ -762,6 +859,7 @@
       }
       waiting.remove();
       renderMessage(data.reply, "assistant");
+      speakReply(data.reply);
       renderProductCards(data.products);
       transcript.push({ role: "assistant", text: data.reply, products: data.products || [] });
       history.push({ role: "assistant", content: data.reply });
