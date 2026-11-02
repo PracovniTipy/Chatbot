@@ -3361,9 +3361,267 @@ app.post("/store/:id/trial/start", async (req, res) => {
   }
 });
 
+// Step-by-step installation guide for stores outside Shopify. Opens in its
+// own window from the dashboard; shows the merchant's personal code when the
+// browser has a dashboard session. Steps are trusted static HTML.
+const INSTALL_GUIDE = {
+  cs: {
+    title: "Návod k instalaci Chatnelo", lead: "Postupujte krok za krokem. Celé to zabere asi 5 minut a nepotřebujete programátora.",
+    codeTitle: "1. Váš kód Chatnelo", codeText: "Tento kód vložíte na svůj web. Je jen váš – nesdílejte ho s nikým jiným.",
+    copy: "Zkopírovat kód", copied: "✓ Zkopírováno", storeIdL: "ID obchodu (Store ID)", keyL: "Klíč widgetu (Widget key)", copyShort: "Kopírovat",
+    notLogged: "Pro zobrazení vašeho kódu se nejdřív přihlaste.", login: "Přihlásit se", back: "← Zpět do panelu",
+    pickTitle: "2. Na čem běží váš e-shop?", pickText: "Vyberte svou platformu a zobrazí se přesný postup.",
+    stepsTitle: "Postup pro", productsTitle: "Produkty – aby chatbot znal vaši nabídku", noteTitle: "Dobré vědět",
+    verifyTitle: "3. Ověření", verify: ["Otevřete svůj e-shop v novém anonymním okně (Ctrl+Shift+N, na Macu Cmd+Shift+N).", "Vpravo dole se objeví bublina Chatnelo. Klikněte na ni a zeptejte se třeba „Co mi doporučíte?“.", "Chatbot odpovídá podle produktů z vašeho XML feedu nebo katalogu v panelu."],
+    troubleTitle: "Nevidíte chat?", trouble: ["Zkontrolujte, že jste vložili <b>celý</b> kód včetně <code>data-store</code> a <code>data-key</code>.", "Ujistěte se, že běží zkušební verze nebo máte aktivní tarif (vidíte to v panelu).", "Vypněte blokátor reklam a obnovte stránku (Ctrl+F5).", "Změny na webu jste uložili a případně publikovali."],
+    help: "Nevíte si rady? Napište na <a href=\"mailto:support@chatnelo.com\">support@chatnelo.com</a> – rádi vám s instalací pomůžeme.",
+    platforms: {
+      shoptet: { name: "Shoptet", steps: ["Přihlaste se do administrace Shoptetu.", "Otevřete <b>Vzhled a obsah → Editor</b> a přepněte na záložku <b>HTML kód</b>.", "Do pole <b>Zápatí</b> vložte kód Chatnelo (tlačítko „Zkopírovat kód“ výše). Pokud už tam nějaký kód je, vložte ho na nový řádek pod něj.", "Klikněte na <b>Uložit</b>."],
+        products: ["V administraci Shoptetu otevřete <b>Propojení → Srovnávače zboží</b> (Heureka nebo Zboží.cz) a zkopírujte adresu XML feedu.", "V panelu Chatnelo vložte adresu do pole <b>Produkty z XML feedu</b> a klikněte na <b>Načíst produkty z feedu</b>. Produkty se pak samy aktualizují každých 6 hodin."],
+        note: "Při změně šablony nebo její barevné verze zkontrolujte, že kód v Zápatí zůstal." },
+      woo: { name: "WordPress / WooCommerce", steps: ["Stáhněte si <a href=\"/chatnelo-ai-chatbot.zip\" download>plugin Chatnelo (ZIP)</a>.", "Ve WordPressu otevřete <b>Pluginy → Instalace pluginů → Nahrát plugin</b>, vyberte stažený soubor a klikněte na <b>Instalovat</b> a potom <b>Aktivovat</b>.", "Otevřete <b>Nastavení → Chatnelo AI Chatbot</b>.", "Vyplňte <b>Store ID</b> a <b>Widget key</b> (zkopírujete je výše) a klikněte na <b>Uložit změny</b>."],
+        products: ["Plugin vám na stránce nastavení ukáže adresu produktového feedu (končí na <code>/wp-json/chatnelo/v1/feed</code>).", "Tu vložte v panelu Chatnelo do pole <b>Produkty z XML feedu</b> a klikněte na <b>Načíst produkty z feedu</b>."],
+        note: "Bez pluginu můžete kód vložit i přes plugin WPCode (Code Snippets → Header & Footer → pole Footer)." },
+      upgates: { name: "Upgates", steps: ["Přihlaste se do administrace Upgates.", "Otevřete <b>Doplňky → Vlastní konverzní kódy</b> a přidejte nový kód.", "V části <b>Kódy umístěné na všech stránkách</b> vložte kód Chatnelo do pole, které se umisťuje <b>před tag &lt;/body&gt;</b>.", "Klikněte na <b>Uložit</b>."],
+        products: ["V administraci Upgates najděte adresu XML exportu pro Heureku nebo Google Nákupy.", "Vložte ji v panelu Chatnelo do pole <b>Produkty z XML feedu</b> a klikněte na <b>Načíst produkty z feedu</b>."],
+        note: "Názvy položek v menu se mohou podle verze administrace mírně lišit." },
+      wix: { name: "Wix", steps: ["V nástěnce webu otevřete <b>Settings (Nastavení) → Custom Code (Vlastní kód)</b> v části Development &amp; integrations.", "Klikněte na <b>+ Add Custom Code</b> a vložte kód Chatnelo. Jako název napište „Chatnelo“.", "U <b>Add Code to Pages</b> zvolte <b>All pages</b> a „Load code on each new page“.", "U <b>Place Code in</b> zvolte <b>Body – end</b> a klikněte na <b>Apply</b>."],
+        products: ["Wix neumí XML feed pro Heureku – produkty vyplňte v panelu Chatnelo v části <b>Katalog produktů</b>, nebo nám napište a pomůžeme s importem."],
+        note: "Vlastní kód na Wixu funguje jen na webu s prémiovým tarifem a připojenou doménou." },
+      webnode: { name: "Webnode", steps: ["V editoru otevřete <b>Nastavení → Nastavení webu</b>.", "Najděte pole <b>HTML hlavička / patička</b>.", "Kód Chatnelo vložte do <b>patičky</b> (pokud tam už kód je, vložte ho pod něj) a klikněte na <b>Uložit</b>.", "Web znovu <b>publikujte</b>."],
+        products: ["Pokud váš Webnode e-shop nabízí XML feed (Heureka/Google), vložte jeho adresu v panelu Chatnelo do pole <b>Produkty z XML feedu</b>. Jinak produkty vyplňte v části <b>Katalog produktů</b>."],
+        note: "Vkládání HTML kódu vyžaduje prémiový tarif Webnode (Standard, Profi nebo Business)." },
+      html: { name: "Vlastní web / jiná platforma", steps: ["Otevřete šablonu, která se načítá na všech stránkách (např. patičku nebo hlavní layout).", "Kód Chatnelo vložte těsně <b>před značku &lt;/body&gt;</b>.", "Uložte a nahrajte změny na web."],
+        products: ["Máte-li produktový XML feed (Heureka, Zboží.cz, Google), vložte jeho adresu v panelu Chatnelo do pole <b>Produkty z XML feedu</b>.", "Jinak produkty vyplňte v části <b>Katalog produktů</b> v panelu."],
+        note: "Pokud vaše platforma má pole „Vlastní kód“, „Skripty v patičce“ nebo „HTML před &lt;/body&gt;“, vložte kód tam." },
+    },
+  },
+  sk: {
+    title: "Návod na inštaláciu Chatnelo", lead: "Postupujte krok za krokom. Celé to zaberie asi 5 minút a nepotrebujete programátora.",
+    codeTitle: "1. Váš kód Chatnelo", codeText: "Tento kód vložíte na svoj web. Je len váš – nezdieľajte ho s nikým iným.",
+    copy: "Skopírovať kód", copied: "✓ Skopírované", storeIdL: "ID obchodu (Store ID)", keyL: "Kľúč widgetu (Widget key)", copyShort: "Kopírovať",
+    notLogged: "Pre zobrazenie vášho kódu sa najprv prihláste.", login: "Prihlásiť sa", back: "← Späť do panelu",
+    pickTitle: "2. Na čom beží váš e-shop?", pickText: "Vyberte svoju platformu a zobrazí sa presný postup.",
+    stepsTitle: "Postup pre", productsTitle: "Produkty – aby chatbot poznal vašu ponuku", noteTitle: "Dobré vedieť",
+    verifyTitle: "3. Overenie", verify: ["Otvorte svoj e-shop v novom anonymnom okne (Ctrl+Shift+N, na Macu Cmd+Shift+N).", "Vpravo dole sa objaví bublina Chatnelo. Kliknite na ňu a opýtajte sa napríklad „Čo mi odporučíte?“.", "Chatbot odpovedá podľa produktov z vášho XML feedu alebo katalógu v paneli."],
+    troubleTitle: "Nevidíte chat?", trouble: ["Skontrolujte, že ste vložili <b>celý</b> kód vrátane <code>data-store</code> a <code>data-key</code>.", "Uistite sa, že beží skúšobná verzia alebo máte aktívny tarif (vidíte to v paneli).", "Vypnite blokovač reklám a obnovte stránku (Ctrl+F5).", "Zmeny na webe ste uložili a prípadne publikovali."],
+    help: "Neviete si rady? Napíšte na <a href=\"mailto:support@chatnelo.com\">support@chatnelo.com</a> – radi vám s inštaláciou pomôžeme.",
+    platforms: {
+      shoptet: { name: "Shoptet", steps: ["Prihláste sa do administrácie Shoptetu.", "Otvorte <b>Vzhľad a obsah → Editor</b> a prepnite na záložku <b>HTML kód</b>.", "Do poľa <b>Päta (Zápatí)</b> vložte kód Chatnelo. Ak tam už nejaký kód je, vložte ho na nový riadok pod neho.", "Kliknite na <b>Uložiť</b>."],
+        products: ["V administrácii otvorte <b>Prepojenie → Porovnávače tovaru</b> (Heureka) a skopírujte adresu XML feedu.", "V paneli Chatnelo ju vložte do poľa <b>Produkty z XML feedu</b> a kliknite na <b>Načítať produkty z feedu</b>."],
+        note: "Pri zmene šablóny skontrolujte, že kód v päte zostal." },
+      woo: { name: "WordPress / WooCommerce", steps: ["Stiahnite si <a href=\"/chatnelo-ai-chatbot.zip\" download>plugin Chatnelo (ZIP)</a>.", "Vo WordPresse otvorte <b>Pluginy → Pridať nový → Nahrať plugin</b>, vyberte súbor, kliknite na <b>Inštalovať</b> a potom <b>Aktivovať</b>.", "Otvorte <b>Nastavenia → Chatnelo AI Chatbot</b>.", "Vyplňte <b>Store ID</b> a <b>Widget key</b> (skopírujete ich vyššie) a kliknite na <b>Uložiť zmeny</b>."],
+        products: ["Plugin vám ukáže adresu produktového feedu (končí na <code>/wp-json/chatnelo/v1/feed</code>).", "Vložte ju v paneli Chatnelo do poľa <b>Produkty z XML feedu</b>."],
+        note: "Kód môžete vložiť aj cez plugin WPCode (Code Snippets → Header & Footer → Footer)." },
+      upgates: { name: "Upgates", steps: ["Prihláste sa do administrácie Upgates.", "Otvorte <b>Doplnky → Vlastné konverzné kódy</b> a pridajte nový kód.", "V časti <b>Kódy na všetkých stránkach</b> vložte kód do poľa umiestneného <b>pred tag &lt;/body&gt;</b>.", "Kliknite na <b>Uložiť</b>."],
+        products: ["Nájdite adresu XML exportu pre Heureku alebo Google a vložte ju v paneli Chatnelo do poľa <b>Produkty z XML feedu</b>."],
+        note: "Názvy položiek v menu sa môžu podľa verzie mierne líšiť." },
+      wix: { name: "Wix", steps: ["Na nástenke webu otvorte <b>Settings → Custom Code</b>.", "Kliknite na <b>+ Add Custom Code</b>, vložte kód a pomenujte ho „Chatnelo“.", "Zvoľte <b>All pages</b> a „Load code on each new page“.", "V <b>Place Code in</b> zvoľte <b>Body – end</b> a kliknite na <b>Apply</b>."],
+        products: ["Produkty vyplňte v paneli Chatnelo v časti <b>Katalóg produktov</b>."],
+        note: "Vlastný kód na Wixe funguje len s prémiovým tarifom a pripojenou doménou." },
+      webnode: { name: "Webnode", steps: ["Otvorte <b>Nastavenia → Nastavenia webu</b>.", "Nájdite pole <b>HTML hlavička / päta</b>.", "Vložte kód do <b>päty</b> a kliknite na <b>Uložiť</b>.", "Web znova <b>publikujte</b>."],
+        products: ["Ak máte XML feed, vložte jeho adresu v paneli Chatnelo. Inak produkty vyplňte v časti <b>Katalóg produktov</b>."],
+        note: "Vkladanie HTML vyžaduje prémiový tarif Webnode." },
+      html: { name: "Vlastný web / iná platforma", steps: ["Otvorte šablónu, ktorá sa načítava na všetkých stránkach.", "Vložte kód tesne <b>pred značku &lt;/body&gt;</b>.", "Uložte a nahrajte zmeny na web."],
+        products: ["Ak máte XML feed (Heureka, Google), vložte jeho adresu v paneli Chatnelo. Inak vyplňte <b>Katalóg produktov</b>."],
+        note: "Ak má vaša platforma pole „Vlastný kód“ alebo „Skripty v päte“, vložte kód tam." },
+    },
+  },
+  en: {
+    title: "Chatnelo installation guide", lead: "Follow the steps one by one. It takes about 5 minutes and you don't need a developer.",
+    codeTitle: "1. Your Chatnelo code", codeText: "This is the code you add to your website. It is yours only – don't share it.",
+    copy: "Copy code", copied: "✓ Copied", storeIdL: "Store ID", keyL: "Widget key", copyShort: "Copy",
+    notLogged: "Log in first to see your personal code.", login: "Log in", back: "← Back to dashboard",
+    pickTitle: "2. What does your store run on?", pickText: "Pick your platform to see the exact steps.",
+    stepsTitle: "Steps for", productsTitle: "Products – so the chatbot knows your catalog", noteTitle: "Good to know",
+    verifyTitle: "3. Check it works", verify: ["Open your store in a new private window.", "The Chatnelo bubble appears bottom right. Click it and ask e.g. “What do you recommend?”.", "The chatbot answers from your XML feed or the catalog in your dashboard."],
+    troubleTitle: "Don't see the chat?", trouble: ["Make sure you pasted the <b>whole</b> code including <code>data-store</code> and <code>data-key</code>.", "Check that your trial is running or you have an active plan (see the dashboard).", "Turn off ad blockers and reload the page.", "Make sure you saved and published the changes."],
+    help: "Need help? Write to <a href=\"mailto:support@chatnelo.com\">support@chatnelo.com</a> – we are happy to help with the installation.",
+    platforms: {
+      shoptet: { name: "Shoptet", steps: ["Log in to your Shoptet admin.", "Open <b>Appearance and content → Editor</b> and switch to the <b>HTML code</b> tab.", "Paste the Chatnelo code into the <b>Footer</b> field (on a new line below any existing code).", "Click <b>Save</b>."],
+        products: ["Open <b>Connections → Price comparison</b> (Heureka) and copy the XML feed URL.", "Paste it into <b>Products from XML feed</b> in your Chatnelo dashboard and click <b>Load products from feed</b>."],
+        note: "After changing the template, check that the code is still in the Footer." },
+      woo: { name: "WordPress / WooCommerce", steps: ["Download the <a href=\"/chatnelo-ai-chatbot.zip\" download>Chatnelo plugin (ZIP)</a>.", "In WordPress open <b>Plugins → Add New → Upload Plugin</b>, choose the file, click <b>Install Now</b> and then <b>Activate</b>.", "Open <b>Settings → Chatnelo AI Chatbot</b>.", "Fill in <b>Store ID</b> and <b>Widget key</b> (copy them above) and click <b>Save Changes</b>."],
+        products: ["The plugin shows your product feed URL (ending in <code>/wp-json/chatnelo/v1/feed</code>).", "Paste it into <b>Products from XML feed</b> in your Chatnelo dashboard."],
+        note: "You can also add the code with the WPCode plugin (Code Snippets → Header & Footer → Footer)." },
+      upgates: { name: "Upgates", steps: ["Log in to your Upgates admin.", "Open <b>Add-ons → Custom conversion codes</b> and add a new code.", "Under <b>Codes on all pages</b>, paste the code into the field placed <b>before the &lt;/body&gt; tag</b>.", "Click <b>Save</b>."],
+        products: ["Find the XML export URL for Heureka or Google and paste it into <b>Products from XML feed</b> in your dashboard."],
+        note: "Menu names may differ slightly between admin versions." },
+      wix: { name: "Wix", steps: ["In your site dashboard open <b>Settings → Custom Code</b> (Development & integrations).", "Click <b>+ Add Custom Code</b>, paste the code and name it “Chatnelo”.", "Under <b>Add Code to Pages</b> choose <b>All pages</b> and “Load code on each new page”.", "Under <b>Place Code in</b> choose <b>Body – end</b> and click <b>Apply</b>."],
+        products: ["Wix has no Heureka-style XML feed – add your products in the <b>Product catalog</b> section of your dashboard, or contact us for help with an import."],
+        note: "Custom code on Wix requires a premium plan and a connected domain." },
+      webnode: { name: "Webnode", steps: ["Open <b>Settings → Website settings</b>.", "Find the <b>HTML header / footer</b> field.", "Paste the code into the <b>footer</b> and click <b>Save</b>.", "<b>Publish</b> your website again."],
+        products: ["If your store has an XML feed, paste its URL into your dashboard. Otherwise add products in the <b>Product catalog</b> section."],
+        note: "Adding HTML code requires a Webnode premium plan (Standard, Profi or Business)." },
+      html: { name: "Own website / other platform", steps: ["Open the template that loads on every page (e.g. footer or main layout).", "Paste the code right <b>before the &lt;/body&gt; tag</b>.", "Save and upload the changes."],
+        products: ["If you have a product XML feed (Heureka, Google), paste its URL into your dashboard. Otherwise fill in the <b>Product catalog</b>."],
+        note: "If your platform has a “Custom code”, “Footer scripts” or “HTML before &lt;/body&gt;” field, paste the code there." },
+    },
+  },
+};
+
+app.get("/store/install", (req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="robots" content="noindex">
+  <title>Chatnelo — Návod k instalaci</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#f5f6fa;color:#111827;line-height:1.55}
+    a{color:#7e22ce}
+    code{background:#f1f2f6;border-radius:5px;padding:1px 6px;font-size:.88em}
+    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 28px;color:#fff}
+    .brand-left{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none}
+    .brand-left img{width:42px;height:42px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+    .brand-left span{font-size:1.3rem;font-weight:800}
+    #chatnelo-lang-switcher{position:relative}
+    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;z-index:20}
+    #chatnelo-lang-dropdown.open{display:flex}
+    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer}
+    main{max-width:880px;margin:30px auto 60px;padding:0 20px}
+    h1{margin:0 0 6px;font-size:1.9rem;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{margin:0 0 22px;color:#4b5563}
+    section{background:#fff;border-radius:16px;box-shadow:0 10px 30px -20px rgba(15,23,42,.35);border:1px solid #eef0f4;padding:24px;margin-bottom:18px}
+    section h2{margin:0 0 8px;font-size:1.2rem}
+    .muted{color:#6b7280;font-size:.92rem;margin:0 0 12px}
+    pre{white-space:pre-wrap;word-break:break-all;background:#0b1020;color:#e0e7ff;padding:14px;border-radius:12px;font-size:.85rem;margin:0}
+    .btn{display:inline-block;margin-top:12px;padding:11px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;cursor:pointer;text-decoration:none;font-size:.95rem}
+    .btn.light{background:#f1f2f6;color:#111827}
+    .kv{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .kv div{background:#f6f7fb;border-radius:10px;padding:10px 12px;font-size:.85rem}
+    .kv b{display:block;font-size:.8rem;color:#6b7280;font-weight:600}
+    .kv span{font-family:ui-monospace,Consolas,monospace;word-break:break-all}
+    .kv button{margin-top:6px;padding:4px 10px;border:1px solid #d9dde5;border-radius:7px;background:#fff;cursor:pointer;font-size:.8rem}
+    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+    .tile{padding:14px;border:2px solid #e5e7eb;border-radius:12px;background:#fff;font-weight:700;cursor:pointer;font-size:.95rem;text-align:center}
+    .tile.on{border-color:#a855f7;background:#faf5ff;color:#6b21a8}
+    ol.steps{counter-reset:s;list-style:none;padding:0;margin:14px 0 0}
+    ol.steps li{counter-increment:s;position:relative;padding:4px 0 14px 46px}
+    ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
+    h3{margin:18px 0 6px;font-size:1rem}
+    ul.plain{margin:6px 0 0;padding-left:20px}
+    .note{margin-top:14px;padding:12px 14px;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;font-size:.9rem}
+    .warn{padding:14px;border-radius:12px;background:#faf5ff;border:1px solid #d8b4fe}
+    @media (max-width:640px){.kv{grid-template-columns:1fr}.brand-header{padding:14px 16px}}
+  </style>
+</head>
+<body>
+  <div class="brand-header">
+    <a class="brand-left" href="/"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></a>
+    <div id="chatnelo-lang-switcher"></div>
+  </div>
+  <main>
+    <h1 data-g="title"></h1>
+    <p class="lead" data-g="lead"></p>
+    <section>
+      <h2 data-g="codeTitle"></h2>
+      <div id="code-box" hidden>
+        <p class="muted" data-g="codeText"></p>
+        <pre id="snippet"></pre>
+        <button type="button" class="btn" id="copy-btn" data-g="copy"></button>
+        <div class="kv">
+          <div><b data-g="storeIdL"></b><span id="store-id"></span><br><button type="button" data-copy="store-id" data-g="copyShort"></button></div>
+          <div><b data-g="keyL"></b><span id="widget-key"></span><br><button type="button" data-copy="widget-key" data-g="copyShort"></button></div>
+        </div>
+      </div>
+      <div id="login-box" class="warn" hidden>
+        <span data-g="notLogged"></span><br>
+        <a class="btn" href="/store/dashboard#login" data-g="login"></a>
+      </div>
+    </section>
+    <section>
+      <h2 data-g="pickTitle"></h2>
+      <p class="muted" data-g="pickText"></p>
+      <div class="tiles" id="tiles"></div>
+      <div id="platform"></div>
+    </section>
+    <section>
+      <h2 data-g="verifyTitle"></h2>
+      <ul class="plain" id="verify"></ul>
+      <h3 data-g="troubleTitle"></h3>
+      <ul class="plain" id="trouble"></ul>
+      <p id="help" style="margin:16px 0 0"></p>
+    </section>
+    <a class="btn light" href="/store/dashboard" data-g="back"></a>
+  </main>
+  <script src="/i18n.js?v=${ASSET_VERSION}"></script>
+  <script>
+  (function () {
+    var G = ${JSON.stringify(INSTALL_GUIDE).replace(/</g, "\\u003c")};
+    var ORDER = ["shoptet", "woo", "upgates", "wix", "webnode", "html"];
+    var picked = "shoptet";
+    try { picked = (new URLSearchParams(location.search).get("platform")) || localStorage.getItem("chatnelo_platform") || "shoptet"; } catch (e) {}
+    if (ORDER.indexOf(picked) < 0) picked = "shoptet";
+    function g() { return G[window.CHATNELO_LANG] || (window.CHATNELO_LANG === "sk" ? G.sk : (window.CHATNELO_LANG === "cs" ? G.cs : G.en)); }
+    function byId(id) { return document.getElementById(id); }
+    function list(items) { return items.map(function (x) { return "<li>" + x + "</li>"; }).join(""); }
+    function render() {
+      var s = g();
+      document.title = "Chatnelo — " + s.title;
+      var nodes = document.querySelectorAll("[data-g]");
+      for (var i = 0; i < nodes.length; i++) nodes[i].textContent = s[nodes[i].getAttribute("data-g")];
+      byId("tiles").innerHTML = ORDER.map(function (key) {
+        return '<button type="button" class="tile' + (key === picked ? " on" : "") + '" data-p="' + key + '">' + s.platforms[key].name + "</button>";
+      }).join("");
+      var p = s.platforms[picked];
+      byId("platform").innerHTML = "<h3>" + s.stepsTitle + " " + p.name + '</h3><ol class="steps">' + list(p.steps) + "</ol>" +
+        "<h3>" + s.productsTitle + '</h3><ol class="steps">' + list(p.products) + "</ol>" +
+        '<div class="note"><b>' + s.noteTitle + ":</b> " + p.note + "</div>";
+      byId("verify").innerHTML = list(s.verify);
+      byId("trouble").innerHTML = list(s.trouble);
+      byId("help").innerHTML = s.help;
+    }
+    document.addEventListener("click", function (event) {
+      var tile = event.target.closest && event.target.closest("[data-p]");
+      if (tile) {
+        picked = tile.getAttribute("data-p");
+        try { localStorage.setItem("chatnelo_platform", picked); } catch (e) {}
+        render();
+        return;
+      }
+      var copy = event.target.closest && event.target.closest("[data-copy]");
+      if (copy) copyText(byId(copy.getAttribute("data-copy")).textContent, copy);
+    });
+    function copyText(text, button) {
+      var done = function () { var old = button.textContent; button.textContent = g().copied; setTimeout(function () { button.textContent = old; }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () {});
+      else { var t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); done(); } catch (e) {} t.remove(); }
+    }
+    byId("copy-btn").addEventListener("click", function () { copyText(byId("snippet").textContent, this); });
+    document.addEventListener("chatnelo:langchange", render);
+    function loadCode() {
+      var session = null;
+      try { session = JSON.parse(localStorage.getItem("chatnelo_store_session") || "null"); } catch (e) {}
+      if (!session || !session.storeId || !session.adminKey) { byId("login-box").hidden = false; return; }
+      fetch("/store/" + encodeURIComponent(session.storeId), { headers: { Authorization: "Bearer " + session.adminKey } })
+        .then(function (r) { if (!r.ok) throw new Error("auth"); return r.json(); })
+        .then(function (data) {
+          byId("snippet").textContent = data.embedSnippet;
+          byId("store-id").textContent = data.storeId;
+          byId("widget-key").textContent = data.apiKey;
+          byId("code-box").hidden = false;
+        })
+        .catch(function () { byId("login-box").hidden = false; });
+    }
+    function init() { render(); loadCode(); }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+  })();
+  </script>
+</body>
+</html>`);
+});
+
 // Texts of the sign-up / log-in page and dashboard for stores outside Shopify.
 const DASHBOARD_STRINGS = {
   cs: {
+    guideTitle: "Přesný návod krok za krokem", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode i vlastní web – otevře se v novém okně.", guideBtn: "Otevřít návod k instalaci",
     authTitle: "Chatnelo pro váš e-shop", authLead: "Vytvořte si účet během minuty, nebo se přihlaste. Nic neplatíte, dokud sami nevyberete tarif.",
     tabSignup: "Registrace", tabLogin: "Přihlášení", storeName: "Název obchodu", email: "E-mail", password: "Heslo (min. 8 znaků)",
     consent: "Souhlasím se zpracováním údajů podle", privacyLink: "zásad ochrany osobních údajů", signupBtn: "Vytvořit účet zdarma",
@@ -3386,6 +3644,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Vyplňte prosím název obchodu a e-mail.", errPassword: "Heslo musí mít alespoň 8 znaků.", errConsent: "Pro registraci je potřeba souhlas se zásadami ochrany osobních údajů.",
   },
   en: {
+    guideTitle: "Exact step-by-step guide", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode or your own website – opens in a new window.", guideBtn: "Open installation guide",
     authTitle: "Chatnelo for your online store", authLead: "Create an account in a minute or log in. You pay nothing until you choose a plan yourself.",
     tabSignup: "Sign up", tabLogin: "Log in", storeName: "Store name", email: "E-mail", password: "Password (min. 8 characters)",
     consent: "I agree to data processing under the", privacyLink: "privacy policy", signupBtn: "Create free account",
@@ -3408,6 +3667,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Please fill in the store name and e-mail.", errPassword: "The password must have at least 8 characters.", errConsent: "Please agree to the privacy policy to sign up.",
   },
   sk: {
+    guideTitle: "Presný návod krok za krokom", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode aj vlastný web – otvorí sa v novom okne.", guideBtn: "Otvoriť návod na inštaláciu",
     authTitle: "Chatnelo pre váš e-shop", authLead: "Vytvorte si účet za minútu alebo sa prihláste. Nič neplatíte, kým si sami nevyberiete tarif.",
     tabSignup: "Registrácia", tabLogin: "Prihlásenie", storeName: "Názov obchodu", email: "E-mail", password: "Heslo (min. 8 znakov)",
     consent: "Súhlasím so spracovaním údajov podľa", privacyLink: "zásad ochrany osobných údajov", signupBtn: "Vytvoriť účet zdarma",
@@ -3430,6 +3690,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Vyplňte prosím názov obchodu a e-mail.", errPassword: "Heslo musí mať aspoň 8 znakov.", errConsent: "Na registráciu je potrebný súhlas so zásadami ochrany osobných údajov.",
   },
   de: {
+    guideTitle: "Genaue Schritt-für-Schritt-Anleitung", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode oder eigene Website – öffnet sich in einem neuen Fenster.", guideBtn: "Installationsanleitung öffnen",
     authTitle: "Chatnelo für Ihren Onlineshop", authLead: "Konto in einer Minute erstellen oder anmelden. Sie zahlen nichts, bis Sie selbst einen Tarif wählen.",
     tabSignup: "Registrieren", tabLogin: "Anmelden", storeName: "Shopname", email: "E-Mail", password: "Passwort (mind. 8 Zeichen)",
     consent: "Ich stimme der Datenverarbeitung gemäß der", privacyLink: "Datenschutzerklärung zu", signupBtn: "Kostenloses Konto erstellen",
@@ -3452,6 +3713,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Bitte Shopname und E-Mail ausfüllen.", errPassword: "Das Passwort muss mindestens 8 Zeichen haben.", errConsent: "Für die Registrierung ist die Zustimmung zur Datenschutzerklärung nötig.",
   },
   pl: {
+    guideTitle: "Dokładna instrukcja krok po kroku", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode lub własna strona – otworzy się w nowym oknie.", guideBtn: "Otwórz instrukcję instalacji",
     authTitle: "Chatnelo dla Twojego sklepu", authLead: "Załóż konto w minutę lub zaloguj się. Nic nie płacisz, dopóki sam nie wybierzesz planu.",
     tabSignup: "Rejestracja", tabLogin: "Logowanie", storeName: "Nazwa sklepu", email: "E-mail", password: "Hasło (min. 8 znaków)",
     consent: "Zgadzam się na przetwarzanie danych zgodnie z", privacyLink: "polityką prywatności", signupBtn: "Załóż darmowe konto",
@@ -3539,6 +3801,8 @@ app.get("/store/dashboard", (req, res) => {
     .status.offer{background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #d8b4fe;color:#4c1d95}
     .status.paid{background:#f0f9ff;border:1px solid #bae6fd;color:#075985}
     .status .btn{width:auto;margin:0;padding:9px 14px;font-size:.9rem}
+    .guide-cta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:16px 18px;margin:6px 0 16px;border-radius:14px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #d8b4fe}
+    .guide-cta .btn{margin:0}
     .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:10px}
     .plan{border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px}
     .plan b.name{font-size:1rem}
@@ -3627,6 +3891,10 @@ app.get("/store/dashboard", (req, res) => {
       <div id="status" class="status" hidden><span id="status-text"></span><button type="button" class="btn" id="status-btn" hidden></button></div>
       <section class="panel">
         <h2 data-d="installTitle"></h2>
+        <div class="guide-cta">
+          <div><b data-d="guideTitle"></b><p class="muted" data-d="guideText" style="margin:4px 0 0"></p></div>
+          <a class="btn small" id="guide-btn" href="/store/install" target="chatnelo-install" rel="opener" data-d="guideBtn"></a>
+        </div>
         <p class="muted" data-i18n="dashboard.embedIntro">Vložte tento kód do HTML svého webu (např. před &lt;/body&gt;):</p>
         <pre id="embed-snippet"></pre>
         <a id="widget-preview-link" href="#" target="_blank" rel="noopener" data-i18n="dashboard.testWidgetLink">Vyzkoušet widget na testovací stránce →</a>
