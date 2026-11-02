@@ -316,6 +316,19 @@ async function initializeDatabase() {
   await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT");
   await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT");
   await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS subscription_status TEXT");
+  // Accounts created from the new sign-up flow log in with e-mail + password
+  // and get a 3-day trial (once per account and per e-mail). Older stores
+  // keep access_mode NULL and their previous, unrestricted behaviour.
+  await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS password_hash TEXT");
+  await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS access_mode TEXT");
+  await database.query("ALTER TABLE generic_stores ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ");
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS generic_trial_emails (
+      email_hash TEXT PRIMARY KEY,
+      store_id TEXT,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
   await database.query(`
     CREATE TABLE IF NOT EXISTS generic_catalog (
       store_id TEXT PRIMARY KEY REFERENCES generic_stores (id) ON DELETE CASCADE,
@@ -822,11 +835,65 @@ async function getUsageSummary(shop, accessToken, subscription) {
   };
 }
 
+const GENERIC_TRIAL_DAYS = Math.max(1, Number(process.env.GENERIC_TRIAL_DAYS) || 3);
+const loginRateLimit = new Map();
+const LOGIN_RATE_LIMIT = 10;
+const LOGIN_RATE_WINDOW_MS = 15 * 60 * 1000;
+
+function isLoginRateLimited(key) {
+  const now = Date.now();
+  const entry = loginRateLimit.get(key);
+  if (!entry || now - entry.windowStart > LOGIN_RATE_WINDOW_MS) {
+    loginRateLimit.set(key, { windowStart: now, count: 1 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > LOGIN_RATE_LIMIT;
+}
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [scheme, salt, hash] = String(stored || "").split("$");
+  if (scheme !== "scrypt" || !salt || !hash) return false;
+  const candidate = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(hash, "hex");
+  return expected.length === candidate.length && crypto.timingSafeEqual(candidate, expected);
+}
+
+function emailHash(email) {
+  return crypto.createHash("sha256").update(String(email || "").trim().toLowerCase()).digest("hex");
+}
+
+function genericTrialInfo(store) {
+  if (store.access_mode !== "trial") return { mode: "legacy", started: false, available: false, active: false, endsAt: null, daysLeft: 0, days: GENERIC_TRIAL_DAYS };
+  if (!store.trial_started_at) return { mode: "trial", started: false, available: true, active: false, endsAt: null, daysLeft: 0, days: GENERIC_TRIAL_DAYS };
+  const endsAt = new Date(new Date(store.trial_started_at).getTime() + GENERIC_TRIAL_DAYS * 86400000);
+  const msLeft = endsAt.getTime() - Date.now();
+  return {
+    mode: "trial", started: true, available: false, active: msLeft > 0, days: GENERIC_TRIAL_DAYS,
+    endsAt: endsAt.toISOString(), daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)),
+  };
+}
+
+function genericAccess(store) {
+  if (store.access_mode !== "trial") return { allowed: true, reason: "legacy" };
+  if (store.subscription_status === "active" || store.subscription_status === "trialing") return { allowed: true, reason: "paid" };
+  const trial = genericTrialInfo(store);
+  if (trial.active) return { allowed: true, reason: "trial" };
+  return { allowed: false, reason: trial.started ? "trial_ended" : "not_started" };
+}
+
 async function findStoreById(id) {
   if (!database || !id) return null;
   const result = await database.query(
     `SELECT id, name, email, api_key, admin_key, plan_handle, active,
-            stripe_customer_id, stripe_subscription_id, subscription_status
+            stripe_customer_id, stripe_subscription_id, subscription_status,
+            access_mode, trial_started_at, created_at
      FROM generic_stores WHERE id = $1`,
     [id],
   );
@@ -862,7 +929,12 @@ async function requireStoreApiKey(body) {
     error.statusCode = 403;
     throw error;
   }
-  if (GENERIC_SUBSCRIPTION_REQUIRED && store.subscription_status !== "active") {
+  if (store.access_mode === "trial" && !genericAccess(store).allowed) {
+    const error = new Error("Chat je pozastavený – obchod zatím nemá aktivní tarif Chatnelo.");
+    error.statusCode = 402;
+    throw error;
+  }
+  if (GENERIC_SUBSCRIPTION_REQUIRED && store.access_mode !== "trial" && store.subscription_status !== "active") {
     const error = new Error("Obchod nemá aktivní předplatné Chatnelo.");
     error.statusCode = 402;
     throw error;
@@ -1995,6 +2067,7 @@ function pruneRateLimits() {
   for (const [map, windowMs] of [
     [marketingChatRateLimit, MARKETING_CHAT_RATE_WINDOW_MS],
     [signupRateLimit, SIGNUP_RATE_WINDOW_MS],
+    [loginRateLimit, LOGIN_RATE_WINDOW_MS],
     [widgetChatRateLimit, WIDGET_CHAT_RATE_WINDOW_MS],
   ]) {
     for (const [key, entry] of map) {
@@ -2259,7 +2332,10 @@ app.get("/", (req, res) => {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="shopify-api-key" content="${apiKey}">
   <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-  <link rel="icon" type="image/png" href="/mascot.png">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <title>Chatnelo</title>
   <style>
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;margin:0;background:#f4f5f9;color:#1c1f26}
@@ -2314,6 +2390,28 @@ td button:active{transform:translateY(0)}
 .offer-save{display:block;margin-top:4px;color:#15803d;font-size:.86rem;font-weight:800}
 @media (prefers-reduced-motion:reduce){.offer-badge{animation:none}}
 .trial-banner{display:flex;align-items:center;gap:10px;margin:0 0 18px;padding:12px 16px;border-radius:12px;font-weight:600;font-size:.92rem;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;color:#065f46}
+.welcome-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(11,16,32,.62);backdrop-filter:blur(3px)}
+.welcome-overlay[hidden]{display:none}
+.welcome-box{position:relative;width:100%;max-width:720px;max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px -20px rgba(15,23,42,.55);padding:30px 30px 24px;text-align:center}
+.welcome-box img{width:84px;height:84px;border-radius:50%;object-fit:cover;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
+.welcome-box h2{margin:12px 0 6px;font-size:1.55rem;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
+.welcome-box>p{margin:0 auto 22px;max-width:520px;color:#4b5563}
+.welcome-choices{display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:left}
+.welcome-choice{display:flex;flex-direction:column;gap:8px;border:2px solid #e5e7eb;border-radius:16px;padding:20px}
+.welcome-choice.primary{border-color:#a855f7;background:linear-gradient(180deg,#faf5ff,#fff)}
+.welcome-choice h3{margin:0;font-size:1.1rem;color:#111827}
+.welcome-choice ul{margin:0;padding-left:18px;color:#4b5563;font-size:.9rem;line-height:1.55}
+.welcome-choice button{margin-top:auto;padding:12px 16px;border-radius:10px;border:none;font-weight:700;font-size:1rem;cursor:pointer}
+.welcome-choice.primary button{background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;box-shadow:0 8px 20px -8px rgba(168,85,247,.8)}
+.welcome-choice:not(.primary) button{background:#111827;color:#fff}
+.welcome-choice button:disabled{opacity:.6;cursor:wait}
+.welcome-note{margin:16px 0 0;font-size:.82rem;color:#6b7280}
+.welcome-error{margin:10px 0 0;color:#b42318;font-size:.9rem}
+.trial-offer{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 18px;padding:14px 18px;border-radius:12px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #d8b4fe}
+.trial-offer[hidden]{display:none}
+.trial-offer span{font-weight:600;color:#4c1d95}
+.trial-offer button{padding:10px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;cursor:pointer}
+@media (max-width:620px){.welcome-choices{grid-template-columns:1fr}.welcome-box{padding:22px 18px}}
 .trial-banner.ended{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#fca5a5;color:#991b1b}
 .plan-trial{margin-top:10px;color:#047857;font-weight:600;font-size:.82rem}
 .plan-features{list-style:none;padding:0;margin:16px 0 18px;display:grid;gap:9px;font-size:.88rem;color:#3b4252;flex:1}
@@ -2386,6 +2484,7 @@ td button:active{transform:translateY(0)}
       <h2 id="plans-title" style="margin:0 0 6px;font-size:1.3rem">Vyberte tarif</h2>
       <p class="muted" id="plans-text" style="margin:0 0 18px">Platba probíhá bezpečně přes Shopify (Shopify Billing). Tarif můžete kdykoli změnit.</p>
       <div id="trial-banner" class="trial-banner" hidden></div>
+      <div id="trial-offer" class="trial-offer" hidden><span id="trial-offer-text"></span><button type="button" id="trial-offer-btn"></button></div>
       <div id="pricing-tiers" class="plan-grid">${shopifyPlans().map((plan, index) => `<article class="plan-card${index === 2 ? " plan-popular" : ""}">${index === 2 ? '<span class="plan-badge">Nejoblíbenější</span>' : ""}<div class="plan-name">${escapeHtml(plan.name)}</div>${plan.limit === FIRST_MONTH_OFFER.limit ? `<span class="offer-badge">−${Math.round((1 - FIRST_MONTH_OFFER.priceCzk / plan.priceCzk) * 100)} %</span><div class="offer-price"><span class="offer-amount">${FIRST_MONTH_OFFER.priceCzk} Kč</span><span class="offer-label">1. měsíc</span></div><div class="offer-was">pak <s>$${plan.priceUsd}</s> / měsíc · ≈ ${plan.priceCzk.toLocaleString("cs-CZ")} Kč</div><div class="offer-box">🔥 Jednorázová nabídka – platí jen při prvním předplatném<span class="offer-save">Ušetříte ${(plan.priceCzk - FIRST_MONTH_OFFER.priceCzk).toLocaleString("cs-CZ")} Kč</span></div>` : `<div class="plan-price"><span class="plan-amount">$${plan.priceUsd}</span><span class="plan-per">/ měsíc</span></div><div class="plan-czk">≈ ${plan.priceCzk.toLocaleString("cs-CZ")} Kč</div>`}<div class="plan-trial">${SHOPIFY_TRIAL_DAYS} dny zdarma · plná verze</div><ul class="plan-features"><li><b>${plan.limit.toLocaleString("cs-CZ")}</b> vyřešených konverzací měsíčně</li><li>AI odpovědi z vašich produktů a skladu</li><li>Klikací karty produktů v chatu</li><li>Vlastní ikona, styl okna a barvy</li><li>Odpovědi v jazyce zákazníka</li></ul><button type="button" class="plan-cta" data-plan="${escapeHtml(plan.handle)}">Vybrat tarif</button></article>`).join("")}</div>
       <p class="plan-trust" id="plan-trust">🔒 ${SHOPIFY_TRIAL_DAYS} dny zdarma, pak platba přes Shopify · bez závazků · kdykoli můžete změnit nebo zrušit</p>
       <div class="usage-row">
@@ -2408,6 +2507,27 @@ td button:active{transform:translateY(0)}
       <a id="setup-link" class="setup-button" href="#" target="_top">Otevřít editor šablony</a>
     </section>
   </main>
+  <div id="welcome" class="welcome-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+    <div class="welcome-box">
+      <img src="/mascot.png" alt="Chatnelo">
+      <h2 id="welcome-title"></h2>
+      <p id="welcome-text"></p>
+      <div class="welcome-choices">
+        <div class="welcome-choice primary">
+          <h3 id="w-trial-title"></h3>
+          <ul id="w-trial-list"></ul>
+          <button type="button" id="w-trial-btn"></button>
+        </div>
+        <div class="welcome-choice">
+          <h3 id="w-pay-title"></h3>
+          <ul id="w-pay-list"></ul>
+          <button type="button" id="w-pay-btn"></button>
+        </div>
+      </div>
+      <p class="welcome-error" id="welcome-error" hidden></p>
+      <p class="welcome-note" id="welcome-note"></p>
+    </div>
+  </div>
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
     window.CHATBOT_API = "";
@@ -2419,8 +2539,12 @@ td button:active{transform:translateY(0)}
         de: { freePlan: "Sie nutzen den kostenlosen Tarif – der Chat läuft weiter, bis zu {n} Gespräche pro Monat. Für mehr wählen Sie einen bezahlten Tarif.", freeName: "Kostenlos", trialActive: "🎉 Ihre Testphase läuft – der Chat ist bis {date} kostenlos aktiv. Nichts zu zahlen; wählen Sie einen Tarif, wenn Sie weitermachen möchten.", trialEnded: "Die Testphase ist beendet und der Chat ist für Kunden ausgeblendet. Wählen Sie einen Tarif, um ihn sofort wieder zu aktivieren.", offerFirst: "1. Monat", offerThen: "danach", offerOnce: "🔥 Einmaliges Angebot – nur beim ersten Abonnement", offerSave: "Sie sparen", limitReached: "Limit erreicht – der Chat ist für Kunden ausgeblendet. Wählen Sie einen höheren Tarif oder warten Sie auf den nächsten Zeitraum.", trialNote: "3 Tage kostenlos · Vollversion", tryFree: "3 Tage kostenlos testen", offer: "🎁 1. Monat nur 4,45 $", popular: "Am beliebtesten", perMonth: "/ Monat", selectPlan: "Tarif wählen", currentPlan: "✓ Ihr aktueller Tarif", fCases: "gelöste Gespräche pro Monat", f1: "KI-Antworten aus Ihren Produkten und Beständen", f2: "Klickbare Produktkarten im Chat", f3: "Eigenes Symbol, Fensterstil und Farben", f4: "Antworten in der Sprache des Kunden", trust: "🔒 3 Tage kostenlos, dann Abrechnung über Shopify · keine Bindung · jederzeit kündbar", plansTitle: "Tarif wählen", plansText: "Die Abrechnung erfolgt sicher über Shopify (Shopify Billing). Sie können den Tarif jederzeit ändern.", loading: "Wird geladen…", loadError: "Konnte nicht geladen werden", meteringOff: "Messung deaktiviert", plan: "Tarif", planPrice: "Tarifpreis", period: "Zeitraum", caseHint: "Ein Fall ist ein Chat-Verlauf mit erfolgreicher Antwort.", select: "Auswählen", active: "Aktiv", payError: "Zahlung konnte nicht gestartet werden.", setupTitle: "Chat im Shop aktivieren", setupText: "Kunden sehen den Chat, sobald Sie ihn im Theme-Editor aktivieren (App-Einbettungen → Chatnelo Chat → Speichern). Dort wählen Sie auch das Button-Symbol (oder ein eigenes Bild), einen von 5 Fensterstilen und Ihre Markenfarben.", setupButton: "Chat aktivieren und gestalten", billingNote: "Die Abrechnung erfolgt über Shopify in USD; CZK-Beträge sind Richtwerte.", noSubscription: "Noch kein bezahlter Tarif" },
         pl: { freePlan: "Korzystasz z planu Darmowego – czat działa dalej, do {n} rozmów miesięcznie. Aby mieć więcej, wybierz płatny plan.", freeName: "Darmowy", trialActive: "🎉 Okres próbny jest aktywny – czat działa w Twoim sklepie za darmo do {date}. Nic nie płacisz; wybierz plan, gdy zechcesz kontynuować.", trialEnded: "Okres próbny się zakończył i czat jest ukryty dla klientów. Wybierz plan, aby od razu go włączyć.", offerFirst: "1. miesiąc", offerThen: "potem", offerOnce: "🔥 Jednorazowa oferta – tylko przy pierwszej subskrypcji", offerSave: "Oszczędzasz", limitReached: "Limit wyczerpany – czat jest ukryty dla klientów. Wybierz wyższy plan lub poczekaj na nowy okres.", trialNote: "3 dni za darmo · pełna wersja", tryFree: "Wypróbuj 3 dni za darmo", offer: "🎁 1. miesiąc tylko 4,45 $", popular: "Najpopularniejszy", perMonth: "/ miesiąc", selectPlan: "Wybierz plan", currentPlan: "✓ Twój obecny plan", fCases: "rozwiązanych rozmów miesięcznie", f1: "Odpowiedzi AI z Twoich produktów i stanów", f2: "Klikalne karty produktów w czacie", f3: "Własna ikona, styl okna i kolory", f4: "Odpowiedzi w języku klienta", trust: "🔒 3 dni za darmo, potem płatność przez Shopify · bez zobowiązań · anuluj w każdej chwili", plansTitle: "Wybierz plan", plansText: "Płatność obsługuje bezpiecznie Shopify (Shopify Billing). Plan możesz zmienić w każdej chwili.", loading: "Ładowanie…", loadError: "Nie udało się wczytać", meteringOff: "Pomiar wyłączony", plan: "Plan", planPrice: "Cena planu", period: "Okres", caseHint: "Jeden przypadek to jeden wątek czatu z udaną odpowiedzią.", select: "Wybierz", active: "Aktywny", payError: "Nie udało się rozpocząć płatności.", setupTitle: "Włącz czat w sklepie", setupText: "Klienci zobaczą czat po włączeniu go w edytorze motywu (Osadzenia aplikacji → Chatnelo Chat → Zapisz). Tam wybierzesz też ikonę przycisku (lub własny obraz), jeden z 5 stylów okna i kolory marki.", setupButton: "Włącz i dostosuj czat", billingNote: "Płatność obsługuje Shopify w USD; kwoty w CZK są orientacyjne.", noSubscription: "Brak płatnego planu" },
       };
+      var WELCOME = {"cs": {"wTitle": "Vítejte v Chatnelo 👋", "wText": "Jak chcete začít? Vyberte si – nic se neplatí, dokud to sami nepotvrdíte.", "wTrialTitle": "Vyzkoušet 3 dny zdarma", "wTrialList": ["Plná verze bez omezení", "Bez platby a bez karty", "Po 3 dnech si vyberete tarif"], "wTrialBtn": "Začít 3 dny zdarma", "wPayTitle": "Vybrat tarif a zaplatit hned", "wPayList": ["Okamžitě plný tarif", "Platba bezpečně přes Shopify", "Kdykoli změníte nebo zrušíte"], "wPayBtn": "Vybrat tarif", "wNote": "Zkušební verzi lze využít jednou na obchod – kdykoli později, pokud ji teď nespustíte.", "trialOffer": "🎁 Máte k dispozici 3 dny plné verze zdarma – bez platby.", "trustChoice": "🔒 Zaplatit můžete hned, nebo nejdřív vyzkoušet 3 dny zdarma · platba přes Shopify · bez závazků", "trustPaid": "🔒 Platba bezpečně přes Shopify · bez závazků · kdykoli můžete změnit nebo zrušit", "startError": "Zkušební verzi se nepodařilo spustit. Zkuste to prosím znovu."}, "en": {"wTitle": "Welcome to Chatnelo 👋", "wText": "How would you like to start? Pick one – nothing is charged until you confirm it yourself.", "wTrialTitle": "Try 3 days free", "wTrialList": ["Full version, no limits", "No payment, no card", "Choose a plan after 3 days"], "wTrialBtn": "Start 3-day free trial", "wPayTitle": "Choose a plan and pay now", "wPayList": ["Full plan right away", "Billed securely through Shopify", "Change or cancel anytime"], "wPayBtn": "Choose a plan", "wNote": "The free trial can be used once per store – anytime later if you don't start it now.", "trialOffer": "🎁 You have 3 days of the full version free – no payment.", "trustChoice": "🔒 Pay now or try 3 days free first · billed through Shopify · no commitment", "trustPaid": "🔒 Billed securely through Shopify · no commitment · change or cancel anytime", "startError": "Could not start the free trial. Please try again."}, "sk": {"wTitle": "Vitajte v Chatnelo 👋", "wText": "Ako chcete začať? Vyberte si – nič sa neplatí, kým to sami nepotvrdíte.", "wTrialTitle": "Vyskúšať 3 dni zdarma", "wTrialList": ["Plná verzia bez obmedzení", "Bez platby a bez karty", "Po 3 dňoch si vyberiete tarif"], "wTrialBtn": "Začať 3 dni zdarma", "wPayTitle": "Vybrať tarif a zaplatiť hneď", "wPayList": ["Okamžite plný tarif", "Platba bezpečne cez Shopify", "Kedykoľvek zmeníte alebo zrušíte"], "wPayBtn": "Vybrať tarif", "wNote": "Skúšobnú verziu je možné využiť raz na obchod – kedykoľvek neskôr, ak ju teraz nespustíte.", "trialOffer": "🎁 Máte k dispozícii 3 dni plnej verzie zdarma – bez platby.", "trustChoice": "🔒 Zaplatiť môžete hneď, alebo najprv vyskúšať 3 dni zdarma · platba cez Shopify · bez záväzkov", "trustPaid": "🔒 Platba bezpečne cez Shopify · bez záväzkov · kedykoľvek zmeniť alebo zrušiť", "startError": "Skúšobnú verziu sa nepodarilo spustiť. Skúste to prosím znova."}, "de": {"wTitle": "Willkommen bei Chatnelo 👋", "wText": "Wie möchten Sie starten? Wählen Sie – es wird nichts berechnet, bevor Sie es selbst bestätigen.", "wTrialTitle": "3 Tage kostenlos testen", "wTrialList": ["Vollversion ohne Einschränkungen", "Keine Zahlung, keine Karte", "Tarif nach 3 Tagen wählen"], "wTrialBtn": "3 Tage kostenlos starten", "wPayTitle": "Tarif wählen und sofort zahlen", "wPayList": ["Sofort voller Tarif", "Sichere Abrechnung über Shopify", "Jederzeit änder- oder kündbar"], "wPayBtn": "Tarif wählen", "wNote": "Die Testphase kann einmal pro Shop genutzt werden – auch später, wenn Sie sie jetzt nicht starten.", "trialOffer": "🎁 Sie haben 3 Tage Vollversion kostenlos – ohne Zahlung.", "trustChoice": "🔒 Sofort zahlen oder zuerst 3 Tage kostenlos testen · Abrechnung über Shopify · keine Bindung", "trustPaid": "🔒 Sichere Abrechnung über Shopify · keine Bindung · jederzeit kündbar", "startError": "Die Testphase konnte nicht gestartet werden. Bitte erneut versuchen."}, "pl": {"wTitle": "Witaj w Chatnelo 👋", "wText": "Jak chcesz zacząć? Wybierz – nic nie zostanie pobrane, dopóki sam tego nie potwierdzisz.", "wTrialTitle": "Wypróbuj 3 dni za darmo", "wTrialList": ["Pełna wersja bez ograniczeń", "Bez płatności i bez karty", "Po 3 dniach wybierasz plan"], "wTrialBtn": "Rozpocznij 3 dni za darmo", "wPayTitle": "Wybierz plan i zapłać teraz", "wPayList": ["Od razu pełny plan", "Bezpieczna płatność przez Shopify", "Zmień lub anuluj w każdej chwili"], "wPayBtn": "Wybierz plan", "wNote": "Okres próbny można wykorzystać raz na sklep – także później, jeśli nie uruchomisz go teraz.", "trialOffer": "🎁 Masz 3 dni pełnej wersji za darmo – bez płatności.", "trustChoice": "🔒 Zapłać od razu lub najpierw wypróbuj 3 dni za darmo · płatność przez Shopify · bez zobowiązań", "trustPaid": "🔒 Bezpieczna płatność przez Shopify · bez zobowiązań · anuluj w każdej chwili", "startError": "Nie udało się uruchomić okresu próbnego. Spróbuj ponownie."}};
+      Object.keys(WELCOME).forEach(function (code) {
+        Object.keys(WELCOME[code]).forEach(function (key) { STRINGS[code][key] = WELCOME[code][key]; });
+      });
       var LOCALES = { cs: "cs-CZ", en: "en-US", sk: "sk-SK", de: "de-DE", pl: "pl-PL" };
-      var state = { data: null, error: false };
+      var state = { data: null, error: false, welcomeClosed: false };
 
       function lang() { return STRINGS[window.CHATNELO_LANG] ? window.CHATNELO_LANG : "cs"; }
       function t(key) { return STRINGS[lang()][key] || STRINGS.cs[key]; }
@@ -2446,7 +2570,24 @@ td button:active{transform:translateY(0)}
         byId("billing-note").textContent = t("billingNote");
         byId("plans-title").textContent = t("plansTitle");
         byId("plans-text").textContent = t("plansText");
-        byId("plan-trust").textContent = t("trust");
+        var welcomeTrial = state.data && state.data.trial;
+        var welcomeSubscribed = state.data && state.data.usage && state.data.usage.subscribed;
+        byId("plan-trust").textContent = welcomeSubscribed || !welcomeTrial || (!welcomeTrial.available && !welcomeTrial.active)
+          ? t("trustPaid") : (welcomeTrial.active ? t("trust") : t("trustChoice"));
+        var canTry = Boolean(welcomeTrial && welcomeTrial.available && !welcomeSubscribed);
+        byId("welcome-title").textContent = t("wTitle");
+        byId("welcome-text").textContent = t("wText");
+        byId("w-trial-title").textContent = t("wTrialTitle");
+        byId("w-pay-title").textContent = t("wPayTitle");
+        byId("w-trial-list").innerHTML = t("wTrialList").map(function (item) { return "<li>" + escapeText(item) + "</li>"; }).join("");
+        byId("w-pay-list").innerHTML = t("wPayList").map(function (item) { return "<li>" + escapeText(item) + "</li>"; }).join("");
+        byId("w-trial-btn").textContent = t("wTrialBtn");
+        byId("w-pay-btn").textContent = t("wPayBtn");
+        byId("welcome-note").textContent = t("wNote");
+        byId("welcome").hidden = !canTry || state.welcomeClosed;
+        byId("trial-offer").hidden = !canTry;
+        byId("trial-offer-text").textContent = t("trialOffer");
+        byId("trial-offer-btn").textContent = t("wTrialBtn");
         var counter = byId("usage-count");
         if (state.error) {
           counter.textContent = t("loadError");
@@ -2473,7 +2614,9 @@ td button:active{transform:translateY(0)}
         // "trial ended / chat hidden" warning would be misleading there.
         var chatStillOn = data.availability && data.availability.available;
         var onFree = !subscribedNow && data.usage && data.usage.plan && data.usage.plan.handle === "free";
-        if (onFree && !(trial && trial.active)) {
+        if (trial && trial.available && !subscribedNow) {
+          banner.hidden = true;
+        } else if (onFree && !(trial && trial.active)) {
           banner.hidden = false;
           banner.className = "trial-banner";
           banner.textContent = t("freePlan").replace("{n}", data.usage.plan.limit);
@@ -2618,6 +2761,34 @@ td button:active{transform:translateY(0)}
             return data;
           });
         }
+        function startTrial(button) {
+          var errorBox = byId("welcome-error");
+          errorBox.hidden = true;
+          button.disabled = true;
+          window.fetch("/api/trial/start", { method: "POST" })
+            .then(readJson)
+            .then(function (result) {
+              state.data.trial = result.trial;
+              state.data.usage = result.usage;
+              state.data.availability = result.availability;
+              state.welcomeClosed = true;
+              render();
+              byId("plans").scrollIntoView({ behavior: "smooth", block: "start" });
+            })
+            .catch(function () {
+              errorBox.textContent = t("startError");
+              errorBox.hidden = false;
+              if (byId("welcome").hidden) window.alert(t("startError"));
+            })
+            .finally(function () { button.disabled = false; });
+        }
+        byId("w-trial-btn").addEventListener("click", function () { startTrial(this); });
+        byId("trial-offer-btn").addEventListener("click", function () { startTrial(this); });
+        byId("w-pay-btn").addEventListener("click", function () {
+          state.welcomeClosed = true;
+          render();
+          byId("pricing-tiers").scrollIntoView({ behavior: "smooth", block: "center" });
+        });
         byId("pricing-tiers").addEventListener("click", function (event) {
           var button = event.target.closest("button[data-plan]");
           if (!button) return;
@@ -2644,6 +2815,7 @@ td button:active{transform:translateY(0)}
           .then(readJson)
           .then(function (data) {
             state.data = data;
+            if (new URLSearchParams(window.location.search).get("plan")) state.welcomeClosed = true;
             render();
             // Deep link from the pricing page: ?plan=<handle> starts that plan's
             // Shopify Billing approval right away (the merchant still approves it).
@@ -2665,6 +2837,29 @@ td button:active{transform:translateY(0)}
   <script src="/widget.js?v=${ASSET_VERSION}" defer></script>
 </body>
 </html>`);
+});
+
+app.get("/robots.txt", (req, res) => {
+  res.type("text/plain").send("User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /proxy/\nDisallow: /widget-preview\n\nSitemap: https://chatnelo.com/sitemap.xml\n");
+});
+
+app.get("/sitemap.xml", (req, res) => {
+  res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://chatnelo.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://chatnelo.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
+</urlset>`);
+});
+
+app.get("/site.webmanifest", (req, res) => {
+  res.type("application/manifest+json").send(JSON.stringify({
+    name: "Chatnelo", short_name: "Chatnelo", start_url: "/", display: "standalone",
+    background_color: "#0b1020", theme_color: "#1e1b4b",
+    icons: [
+      { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+  }));
 });
 
 app.get("/marketing", (req, res) => {
@@ -2695,8 +2890,26 @@ app.get("/marketing", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" type="image/png" href="/mascot.png">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <title>Chatnelo — AI chatbot for online stores</title>
+  <meta name="description" content="Chatnelo is an AI chatbot for online stores. It answers your customers 24/7 from your real products, stock and shipping info, in their language. Install on Shopify – 3 days free.">
+  <link rel="canonical" href="https://chatnelo.com/">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#1e1b4b">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Chatnelo">
+  <meta property="og:url" content="https://chatnelo.com/">
+  <meta property="og:title" content="Chatnelo — AI chatbot for online stores">
+  <meta property="og:description" content="Answers your customers 24/7 from your real products and stock. Install on Shopify – 3 days free.">
+  <meta property="og:image" content="https://chatnelo.com/icon-512.png">
+  <script type="application/ld+json">${JSON.stringify([
+    { "@context": "https://schema.org", "@type": "Organization", name: "Chatnelo", url: "https://chatnelo.com/", logo: "https://chatnelo.com/icon-512.png", email: "support@chatnelo.com", parentOrganization: { "@type": "Organization", name: "BrosWars Studio" } },
+    { "@context": "https://schema.org", "@type": "WebSite", name: "Chatnelo", url: "https://chatnelo.com/" },
+    { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Chatnelo", applicationCategory: "BusinessApplication", operatingSystem: "Web, Shopify", url: "https://apps.shopify.com/chatnelo", image: "https://chatnelo.com/icon-512.png", offers: { "@type": "Offer", price: "16.99", priceCurrency: "USD" } },
+  ]).replace(/</g, "\\u003c")}</script>
   <meta name="i18n-title" content="marketing.pageTitle">
   <style>
     body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.5}
@@ -2729,6 +2942,8 @@ app.get("/marketing", (req, res) => {
     #marketing-chat-input{flex:1;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font-size:1rem}
     #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
     #marketing-chat-form button:disabled{opacity:.6;cursor:default}
+    .login-link{position:absolute;top:16px;right:84px;z-index:5;padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font-weight:600;font-size:.9rem;text-decoration:none}
+    .login-link:hover{background:rgba(255,255,255,.2)}
     .cta-secondary{position:relative;display:block;margin-top:14px;color:#cbd5e1;font-size:.95rem;text-decoration:underline;text-underline-offset:3px}
     .cta-secondary:hover{color:#fff}
     .cta-button{display:inline-block;margin-top:22px;padding:14px 28px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;text-decoration:none;font-size:1.05rem;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
@@ -2742,6 +2957,7 @@ app.get("/marketing", (req, res) => {
 </head>
 <body>
   <header>
+    <a class="login-link" href="/store/dashboard#login" data-i18n="marketing.loginLink">Přihlásit se</a>
     <div id="chatnelo-lang-switcher"></div>
     <div class="brand-mark">
       <img src="/mascot.png" alt="Chatnelo maskot">
@@ -2950,7 +3166,10 @@ app.get("/privacy", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" type="image/png" href="/mascot.png">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <title>Chatnelo — Privacy Policy</title>
   <meta name="i18n-title" content="privacy.title">
   <style>
@@ -3058,14 +3277,25 @@ app.post("/store/signup", async (req, res) => {
       throw httpError(error.message, 400);
     }
     const { name, email } = signup;
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (password.length < 8 || password.length > 200) {
+      throw httpError("Heslo musí mít alespoň 8 znaků.", 400);
+    }
+    const existing = await database.query(
+      "SELECT 1 FROM generic_stores WHERE email = $1 AND password_hash IS NOT NULL LIMIT 1",
+      [email],
+    );
+    if (existing.rowCount) {
+      throw httpError("Účet s tímto e-mailem už existuje. Přihlaste se prosím.", 409);
+    }
     const id = generateStoreId();
     const apiKey = generateSecretKey();
     const adminKey = generateSecretKey();
 
     await database.query(
-      `INSERT INTO generic_stores (id, name, email, api_key, admin_key, plan_handle)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [id, name, email, apiKey, adminKey, DEFAULT_PLAN_HANDLE],
+      `INSERT INTO generic_stores (id, name, email, api_key, admin_key, plan_handle, password_hash, access_mode)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'trial')`,
+      [id, name, email, apiKey, adminKey, DEFAULT_PLAN_HANDLE, hashPassword(password)],
     );
     await database.query(
       "INSERT INTO generic_catalog (store_id, products, rules) VALUES ($1, '[]', '{}')",
@@ -3087,284 +3317,623 @@ app.post("/store/signup", async (req, res) => {
   }
 });
 
+app.post("/store/login", async (req, res) => {
+  try {
+    requireMeteringDatabase();
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
+    if (isLoginRateLimited(req.ip) || isLoginRateLimited(`e:${email}`)) {
+      return res.status(429).json({ error: "Příliš mnoho pokusů o přihlášení, zkuste to prosím za 15 minut." });
+    }
+    if (!email || !password) throw httpError("Zadejte e-mail a heslo.", 400);
+    const result = await database.query(
+      "SELECT id, admin_key, password_hash FROM generic_stores WHERE email = $1 AND password_hash IS NOT NULL ORDER BY created_at",
+      [email],
+    );
+    const match = result.rows.find((row) => verifyPassword(password, row.password_hash));
+    if (!match) throw httpError("Nesprávný e-mail nebo heslo.", 401);
+    res.json({ storeId: match.id, adminKey: match.admin_key });
+  } catch (error) {
+    logRouteError("Store login", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+// "Try 3 days free" – once per account and once per e-mail address.
+app.post("/store/:id/trial/start", async (req, res) => {
+  try {
+    const store = await requireStoreAdmin(req);
+    if (store.access_mode !== "trial") throw httpError("Tento účet zkušební verzi nepotřebuje.", 400);
+    if (!store.trial_started_at) {
+      const claim = await database.query(
+        "INSERT INTO generic_trial_emails (email_hash, store_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        [emailHash(store.email), store.id],
+      );
+      if (!claim.rowCount) throw httpError("Zkušební verze už byla pro tento e-mail využita. Vyberte prosím tarif.", 409);
+      await database.query("UPDATE generic_stores SET trial_started_at = NOW() WHERE id = $1 AND trial_started_at IS NULL", [store.id]);
+    }
+    const fresh = await findStoreById(store.id);
+    res.json({ ok: true, trial: genericTrialInfo(fresh), access: genericAccess(fresh) });
+  } catch (error) {
+    logRouteError("Store trial start", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+// Texts of the sign-up / log-in page and dashboard for stores outside Shopify.
+const DASHBOARD_STRINGS = {
+  cs: {
+    authTitle: "Chatnelo pro váš e-shop", authLead: "Vytvořte si účet během minuty, nebo se přihlaste. Nic neplatíte, dokud sami nevyberete tarif.",
+    tabSignup: "Registrace", tabLogin: "Přihlášení", storeName: "Název obchodu", email: "E-mail", password: "Heslo (min. 8 znaků)",
+    consent: "Souhlasím se zpracováním údajů podle", privacyLink: "zásad ochrany osobních údajů", signupBtn: "Vytvořit účet zdarma",
+    signupHint: "Bez platby a bez karty. Hned potom si vyberete: 3 dny zdarma, nebo rovnou tarif.",
+    loginBtn: "Přihlásit se", keyLogin: "Starší účet? Přihlásit pomocí ID obchodu a klíče", storeId: "ID obchodu", forgot: "Zapomenuté heslo? Napište na",
+    shopifyTitle: "Máte e-shop na Shopify?", shopifyText: "Nainstalujte si Chatnelo přímo ze Shopify App Store – přihlášení i platby řeší Shopify.",
+    shopifyBtn: "Nainstalovat ze Shopify App Store", shopifyLi1: "3 dny plné verze zdarma", shopifyLi2: "Produkty a sklad se načtou samy", shopifyLi3: "Už nainstalováno? Otevřete Shopify admin → Aplikace → Chatnelo",
+    logout: "Odhlásit se", installTitle: "Vložte chat na svůj web", plansTitle: "Tarif a platba",
+    wTitle: "Vítejte v Chatnelo 👋", wText: "Jak chcete začít? Vyberte si – nic se neplatí, dokud to sami nepotvrdíte.",
+    wTrialTitle: "Vyzkoušet 3 dny zdarma", wTrialList: ["Plná verze bez omezení", "Bez platby a bez karty", "Po 3 dnech si vyberete tarif"], wTrialBtn: "Začít 3 dny zdarma",
+    wPayTitle: "Vybrat tarif a zaplatit hned", wPayList: ["Okamžitě plný tarif", "Bez čekání na konec zkušební doby", "Kdykoli změníte nebo zrušíte"], wPayBtn: "Vybrat tarif",
+    wNote: "Zkušební verzi lze využít jednou na účet – kdykoli později, pokud ji teď nespustíte.",
+    stPaid: "✓ Aktivní tarif {plan}. Chat běží na vašem webu.", stTrial: "🎉 Zkušební verze běží do {date}. Pak si vyberte tarif, aby chat běžel dál.",
+    stOffer: "🎁 Máte k dispozici 3 dny plné verze zdarma. Chat se zapne, jakmile spustíte zkušební verzi nebo vyberete tarif.",
+    stEnded: "Zkušební doba skončila a chat je na webu pozastavený. Vyberte tarif a chat se hned zapne.",
+    choosePlan: "Vybrat tarif", perMonth: "měsíčně", conversations: "konverzací", currentPlan: "✓ Aktivní tarif", payNow: "Zaplatit a aktivovat", orderPlan: "Objednat tarif",
+    billingSecure: "Platba kartou probíhá bezpečně přes Stripe. Tarif můžete kdykoli změnit nebo zrušit.",
+    billingManual: "Online platbu kartou právě spouštíme. Tarif objednáte jedním kliknutím e-mailem a my vám ho aktivujeme.",
+    orderBody: "Dobrý den,\n\nchci objednat tarif {plan} pro obchod {store}.\nID obchodu: {id}\nE-mail účtu: {email}\n\nDěkuji",
+    errFill: "Vyplňte prosím název obchodu a e-mail.", errPassword: "Heslo musí mít alespoň 8 znaků.", errConsent: "Pro registraci je potřeba souhlas se zásadami ochrany osobních údajů.",
+  },
+  en: {
+    authTitle: "Chatnelo for your online store", authLead: "Create an account in a minute or log in. You pay nothing until you choose a plan yourself.",
+    tabSignup: "Sign up", tabLogin: "Log in", storeName: "Store name", email: "E-mail", password: "Password (min. 8 characters)",
+    consent: "I agree to data processing under the", privacyLink: "privacy policy", signupBtn: "Create free account",
+    signupHint: "No payment, no card. Right after, you choose: 3 days free or a plan straight away.",
+    loginBtn: "Log in", keyLogin: "Older account? Log in with store ID and key", storeId: "Store ID", forgot: "Forgot your password? Write to",
+    shopifyTitle: "Is your store on Shopify?", shopifyText: "Install Chatnelo straight from the Shopify App Store – Shopify handles login and billing.",
+    shopifyBtn: "Install from Shopify App Store", shopifyLi1: "3 days of the full version free", shopifyLi2: "Products and stock load automatically", shopifyLi3: "Already installed? Open Shopify admin → Apps → Chatnelo",
+    logout: "Log out", installTitle: "Add the chat to your website", plansTitle: "Plan and billing",
+    wTitle: "Welcome to Chatnelo 👋", wText: "How would you like to start? Pick one – nothing is charged until you confirm it yourself.",
+    wTrialTitle: "Try 3 days free", wTrialList: ["Full version, no limits", "No payment, no card", "Choose a plan after 3 days"], wTrialBtn: "Start 3-day free trial",
+    wPayTitle: "Choose a plan and pay now", wPayList: ["Full plan right away", "No waiting for the trial to end", "Change or cancel anytime"], wPayBtn: "Choose a plan",
+    wNote: "The free trial can be used once per account – anytime later if you don't start it now.",
+    stPaid: "✓ Plan {plan} is active. The chat is running on your website.", stTrial: "🎉 Your free trial runs until {date}. Then choose a plan to keep the chat running.",
+    stOffer: "🎁 You have 3 days of the full version free. The chat turns on once you start the trial or choose a plan.",
+    stEnded: "Your trial has ended and the chat is paused on your website. Choose a plan to turn it on instantly.",
+    choosePlan: "Choose a plan", perMonth: "per month", conversations: "conversations", currentPlan: "✓ Active plan", payNow: "Pay and activate", orderPlan: "Order plan",
+    billingSecure: "Card payments are processed securely by Stripe. Change or cancel your plan anytime.",
+    billingManual: "Online card payments are launching now. Order a plan with one click by e-mail and we will activate it for you.",
+    orderBody: "Hello,\n\nI would like to order the {plan} plan for the store {store}.\nStore ID: {id}\nAccount e-mail: {email}\n\nThank you",
+    errFill: "Please fill in the store name and e-mail.", errPassword: "The password must have at least 8 characters.", errConsent: "Please agree to the privacy policy to sign up.",
+  },
+  sk: {
+    authTitle: "Chatnelo pre váš e-shop", authLead: "Vytvorte si účet za minútu alebo sa prihláste. Nič neplatíte, kým si sami nevyberiete tarif.",
+    tabSignup: "Registrácia", tabLogin: "Prihlásenie", storeName: "Názov obchodu", email: "E-mail", password: "Heslo (min. 8 znakov)",
+    consent: "Súhlasím so spracovaním údajov podľa", privacyLink: "zásad ochrany osobných údajov", signupBtn: "Vytvoriť účet zdarma",
+    signupHint: "Bez platby a bez karty. Hneď potom si vyberiete: 3 dni zdarma, alebo rovno tarif.",
+    loginBtn: "Prihlásiť sa", keyLogin: "Starší účet? Prihlásiť pomocou ID obchodu a kľúča", storeId: "ID obchodu", forgot: "Zabudnuté heslo? Napíšte na",
+    shopifyTitle: "Máte e-shop na Shopify?", shopifyText: "Nainštalujte si Chatnelo priamo zo Shopify App Store – prihlásenie aj platby rieši Shopify.",
+    shopifyBtn: "Nainštalovať zo Shopify App Store", shopifyLi1: "3 dni plnej verzie zdarma", shopifyLi2: "Produkty a sklad sa načítajú samy", shopifyLi3: "Už nainštalované? Otvorte Shopify admin → Aplikácie → Chatnelo",
+    logout: "Odhlásiť sa", installTitle: "Vložte chat na svoj web", plansTitle: "Tarif a platba",
+    wTitle: "Vitajte v Chatnelo 👋", wText: "Ako chcete začať? Vyberte si – nič sa neplatí, kým to sami nepotvrdíte.",
+    wTrialTitle: "Vyskúšať 3 dni zdarma", wTrialList: ["Plná verzia bez obmedzení", "Bez platby a bez karty", "Po 3 dňoch si vyberiete tarif"], wTrialBtn: "Začať 3 dni zdarma",
+    wPayTitle: "Vybrať tarif a zaplatiť hneď", wPayList: ["Okamžite plný tarif", "Bez čakania na koniec skúšobnej doby", "Kedykoľvek zmeníte alebo zrušíte"], wPayBtn: "Vybrať tarif",
+    wNote: "Skúšobnú verziu je možné využiť raz na účet – kedykoľvek neskôr, ak ju teraz nespustíte.",
+    stPaid: "✓ Aktívny tarif {plan}. Chat beží na vašom webe.", stTrial: "🎉 Skúšobná verzia beží do {date}. Potom si vyberte tarif, aby chat bežal ďalej.",
+    stOffer: "🎁 Máte k dispozícii 3 dni plnej verzie zdarma. Chat sa zapne, keď spustíte skúšobnú verziu alebo vyberiete tarif.",
+    stEnded: "Skúšobná doba skončila a chat je na webe pozastavený. Vyberte tarif a chat sa hneď zapne.",
+    choosePlan: "Vybrať tarif", perMonth: "mesačne", conversations: "konverzácií", currentPlan: "✓ Aktívny tarif", payNow: "Zaplatiť a aktivovať", orderPlan: "Objednať tarif",
+    billingSecure: "Platba kartou prebieha bezpečne cez Stripe. Tarif môžete kedykoľvek zmeniť alebo zrušiť.",
+    billingManual: "Online platbu kartou práve spúšťame. Tarif objednáte jedným kliknutím e-mailom a my vám ho aktivujeme.",
+    orderBody: "Dobrý deň,\n\nchcem objednať tarif {plan} pre obchod {store}.\nID obchodu: {id}\nE-mail účtu: {email}\n\nĎakujem",
+    errFill: "Vyplňte prosím názov obchodu a e-mail.", errPassword: "Heslo musí mať aspoň 8 znakov.", errConsent: "Na registráciu je potrebný súhlas so zásadami ochrany osobných údajov.",
+  },
+  de: {
+    authTitle: "Chatnelo für Ihren Onlineshop", authLead: "Konto in einer Minute erstellen oder anmelden. Sie zahlen nichts, bis Sie selbst einen Tarif wählen.",
+    tabSignup: "Registrieren", tabLogin: "Anmelden", storeName: "Shopname", email: "E-Mail", password: "Passwort (mind. 8 Zeichen)",
+    consent: "Ich stimme der Datenverarbeitung gemäß der", privacyLink: "Datenschutzerklärung zu", signupBtn: "Kostenloses Konto erstellen",
+    signupHint: "Keine Zahlung, keine Karte. Danach wählen Sie: 3 Tage kostenlos oder direkt ein Tarif.",
+    loginBtn: "Anmelden", keyLogin: "Älteres Konto? Mit Shop-ID und Schlüssel anmelden", storeId: "Shop-ID", forgot: "Passwort vergessen? Schreiben Sie an",
+    shopifyTitle: "Ist Ihr Shop auf Shopify?", shopifyText: "Installieren Sie Chatnelo direkt aus dem Shopify App Store – Anmeldung und Abrechnung übernimmt Shopify.",
+    shopifyBtn: "Aus dem Shopify App Store installieren", shopifyLi1: "3 Tage Vollversion kostenlos", shopifyLi2: "Produkte und Bestand laden automatisch", shopifyLi3: "Schon installiert? Shopify-Admin → Apps → Chatnelo öffnen",
+    logout: "Abmelden", installTitle: "Chat auf Ihrer Website einbauen", plansTitle: "Tarif und Zahlung",
+    wTitle: "Willkommen bei Chatnelo 👋", wText: "Wie möchten Sie starten? Wählen Sie – es wird nichts berechnet, bevor Sie es selbst bestätigen.",
+    wTrialTitle: "3 Tage kostenlos testen", wTrialList: ["Vollversion ohne Einschränkungen", "Keine Zahlung, keine Karte", "Tarif nach 3 Tagen wählen"], wTrialBtn: "3 Tage kostenlos starten",
+    wPayTitle: "Tarif wählen und sofort zahlen", wPayList: ["Sofort voller Tarif", "Kein Warten auf das Testende", "Jederzeit änder- oder kündbar"], wPayBtn: "Tarif wählen",
+    wNote: "Die Testphase kann einmal pro Konto genutzt werden – auch später, wenn Sie sie jetzt nicht starten.",
+    stPaid: "✓ Tarif {plan} ist aktiv. Der Chat läuft auf Ihrer Website.", stTrial: "🎉 Ihre Testphase läuft bis {date}. Danach wählen Sie einen Tarif, damit der Chat weiterläuft.",
+    stOffer: "🎁 Sie haben 3 Tage Vollversion kostenlos. Der Chat startet, sobald Sie die Testphase starten oder einen Tarif wählen.",
+    stEnded: "Die Testphase ist beendet und der Chat ist pausiert. Wählen Sie einen Tarif, um ihn sofort zu aktivieren.",
+    choosePlan: "Tarif wählen", perMonth: "pro Monat", conversations: "Gespräche", currentPlan: "✓ Aktiver Tarif", payNow: "Bezahlen und aktivieren", orderPlan: "Tarif bestellen",
+    billingSecure: "Kartenzahlungen laufen sicher über Stripe. Tarif jederzeit änder- oder kündbar.",
+    billingManual: "Online-Kartenzahlung startet gerade. Bestellen Sie einen Tarif mit einem Klick per E-Mail und wir aktivieren ihn für Sie.",
+    orderBody: "Guten Tag,\n\nich möchte den Tarif {plan} für den Shop {store} bestellen.\nShop-ID: {id}\nKonto-E-Mail: {email}\n\nVielen Dank",
+    errFill: "Bitte Shopname und E-Mail ausfüllen.", errPassword: "Das Passwort muss mindestens 8 Zeichen haben.", errConsent: "Für die Registrierung ist die Zustimmung zur Datenschutzerklärung nötig.",
+  },
+  pl: {
+    authTitle: "Chatnelo dla Twojego sklepu", authLead: "Załóż konto w minutę lub zaloguj się. Nic nie płacisz, dopóki sam nie wybierzesz planu.",
+    tabSignup: "Rejestracja", tabLogin: "Logowanie", storeName: "Nazwa sklepu", email: "E-mail", password: "Hasło (min. 8 znaków)",
+    consent: "Zgadzam się na przetwarzanie danych zgodnie z", privacyLink: "polityką prywatności", signupBtn: "Załóż darmowe konto",
+    signupHint: "Bez płatności i bez karty. Zaraz potem wybierasz: 3 dni za darmo albo od razu plan.",
+    loginBtn: "Zaloguj się", keyLogin: "Starsze konto? Zaloguj się ID sklepu i kluczem", storeId: "ID sklepu", forgot: "Nie pamiętasz hasła? Napisz na",
+    shopifyTitle: "Masz sklep na Shopify?", shopifyText: "Zainstaluj Chatnelo prosto ze Shopify App Store – logowanie i płatności obsługuje Shopify.",
+    shopifyBtn: "Zainstaluj ze Shopify App Store", shopifyLi1: "3 dni pełnej wersji za darmo", shopifyLi2: "Produkty i stany wczytają się same", shopifyLi3: "Już zainstalowane? Otwórz Shopify admin → Aplikacje → Chatnelo",
+    logout: "Wyloguj się", installTitle: "Dodaj czat na swoją stronę", plansTitle: "Plan i płatność",
+    wTitle: "Witaj w Chatnelo 👋", wText: "Jak chcesz zacząć? Wybierz – nic nie zostanie pobrane, dopóki sam tego nie potwierdzisz.",
+    wTrialTitle: "Wypróbuj 3 dni za darmo", wTrialList: ["Pełna wersja bez ograniczeń", "Bez płatności i bez karty", "Po 3 dniach wybierasz plan"], wTrialBtn: "Rozpocznij 3 dni za darmo",
+    wPayTitle: "Wybierz plan i zapłać teraz", wPayList: ["Od razu pełny plan", "Bez czekania na koniec okresu próbnego", "Zmień lub anuluj w każdej chwili"], wPayBtn: "Wybierz plan",
+    wNote: "Okres próbny można wykorzystać raz na konto – także później, jeśli nie uruchomisz go teraz.",
+    stPaid: "✓ Plan {plan} jest aktywny. Czat działa na Twojej stronie.", stTrial: "🎉 Okres próbny trwa do {date}. Potem wybierz plan, aby czat działał dalej.",
+    stOffer: "🎁 Masz 3 dni pełnej wersji za darmo. Czat włączy się po uruchomieniu okresu próbnego lub wyborze planu.",
+    stEnded: "Okres próbny się zakończył i czat jest wstrzymany. Wybierz plan, aby od razu go włączyć.",
+    choosePlan: "Wybierz plan", perMonth: "miesięcznie", conversations: "rozmów", currentPlan: "✓ Aktywny plan", payNow: "Zapłać i aktywuj", orderPlan: "Zamów plan",
+    billingSecure: "Płatności kartą obsługuje bezpiecznie Stripe. Plan możesz zmienić lub anulować w każdej chwili.",
+    billingManual: "Płatności kartą online właśnie uruchamiamy. Zamów plan jednym kliknięciem e-mailem, a my go aktywujemy.",
+    orderBody: "Dzień dobry,\n\nchcę zamówić plan {plan} dla sklepu {store}.\nID sklepu: {id}\nE-mail konta: {email}\n\nDziękuję",
+    errFill: "Wpisz nazwę sklepu i e-mail.", errPassword: "Hasło musi mieć co najmniej 8 znaków.", errConsent: "Do rejestracji potrzebna jest zgoda na politykę prywatności.",
+  },
+};
+
 app.get("/store/dashboard", (req, res) => {
   res.type("html").send(`<!doctype html>
-<html lang="en">
+<html lang="cs">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" type="image/png" href="/mascot.png">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="robots" content="noindex">
-  <title>Chatnelo — Store dashboard</title>
-  <meta name="i18n-title" content="dashboard.title">
+  <title>Chatnelo — Přihlášení a registrace</title>
   <style>
-    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223}
-    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 32px;color:#fff}
-    .brand-header-left{display:flex;align-items:center;gap:14px}
-    .brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover}
-    .brand-header span{font-size:1.3rem;font-weight:700;letter-spacing:.02em}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#f5f6fa;color:#111827}
+    a{color:#7e22ce}
+    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 28px;color:#fff}
+    .brand-left{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none}
+    .brand-left img{width:42px;height:42px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+    .brand-left span{font-size:1.3rem;font-weight:800;letter-spacing:.02em}
+    .header-right{display:flex;align-items:center;gap:10px}
+    .ghost{padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font-weight:600;cursor:pointer;font-size:.9rem}
     #chatnelo-lang-switcher{position:relative}
     #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
     #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:20}
     #chatnelo-lang-dropdown.open{display:flex}
-    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
+    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer}
     .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
-    main{max-width:760px;margin:32px auto 60px;padding:0 20px 60px}
-    h1{background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
-    section{background:#fff;border-radius:14px;box-shadow:0 1px 4px #00000012;padding:24px;margin-bottom:22px;border-left:3px solid #a855f7}
-    label{display:block;font-weight:600;margin:14px 0 6px}
-    input,textarea{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font:inherit}
+    main{max-width:980px;margin:34px auto 60px;padding:0 20px}
+    h1{margin:0 0 6px;font-size:1.9rem;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .lead{margin:0 0 24px;color:#4b5563}
+    .auth-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:22px;align-items:start}
+    .card{background:#fff;border-radius:18px;box-shadow:0 10px 30px -18px rgba(15,23,42,.35);padding:26px;border:1px solid #eef0f4}
+    .tabs{display:grid;grid-template-columns:1fr 1fr;background:#f1f2f6;border-radius:12px;padding:4px;margin-bottom:20px}
+    .tabs button{margin:0;padding:10px;border:none;border-radius:9px;background:transparent;color:#4b5563;font-weight:700;cursor:pointer;box-shadow:none;font-size:.95rem}
+    .tabs button.on{background:#fff;color:#111827;box-shadow:0 2px 8px -2px rgba(15,23,42,.2)}
+    label{display:block;font-weight:600;margin:14px 0 6px;font-size:.92rem}
+    input,textarea{width:100%;padding:11px 13px;border:1px solid #d9dde5;border-radius:10px;font:inherit;background:#fff}
+    input:focus,textarea:focus{outline:none;border-color:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,.18)}
     textarea{min-height:220px;font-family:ui-monospace,Consolas,monospace;font-size:.85rem}
-    button{margin-top:14px;padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
-    button:disabled{opacity:.6;cursor:default;box-shadow:none}
-    .muted{color:#637381;font-size:.9rem}
-    .error{color:#b42318;margin-top:10px}
-    .ok{color:#0f7b3f;margin-top:10px}
-    pre{white-space:pre-wrap;word-break:break-all;background:#f6f7fb;padding:12px;border-radius:8px;font-size:.85rem}
-    #app-section{display:none}
+    .btn{display:inline-block;width:100%;margin-top:18px;padding:13px 18px;border:none;border-radius:11px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 8px 20px -8px rgba(168,85,247,.8);text-align:center;text-decoration:none}
+    .btn.dark{background:#111827;box-shadow:none}
+    .btn.small{width:auto;margin-top:12px;padding:10px 16px;font-size:.92rem}
+    .btn:disabled{opacity:.6;cursor:wait}
+    .check{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-weight:400;font-size:.88rem;color:#4b5563}
+    .check input{width:auto;margin-top:3px}
+    .muted{color:#6b7280;font-size:.9rem}
+    .hint{margin:12px 0 0;color:#6b7280;font-size:.85rem;text-align:center}
+    .error{color:#b42318;margin-top:12px;font-size:.92rem}
+    .ok{color:#047857;margin-top:12px;font-size:.92rem}
+    .linkbtn{background:none;border:none;color:#7e22ce;text-decoration:underline;cursor:pointer;padding:0;font:inherit;font-size:.88rem;margin-top:14px}
+    .shopify-card h2{margin:0 0 8px;font-size:1.2rem}
+    .shopify-card ul{margin:10px 0 0;padding-left:18px;color:#4b5563;font-size:.92rem;line-height:1.6}
+    .shopify-logo{display:inline-flex;align-items:center;gap:8px;font-weight:800;color:#5b8c1f;margin-bottom:6px}
+    [hidden]{display:none!important}
+    section.panel{background:#fff;border-radius:16px;box-shadow:0 10px 30px -20px rgba(15,23,42,.35);border:1px solid #eef0f4;padding:24px;margin-bottom:20px}
+    section.panel h2{margin:0 0 10px;font-size:1.2rem}
+    pre{white-space:pre-wrap;word-break:break-all;background:#f6f7fb;padding:12px;border-radius:10px;font-size:.85rem;margin:8px 0}
+    .status{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px;border-radius:12px;margin-bottom:20px;font-weight:600}
+    .status.trial{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;color:#065f46}
+    .status.warn{background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1px solid #fca5a5;color:#991b1b}
+    .status.offer{background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #d8b4fe;color:#4c1d95}
+    .status.paid{background:#f0f9ff;border:1px solid #bae6fd;color:#075985}
+    .status .btn{width:auto;margin:0;padding:9px 14px;font-size:.9rem}
+    .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:10px}
+    .plan{border:1.5px solid #e5e7eb;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px}
+    .plan b.name{font-size:1rem}
+    .plan .price{font-size:1.35rem;font-weight:800}
+    .plan .per{color:#6b7280;font-size:.85rem}
+    .plan .btn{margin-top:auto;padding:10px;font-size:.92rem}
+    .plan.current{border-color:#a855f7;background:#faf5ff}
+    .overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(11,16,32,.62);backdrop-filter:blur(3px)}
+    .modal{width:100%;max-width:720px;max-height:calc(100vh - 40px);overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px -20px rgba(15,23,42,.55);padding:30px 30px 24px;text-align:center}
+    .modal img{width:84px;height:84px;border-radius:50%;object-fit:cover;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
+    .modal h2{margin:12px 0 6px;font-size:1.55rem;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .choices{display:grid;grid-template-columns:1fr 1fr;gap:16px;text-align:left;margin-top:18px}
+    .choice{display:flex;flex-direction:column;gap:8px;border:2px solid #e5e7eb;border-radius:16px;padding:20px}
+    .choice.primary{border-color:#a855f7;background:linear-gradient(180deg,#faf5ff,#fff)}
+    .choice h3{margin:0;font-size:1.1rem}
+    .choice ul{margin:0;padding-left:18px;color:#4b5563;font-size:.9rem;line-height:1.55}
+    .choice .btn{margin-top:auto}
+    @media (max-width:760px){.auth-grid,.choices{grid-template-columns:1fr}.brand-header{padding:14px 16px}.modal{padding:22px 18px}}
   </style>
 </head>
 <body>
   <div class="brand-header">
-    <div class="brand-header-left"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></div>
-    <div id="chatnelo-lang-switcher"></div>
+    <a class="brand-left" href="/"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></a>
+    <div class="header-right">
+      <button type="button" class="ghost" id="logout-btn" hidden data-d="logout"></button>
+      <div id="chatnelo-lang-switcher"></div>
+    </div>
   </div>
   <main>
-    <h1 data-i18n="dashboard.title">Řídicí panel obchodu</h1>
-    <section id="signup-section">
-      <p class="muted" data-i18n="dashboard.signupIntro">Nemáte ještě obchod? Zaregistrujte se — je to zdarma, tarif zvolíte a zaplatíte později.</p>
-      <label for="signup-name" data-i18n="dashboard.nameLabel">Název obchodu</label>
-      <input id="signup-name" autocomplete="off">
-      <label for="signup-email" data-i18n="dashboard.emailLabel">E-mail</label>
-      <input id="signup-email" type="email" autocomplete="off">
-      <button id="signup-btn" type="button" data-i18n="dashboard.signupBtn">Zaregistrovat obchod</button>
-      <div id="signup-error" class="error"></div>
-      <div id="signup-result" style="display:none">
-        <p class="ok"><strong data-i18n="dashboard.signupOkStrong">Uložte si adminKey níže bezpečně — znovu se nezobrazí.</strong></p>
-        <label data-i18n="dashboard.idLabel">ID obchodu</label>
-        <pre id="signup-store-id"></pre>
-        <label data-i18n="dashboard.adminKeyLabel">adminKey</label>
-        <pre id="signup-admin-key"></pre>
-        <button id="signup-continue-btn" type="button" data-i18n="dashboard.continueBtn">Pokračovat do panelu</button>
+    <div id="auth-view">
+      <h1 data-d="authTitle"></h1>
+      <p class="lead" data-d="authLead"></p>
+      <div class="auth-grid">
+        <div class="card">
+          <div class="tabs" role="tablist">
+            <button type="button" id="tab-signup" class="on" role="tab" data-d="tabSignup"></button>
+            <button type="button" id="tab-login" role="tab" data-d="tabLogin"></button>
+          </div>
+          <form id="signup-form" novalidate>
+            <label for="signup-name" data-d="storeName"></label>
+            <input id="signup-name" autocomplete="organization" required>
+            <label for="signup-email" data-d="email"></label>
+            <input id="signup-email" type="email" autocomplete="email" required>
+            <label for="signup-password" data-d="password"></label>
+            <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required>
+            <label class="check"><input type="checkbox" id="signup-consent"><span><span data-d="consent"></span> <a href="/privacy" target="_blank" rel="noopener" data-d="privacyLink"></a>.</span></label>
+            <button type="submit" class="btn" id="signup-btn" data-d="signupBtn"></button>
+            <p class="hint" data-d="signupHint"></p>
+            <div id="signup-error" class="error" role="alert"></div>
+          </form>
+          <form id="login-form" hidden novalidate>
+            <label for="login-email" data-d="email"></label>
+            <input id="login-email" type="email" autocomplete="email" required>
+            <label for="login-password" data-d="password"></label>
+            <input id="login-password" type="password" autocomplete="current-password" required>
+            <button type="submit" class="btn" id="login-btn" data-d="loginBtn"></button>
+            <div id="login-error" class="error" role="alert"></div>
+            <button type="button" class="linkbtn" id="key-toggle" data-d="keyLogin"></button>
+            <div id="key-login" hidden>
+              <label for="store-id" data-d="storeId"></label>
+              <input id="store-id" autocomplete="off">
+              <label for="admin-key">adminKey</label>
+              <input id="admin-key" type="password" autocomplete="off">
+              <button type="button" class="btn dark small" id="key-login-btn" data-d="loginBtn"></button>
+            </div>
+            <p class="hint"><span data-d="forgot"></span> <a href="mailto:support@chatnelo.com">support@chatnelo.com</a></p>
+          </form>
+        </div>
+        <div class="card shopify-card">
+          <div class="shopify-logo">🛍️ Shopify</div>
+          <h2 data-d="shopifyTitle"></h2>
+          <p class="muted" data-d="shopifyText"></p>
+          <a class="btn" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-d="shopifyBtn"></a>
+          <ul>
+            <li data-d="shopifyLi1"></li>
+            <li data-d="shopifyLi2"></li>
+            <li data-d="shopifyLi3"></li>
+          </ul>
+        </div>
       </div>
-    </section>
-    <section id="login-section">
-      <p class="muted" data-i18n="dashboard.loginIntro">Už máte obchod? Zadejte ID obchodu a adminKey, které jste dostali při registraci.</p>
-      <label for="store-id" data-i18n="dashboard.idLabel">ID obchodu</label>
-      <input id="store-id" autocomplete="off">
-      <label for="admin-key" data-i18n="dashboard.adminKeyLabel">adminKey</label>
-      <input id="admin-key" type="password" autocomplete="off">
-      <button id="login-btn" type="button" data-i18n="dashboard.loginBtn">Přihlásit</button>
-      <div id="login-error" class="error"></div>
-    </section>
-    <section id="app-section">
-      <h2 id="store-name"></h2>
-      <p class="muted" data-i18n="dashboard.embedIntro">Vložte tento kód do HTML svého webu (např. před &lt;/body&gt;):</p>
-      <pre id="embed-snippet"></pre>
-      <a id="widget-preview-link" href="#" target="_blank" style="display:inline-block;margin-top:4px" data-i18n="dashboard.testWidgetLink">Vyzkoušet widget na testovací stránce →</a>
-      <p class="muted" id="usage-summary"></p>
-    </section>
-    <section id="billing-section" style="display:none">
-      <h2 data-i18n="dashboard.billingHeading">Tarif a platba</h2>
-      <p class="muted" id="billing-status"></p>
-      <div id="plan-list"></div>
-      <div id="billing-error" class="error"></div>
-    </section>
-    <section id="feed-section" style="display:none">
-      <h2>Produkty z XML feedu (doporučeno)</h2>
-      <p class="muted">Vložte odkaz na produktový XML feed pro Heureku, Zboží.cz nebo Google Nákupy. Najdete ho v administraci e-shopu (Shoptet: Propojení → Srovnávače zboží; WooCommerce: plugin pro Google/Heureka feed). Chatbot si produkty, ceny, dostupnost, odkazy a obrázky načte sám a každých 6 hodin je aktualizuje.</p>
-      <label for="feed-url">Adresa feedu</label>
-      <input id="feed-url" type="url" placeholder="https://vas-eshop.cz/heureka.xml" style="width:100%;box-sizing:border-box">
-      <button id="feed-btn" type="button">Načíst produkty z feedu</button>
-      <div id="feed-status" class="muted"></div>
-    </section>
-    <section id="app-section2" style="display:none">
-      <h2 data-i18n="dashboard.catalogHeading">Katalog produktů a pravidla obchodu</h2>
-      <p class="muted" data-i18n="dashboard.catalogIntro">Pole products je pole objektů s klíči id, nazev, cena, mena, sklad, popis. Pole rules může obsahovat doprava, vraceni, platba.</p>
-      <label for="catalog-json" data-i18n="dashboard.catalogLabel">Katalog (JSON)</label>
-      <textarea id="catalog-json" spellcheck="false"></textarea>
-      <button id="save-btn" type="button" data-i18n="dashboard.saveBtn">Uložit katalog</button>
-      <div id="save-message"></div>
-    </section>
+    </div>
+
+    <div id="app-view" hidden>
+      <h1 id="store-name"></h1>
+      <p class="lead" id="store-email"></p>
+      <div id="status" class="status" hidden><span id="status-text"></span><button type="button" class="btn" id="status-btn" hidden></button></div>
+      <section class="panel">
+        <h2 data-d="installTitle"></h2>
+        <p class="muted" data-i18n="dashboard.embedIntro">Vložte tento kód do HTML svého webu (např. před &lt;/body&gt;):</p>
+        <pre id="embed-snippet"></pre>
+        <a id="widget-preview-link" href="#" target="_blank" rel="noopener" data-i18n="dashboard.testWidgetLink">Vyzkoušet widget na testovací stránce →</a>
+        <p class="muted" id="usage-summary"></p>
+      </section>
+      <section class="panel" id="billing-section">
+        <h2 data-d="plansTitle"></h2>
+        <p class="muted" id="billing-status"></p>
+        <div class="plans" id="plan-list"></div>
+        <div id="billing-error" class="error"></div>
+      </section>
+      <section class="panel" id="feed-section">
+        <h2>Produkty z XML feedu (doporučeno)</h2>
+        <p class="muted">Vložte odkaz na produktový XML feed pro Heureku, Zboží.cz nebo Google Nákupy. Najdete ho v administraci e-shopu (Shoptet: Propojení → Srovnávače zboží; WooCommerce: plugin pro Google/Heureka feed). Chatbot si produkty, ceny, dostupnost, odkazy a obrázky načte sám a každých 6 hodin je aktualizuje.</p>
+        <label for="feed-url">Adresa feedu</label>
+        <input id="feed-url" type="url" placeholder="https://vas-eshop.cz/heureka.xml">
+        <button id="feed-btn" type="button" class="btn small">Načíst produkty z feedu</button>
+        <div id="feed-status" class="muted"></div>
+      </section>
+      <section class="panel">
+        <h2 data-i18n="dashboard.catalogHeading">Katalog produktů a pravidla obchodu</h2>
+        <p class="muted" data-i18n="dashboard.catalogIntro">Pole products je pole objektů s klíči id, nazev, cena, mena, sklad, popis. Pole rules může obsahovat doprava, vraceni, platba.</p>
+        <label for="catalog-json" data-i18n="dashboard.catalogLabel">Katalog (JSON)</label>
+        <textarea id="catalog-json" spellcheck="false"></textarea>
+        <button id="save-btn" type="button" class="btn small" data-i18n="dashboard.saveBtn">Uložit katalog</button>
+        <div id="save-message"></div>
+      </section>
+    </div>
   </main>
+
+  <div class="overlay" id="choice" hidden role="dialog" aria-modal="true">
+    <div class="modal">
+      <img src="/mascot.png" alt="Chatnelo">
+      <h2 data-d="wTitle"></h2>
+      <p class="muted" data-d="wText"></p>
+      <div class="choices">
+        <div class="choice primary">
+          <h3 data-d="wTrialTitle"></h3>
+          <ul id="w-trial-list"></ul>
+          <button type="button" class="btn" id="w-trial-btn" data-d="wTrialBtn"></button>
+        </div>
+        <div class="choice">
+          <h3 data-d="wPayTitle"></h3>
+          <ul id="w-pay-list"></ul>
+          <button type="button" class="btn dark" id="w-pay-btn" data-d="wPayBtn"></button>
+        </div>
+      </div>
+      <div class="error" id="choice-error"></div>
+      <p class="hint" data-d="wNote"></p>
+    </div>
+  </div>
+
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
-    function T(key) {
-      var value = window.CHATNELO_T && window.CHATNELO_T(key);
-      return typeof value === "string" ? value : "";
-    }
-    var storeId = "";
-    var adminKey = "";
+  (function () {
+    var D = ${JSON.stringify(DASHBOARD_STRINGS).replace(/</g, "\\u003c")};
+    var SESSION_KEY = "chatnelo_store_session";
+    var state = { storeId: "", adminKey: "", data: null, choiceClosed: false };
+    function lang() { return D[window.CHATNELO_LANG] ? window.CHATNELO_LANG : "cs"; }
+    function L(key) { var v = D[lang()][key]; return v === undefined ? D.cs[key] : v; }
+    function byId(id) { return document.getElementById(id); }
+    function esc(value) { var d = document.createElement("div"); d.textContent = String(value == null ? "" : value); return d.innerHTML; }
+    function dateText(iso) { try { return new Date(iso).toLocaleDateString(lang() === "en" ? "en-US" : lang()); } catch (e) { return iso; } }
+    function T(key) { var value = window.CHATNELO_T && window.CHATNELO_T(key); return typeof value === "string" ? value : ""; }
 
-    function authHeaders() {
-      return { "Content-Type": "application/json", Authorization: "Bearer " + adminKey };
+    function applyTexts() {
+      document.title = "Chatnelo — " + (state.data ? state.data.name : L("authTitle"));
+      var nodes = document.querySelectorAll("[data-d]");
+      for (var i = 0; i < nodes.length; i++) nodes[i].textContent = L(nodes[i].getAttribute("data-d"));
+      byId("w-trial-list").innerHTML = L("wTrialList").map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
+      byId("w-pay-list").innerHTML = L("wPayList").map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
+      if (state.data) renderApp();
+    }
+    document.addEventListener("chatnelo:langchange", applyTexts);
+
+    function saveSession() { try { localStorage.setItem(SESSION_KEY, JSON.stringify({ storeId: state.storeId, adminKey: state.adminKey })); } catch (e) {} }
+    function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
+    function authHeaders() { return { "Content-Type": "application/json", Authorization: "Bearer " + state.adminKey }; }
+    function readJson(response) {
+      return response.json().catch(function () { return {}; }).then(function (data) {
+        if (!response.ok) { var e = new Error(data.error || ("HTTP " + response.status)); e.status = response.status; throw e; }
+        return data;
+      });
     }
 
-    async function enterDashboard(errorElementId) {
-      document.getElementById(errorElementId).textContent = "";
-      try {
-        var response = await fetch("/store/" + encodeURIComponent(storeId), { headers: authHeaders() });
-        var data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Přihlášení se nezdařilo.");
-        document.getElementById("signup-section").style.display = "none";
-        document.getElementById("login-section").style.display = "none";
-        document.getElementById("app-section").style.display = "block";
-        document.getElementById("app-section2").style.display = "block";
-        document.getElementById("store-name").textContent = data.name;
-        document.getElementById("embed-snippet").textContent = data.embedSnippet;
-        document.getElementById("widget-preview-link").href =
-          "/widget-preview?store=" + encodeURIComponent(storeId) + "&key=" + encodeURIComponent(data.apiKey);
-        if (data.usage.enabled) {
-          document.getElementById("usage-summary").textContent =
-            T("dashboard.usagePrefix") + data.usage.usage + " / " + data.usage.limit + " (" + T("dashboard.planWord") + " " + data.usage.plan.name + ")";
+    function showTab(which) {
+      var login = which === "login";
+      byId("tab-login").classList.toggle("on", login);
+      byId("tab-signup").classList.toggle("on", !login);
+      byId("login-form").hidden = !login;
+      byId("signup-form").hidden = login;
+    }
+    byId("tab-signup").addEventListener("click", function () { showTab("signup"); });
+    byId("tab-login").addEventListener("click", function () { showTab("login"); });
+    byId("key-toggle").addEventListener("click", function () { byId("key-login").hidden = !byId("key-login").hidden; });
+
+    function enter(storeId, adminKey, errorId) {
+      state.storeId = storeId;
+      state.adminKey = adminKey;
+      return fetch("/store/" + encodeURIComponent(storeId), { headers: authHeaders() })
+        .then(readJson)
+        .then(function (data) {
+          state.data = data;
+          saveSession();
+          byId("auth-view").hidden = true;
+          byId("app-view").hidden = false;
+          byId("logout-btn").hidden = false;
+          renderApp();
+          window.scrollTo(0, 0);
+        })
+        .catch(function (error) {
+          if (error.status === 401) clearSession();
+          if (errorId) byId(errorId).textContent = error.message;
+          throw error;
+        });
+    }
+
+    byId("signup-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var errorEl = byId("signup-error");
+      errorEl.textContent = "";
+      var name = byId("signup-name").value.trim();
+      var email = byId("signup-email").value.trim();
+      var password = byId("signup-password").value;
+      if (!name || !email) { errorEl.textContent = L("errFill"); return; }
+      if (password.length < 8) { errorEl.textContent = L("errPassword"); return; }
+      if (!byId("signup-consent").checked) { errorEl.textContent = L("errConsent"); return; }
+      var button = byId("signup-btn");
+      button.disabled = true;
+      fetch("/store/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name, email: email, password: password }) })
+        .then(readJson)
+        .then(function (data) { return enter(data.storeId, data.adminKey, "signup-error"); })
+        .catch(function (error) { if (!errorEl.textContent) errorEl.textContent = error.message; })
+        .finally(function () { button.disabled = false; });
+    });
+
+    byId("login-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var errorEl = byId("login-error");
+      errorEl.textContent = "";
+      var button = byId("login-btn");
+      button.disabled = true;
+      fetch("/store/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: byId("login-email").value.trim(), password: byId("login-password").value }) })
+        .then(readJson)
+        .then(function (data) { return enter(data.storeId, data.adminKey, "login-error"); })
+        .catch(function (error) { if (!errorEl.textContent) errorEl.textContent = error.message; })
+        .finally(function () { button.disabled = false; });
+    });
+
+    byId("key-login-btn").addEventListener("click", function () {
+      byId("login-error").textContent = "";
+      enter(byId("store-id").value.trim(), byId("admin-key").value.trim(), "login-error").catch(function () {});
+    });
+
+    byId("logout-btn").addEventListener("click", function () {
+      clearSession();
+      window.location.href = "/store/dashboard#login";
+      window.location.reload();
+    });
+
+    function startTrial(button) {
+      byId("choice-error").textContent = "";
+      button.disabled = true;
+      fetch("/store/" + encodeURIComponent(state.storeId) + "/trial/start", { method: "POST", headers: authHeaders() })
+        .then(readJson)
+        .then(function () { state.choiceClosed = true; return enter(state.storeId, state.adminKey); })
+        .catch(function (error) {
+          byId("choice-error").textContent = error.message;
+          if (byId("choice").hidden) byId("billing-error").textContent = error.message;
+        })
+        .finally(function () { button.disabled = false; });
+    }
+    byId("w-trial-btn").addEventListener("click", function () { startTrial(this); });
+    byId("w-pay-btn").addEventListener("click", function () {
+      state.choiceClosed = true;
+      renderApp();
+      byId("billing-section").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    byId("status-btn").addEventListener("click", function () {
+      if (this.getAttribute("data-action") === "trial") startTrial(this);
+      else byId("billing-section").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    function renderApp() {
+      var data = state.data;
+      var trial = data.trial || {};
+      var access = data.access || {};
+      var paid = data.subscriptionStatus === "active" || data.subscriptionStatus === "trialing";
+      byId("store-name").textContent = data.name;
+      byId("store-email").textContent = data.email || "";
+      byId("embed-snippet").textContent = data.embedSnippet;
+      byId("widget-preview-link").href = "/widget-preview?store=" + encodeURIComponent(state.storeId) + "&key=" + encodeURIComponent(data.apiKey);
+      byId("usage-summary").textContent = data.usage && data.usage.enabled
+        ? T("dashboard.usagePrefix") + data.usage.usage + " / " + data.usage.limit + " (" + T("dashboard.planWord") + " " + data.usage.plan.name + ")" : "";
+
+      var status = byId("status"), statusText = byId("status-text"), statusBtn = byId("status-btn");
+      status.hidden = false;
+      statusBtn.hidden = true;
+      if (paid) {
+        status.className = "status paid";
+        statusText.textContent = L("stPaid").replace("{plan}", data.usage.plan.name);
+      } else if (trial.mode !== "trial") {
+        status.hidden = true;
+      } else if (trial.active) {
+        status.className = "status trial";
+        statusText.textContent = L("stTrial").replace("{date}", dateText(trial.endsAt));
+        statusBtn.hidden = false; statusBtn.removeAttribute("data-action"); statusBtn.textContent = L("choosePlan");
+      } else if (trial.available) {
+        status.className = "status offer";
+        statusText.textContent = L("stOffer");
+        statusBtn.hidden = false; statusBtn.setAttribute("data-action", "trial"); statusBtn.textContent = L("wTrialBtn");
+      } else {
+        status.className = "status warn";
+        statusText.textContent = L("stEnded");
+        statusBtn.hidden = false; statusBtn.removeAttribute("data-action"); statusBtn.textContent = L("choosePlan");
+      }
+      byId("choice").hidden = !(trial.mode === "trial" && trial.available && !paid && !state.choiceClosed);
+
+      byId("billing-status").textContent = data.billingConfigured ? L("billingSecure") : L("billingManual");
+      var list = byId("plan-list");
+      list.innerHTML = "";
+      (data.usage.plans || []).forEach(function (plan) {
+        var isCurrent = paid && plan.handle === data.planHandle;
+        var card = document.createElement("div");
+        card.className = "plan" + (isCurrent ? " current" : "");
+        card.innerHTML = '<b class="name">' + esc(plan.name) + '</b><span class="price">' + esc(plan.priceCzk.toLocaleString("cs-CZ")) + ' Kč</span>' +
+          '<span class="per">' + esc(L("perMonth")) + " · " + esc(plan.limit.toLocaleString("cs-CZ")) + " " + esc(L("conversations")) + "</span>";
+        var button = document.createElement(data.billingConfigured || isCurrent ? "button" : "a");
+        button.className = "btn" + (isCurrent ? " dark" : "");
+        button.textContent = isCurrent ? L("currentPlan") : (data.billingConfigured ? L("payNow") : L("orderPlan"));
+        if (isCurrent) { button.disabled = true; }
+        else if (!data.billingConfigured) {
+          button.href = "mailto:support@chatnelo.com?subject=" + encodeURIComponent("Chatnelo – " + plan.name) +
+            "&body=" + encodeURIComponent(L("orderBody").replace("{plan}", plan.name).replace("{store}", data.name).replace("{id}", state.storeId).replace("{email}", data.email || ""));
+        } else {
+          button.type = "button";
+          button.addEventListener("click", function () {
+            button.disabled = true;
+            byId("billing-error").textContent = "";
+            fetch("/store/" + encodeURIComponent(state.storeId) + "/checkout", { method: "POST", headers: authHeaders(), body: JSON.stringify({ planHandle: plan.handle }) })
+              .then(readJson)
+              .then(function (checkout) { window.location = checkout.url; })
+              .catch(function (error) { byId("billing-error").textContent = error.message; button.disabled = false; });
+          });
         }
+        card.appendChild(button);
+        list.appendChild(card);
+      });
+
+      if (!state.catalogLoaded) {
+        state.catalogLoaded = true;
         window.__feed = data.catalog && data.catalog.feed;
-        document.getElementById("feed-section").style.display = "block";
-        document.getElementById("feed-url").value = window.__feed ? window.__feed.url : "";
-        document.getElementById("feed-status").textContent = window.__feed
+        byId("feed-url").value = window.__feed ? window.__feed.url : "";
+        byId("feed-status").textContent = window.__feed
           ? (window.__feed.error ? "Chyba feedu: " + window.__feed.error
             : "Načteno " + (data.catalog.products || []).length + " produktů" + (window.__feed.syncedAt ? " (" + new Date(window.__feed.syncedAt).toLocaleString() + ")" : ""))
           : "";
-        document.getElementById("catalog-json").value = JSON.stringify(window.__feed
+        byId("catalog-json").value = JSON.stringify(window.__feed
           ? { rules: data.catalog.rules || {} }
           : { products: data.catalog.products || [], rules: data.catalog.rules || {} }, null, 2);
-        renderBilling(data);
-      } catch (error) {
-        document.getElementById(errorElementId).textContent = error.message;
       }
+      document.title = "Chatnelo — " + data.name;
     }
 
-    document.getElementById("login-btn").addEventListener("click", function () {
-      storeId = document.getElementById("store-id").value.trim();
-      adminKey = document.getElementById("admin-key").value.trim();
-      enterDashboard("login-error");
-    });
-
-    document.getElementById("signup-btn").addEventListener("click", async function () {
-      var errorEl = document.getElementById("signup-error");
-      errorEl.textContent = "";
-      try {
-        var response = await fetch("/store/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: document.getElementById("signup-name").value.trim(),
-            email: document.getElementById("signup-email").value.trim(),
-          }),
-        });
-        var data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Registrace se nezdařila.");
-        document.getElementById("signup-store-id").textContent = data.storeId;
-        document.getElementById("signup-admin-key").textContent = data.adminKey;
-        document.getElementById("signup-result").style.display = "block";
-        document.getElementById("signup-continue-btn").dataset.storeId = data.storeId;
-        document.getElementById("signup-continue-btn").dataset.adminKey = data.adminKey;
-      } catch (error) {
-        errorEl.textContent = error.message;
-      }
-    });
-
-    document.getElementById("signup-continue-btn").addEventListener("click", function () {
-      storeId = this.dataset.storeId;
-      adminKey = this.dataset.adminKey;
-      enterDashboard("signup-error");
-    });
-
-    function renderBilling(data) {
-      var section = document.getElementById("billing-section");
-      var status = document.getElementById("billing-status");
-      var list = document.getElementById("plan-list");
-      list.innerHTML = "";
-      document.getElementById("billing-error").textContent = "";
-
-      if (!data.billingConfigured) {
-        status.textContent = T("dashboard.currentPlanPrefix") + data.usage.plan.name + "." + T("dashboard.noBilling");
-        section.style.display = "block";
-        return;
-      }
-      status.textContent = T("dashboard.currentPlanPrefix") + data.usage.plan.name +
-        (data.subscriptionStatus ? T("dashboard.paymentStatusPrefix") + data.subscriptionStatus + T("dashboard.paymentStatusSuffix") : T("dashboard.noPaymentYet"));
-
-      data.usage.plans.forEach(function (plan) {
-        var row = document.createElement("div");
-        row.style.cssText = "display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee";
-        var label = document.createElement("span");
-        label.textContent = plan.name + " — " + plan.limit.toLocaleString("cs-CZ") + T("dashboard.perMonthSuffix") +
-          plan.priceCzk.toLocaleString("cs-CZ") + T("dashboard.currencySuffix");
-        var button = document.createElement("button");
-        var isCurrent = plan.handle === data.planHandle && data.subscriptionStatus === "active";
-        button.textContent = isCurrent ? T("dashboard.activePlanBtn") : T("dashboard.selectBtn");
-        button.disabled = isCurrent;
-        button.style.marginTop = "0";
-        button.addEventListener("click", async function () {
-          button.disabled = true;
-          try {
-            var response = await fetch("/store/" + encodeURIComponent(storeId) + "/checkout", {
-              method: "POST",
-              headers: authHeaders(),
-              body: JSON.stringify({ planHandle: plan.handle }),
-            });
-            var checkoutData = await response.json();
-            if (!response.ok) throw new Error(checkoutData.error || "Platbu se nepodařilo spustit.");
-            window.location = checkoutData.url;
-          } catch (error) {
-            document.getElementById("billing-error").textContent = error.message;
-            button.disabled = isCurrent;
-          }
-        });
-        row.appendChild(label);
-        row.appendChild(button);
-        list.appendChild(row);
-      });
-      section.style.display = "block";
-    }
-
-    document.getElementById("save-btn").addEventListener("click", async function () {
-      var messageEl = document.getElementById("save-message");
+    byId("save-btn").addEventListener("click", function () {
+      var messageEl = byId("save-message");
       messageEl.className = "";
       messageEl.textContent = T("dashboard.saving");
-      try {
-        var catalog = JSON.parse(document.getElementById("catalog-json").value);
-        if (window.__feed) catalog = { rules: catalog.rules || {} };
-        var response = await fetch("/store/" + encodeURIComponent(storeId) + "/catalog", {
-          method: "PUT",
-          headers: authHeaders(),
-          body: JSON.stringify(catalog),
-        });
-        var data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Uložení se nezdařilo.");
-        messageEl.className = "ok";
-        messageEl.textContent = T("dashboard.catalogSaved");
-      } catch (error) {
-        messageEl.className = "error";
-        messageEl.textContent = error.message;
-      }
+      var catalog;
+      try { catalog = JSON.parse(byId("catalog-json").value); } catch (e) { messageEl.className = "error"; messageEl.textContent = e.message; return; }
+      if (window.__feed) catalog = { rules: catalog.rules || {} };
+      fetch("/store/" + encodeURIComponent(state.storeId) + "/catalog", { method: "PUT", headers: authHeaders(), body: JSON.stringify(catalog) })
+        .then(readJson)
+        .then(function () { messageEl.className = "ok"; messageEl.textContent = T("dashboard.catalogSaved"); })
+        .catch(function (error) { messageEl.className = "error"; messageEl.textContent = error.message; });
     });
-    document.getElementById("feed-btn").addEventListener("click", async function () {
-      var statusEl = document.getElementById("feed-status");
-      var btn = document.getElementById("feed-btn");
+
+    byId("feed-btn").addEventListener("click", function () {
+      var statusEl = byId("feed-status");
+      var btn = byId("feed-btn");
       btn.disabled = true;
       statusEl.className = "muted";
       statusEl.textContent = "Načítám feed…";
-      try {
-        var response = await fetch("/store/" + encodeURIComponent(storeId) + "/feed", {
-          method: "PUT",
-          headers: authHeaders(),
-          body: JSON.stringify({ feedUrl: document.getElementById("feed-url").value.trim() }),
-        });
-        var data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Feed se nepodařilo načíst.");
-        window.__feed = data.catalog ? data.catalog.feed : null;
-        statusEl.className = "ok";
-        statusEl.textContent = data.count ? "Hotovo – načteno " + data.count + " produktů." : "Feed odebrán.";
-        if (data.catalog) document.getElementById("catalog-json").value = JSON.stringify({ rules: data.catalog.rules || {} }, null, 2);
-      } catch (error) {
-        statusEl.className = "error";
-        statusEl.textContent = error.message;
-      } finally {
-        btn.disabled = false;
-      }
+      fetch("/store/" + encodeURIComponent(state.storeId) + "/feed", { method: "PUT", headers: authHeaders(), body: JSON.stringify({ feedUrl: byId("feed-url").value.trim() }) })
+        .then(readJson)
+        .then(function (data) {
+          window.__feed = data.catalog ? data.catalog.feed : null;
+          statusEl.className = "ok";
+          statusEl.textContent = data.count ? "Hotovo – načteno " + data.count + " produktů." : "Feed odebrán.";
+          if (data.catalog) byId("catalog-json").value = JSON.stringify({ rules: data.catalog.rules || {} }, null, 2);
+        })
+        .catch(function (error) { statusEl.className = "error"; statusEl.textContent = error.message; })
+        .finally(function () { btn.disabled = false; });
     });
+
+    function init() {
+      applyTexts();
+      if (window.location.hash === "#login") showTab("login");
+      var params = new URLSearchParams(window.location.search);
+      var saved = null;
+      try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) {}
+      if (saved && saved.storeId && saved.adminKey) {
+        if (params.get("checkout")) state.choiceClosed = true;
+        enter(saved.storeId, saved.adminKey).catch(function () {});
+      }
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+  })();
   </script>
 </body>
 </html>`);
@@ -3384,6 +3953,8 @@ app.get("/store/:id", async (req, res) => {
       planHandle: store.plan_handle,
       subscriptionStatus: store.subscription_status,
       billingConfigured: Boolean(stripeClient),
+      trial: genericTrialInfo(store),
+      access: genericAccess(store),
       catalog,
       usage,
       apiKey: store.api_key,
@@ -3536,6 +4107,27 @@ app.post("/api/bootstrap", async (req, res) => {
     res.json(result);
   } catch (error) {
     logRouteError("Bootstrap", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+// Merchant picked "Try 3 days free" on the welcome screen. Idempotent: a
+// shop that already used its trial keeps the original dates.
+app.post("/api/trial/start", async (req, res) => {
+  try {
+    const result = await withAdminAccess(req, async (shop, accessToken) => {
+      const trial = await getTrialInfo(shop, { start: true });
+      availabilityCache.delete(shop);
+      return {
+        ok: true,
+        trial,
+        usage: await getUsageSummary(shop, accessToken),
+        availability: await storefrontAvailability(shop),
+      };
+    });
+    res.json(result);
+  } catch (error) {
+    logRouteError("Trial start", error);
     res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
@@ -3694,20 +4286,30 @@ function allowPasswordProtectedTestStore(req, res) {
   return true;
 }
 
-// Free trial that starts automatically on first use - no payment screen.
-// Only a hash of the shop domain is kept, so reinstalling does not reset it.
-async function getTrialInfo(shop) {
-  const fallback = { active: false, endsAt: null, daysLeft: 0 };
+// Free trial: the merchant chooses on first open between "3 days free" and
+// paying right away. The trial starts only when they pick it (promo stores
+// start automatically) and every shop can use it once: only a hash of the
+// shop domain is kept, so reinstalling does not reset it.
+async function getTrialInfo(shop, options = {}) {
+  const fallback = { active: false, started: false, available: false, endsAt: null, daysLeft: 0, days: SHOPIFY_TRIAL_DAYS };
   if (!database || !SHOPIFY_TRIAL_DAYS) return fallback;
   try {
     const shopHash = crypto.createHash("sha256").update(String(shop).toLowerCase()).digest("hex");
-    await database.query("INSERT INTO shop_trials (shop_hash) VALUES ($1) ON CONFLICT DO NOTHING", [shopHash]);
+    if (options.start || isPromoShop(shop)) {
+      await database.query("INSERT INTO shop_trials (shop_hash) VALUES ($1) ON CONFLICT DO NOTHING", [shopHash]);
+    }
     const result = await database.query("SELECT started_at FROM shop_trials WHERE shop_hash = $1", [shopHash]);
+    if (!result.rows.length) {
+      return { ...fallback, available: true };
+    }
     const startedAt = new Date(result.rows[0].started_at);
     const trialDays = isPromoShop(shop) ? PROMO_PRO_DAYS : SHOPIFY_TRIAL_DAYS;
     const endsAt = new Date(startedAt.getTime() + trialDays * 24 * 60 * 60 * 1000);
     const msLeft = endsAt.getTime() - Date.now();
-    return { active: msLeft > 0, endsAt: endsAt.toISOString(), daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)) };
+    return {
+      active: msLeft > 0, started: true, available: false, days: trialDays,
+      endsAt: endsAt.toISOString(), daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)),
+    };
   } catch (error) {
     console.warn("Zkušební doba nelze načíst:", { shop, error: error.message });
     return fallback;
