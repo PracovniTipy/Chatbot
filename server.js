@@ -3460,49 +3460,82 @@ const INSTALL_GUIDE = {
   },
 };
 
-// Professional installation wizard UI texts (merged into INSTALL_GUIDE).
+// Installation wizard for stores outside Shopify: one clear step at a time.
 const INSTALL_UI = {
   cs: {
-    badges: ["⏱ Hotovo za 5 minut", "Bez programátora", "Podpora v češtině"],
-    nav: ["Platforma", "Váš kód", "Vložení na web", "Produkty", "Ověření"], step: "Krok",
-    pickDesc: "Vyberte systém, na kterém běží váš e-shop. Návod níže se přizpůsobí.",
-    sub: { shoptet: "Vzhled a obsah → HTML kód", woo: "Oficiální plugin Chatnelo", upgates: "Vlastní konverzní kódy", wix: "Settings → Custom Code", webnode: "HTML patička webu", html: "Jakýkoli web s HTML" },
-    codeDesc: "Tento kód je jen váš. Zkopírujte ho jedním kliknutím – v dalším kroku ho vložíte na web.",
-    codeFile: "Vložte před </body>", lockedTitle: "Přihlaste se a uvidíte svůj kód", lockedText: "Kód je unikátní pro každý obchod. Účet je zdarma a nic neplatíte, dokud si sami nevyberete tarif.",
-    register: "Vytvořit účet zdarma",
-    pasteTitle: "Vložte kód na web", pasteDesc: "Přesný postup pro", productsDesc: "Chatbot odpovídá podle vašich skutečných produktů, cen a skladu.",
-    verifyDesc: "Zadejte adresu svého e-shopu a my zkontrolujeme, že je kód správně vložený.",
-    urlPh: "https://vas-eshop.cz", verifyBtn: "Ověřit instalaci", checking: "Kontroluji…",
-    ok: "Výborně! Chatnelo je na webu správně nainstalované.", notFound: "Kód jsme na stránce nenašli. Zkontrolujte, že jste změny uložili (a publikovali), a zkuste to znovu za minutu.",
-    needLogin: "Pro ověření se nejdřív přihlaste.", manualTitle: "Ruční kontrola", helpTitle: "Potřebujete pomoct?", helpText: "Napište nám a s instalací vám rádi pomůžeme.", helpBtn: "Napsat podpoře",
+    pageTitle: "Přidejte chatbota na svůj e-shop",
+    heroTitle: "Přidejte AI chatbota Chatnelo na svůj e-shop",
+    heroText: "Chatnelo za vás 24/7 odpovídá zákazníkům na dotazy o produktech, dopravě a skladu. Tady ho během pár minut přidáte na svůj web – bez programátora.",
+    forWho: "Pro e-shopy na Shoptetu, WordPressu/WooCommerce, Upgates, Wixu, Webnode i na vlastním webu.",
+    shopifyNote: "Máte e-shop na Shopify? Tam stačí jedno kliknutí:", shopifyLink: "Nainstalovat ze Shopify App Store →",
+    mockCaption: "Takhle bude chat vypadat na vašem webu", mockHello: "Dobrý den 👋 S čím vám mohu poradit?", mockQ: "Máte tuhle mikinu ve velikosti M?", mockA: "Ano, velikost M je skladem – mohu ji přidat do košíku?",
+    steps: ["Účet", "Váš e-shop", "Vložení kódu", "Hotovo"], stepOf: "Krok {n} ze 4",
+    next: "Pokračovat", back: "Zpět", dashboard: "Přejít do panelu",
+    s1Title: "Nejdřív si vytvořte účet Chatnelo", s1Text: "Účet je zdarma. Nic neplatíte – po registraci si vyberete 3 dny zdarma, nebo rovnou tarif.",
+    s1Create: "Vytvořit účet zdarma", s1Login: "Už mám účet – přihlásit se",
+    s1Ok: "Jste přihlášeni", s1OkText: "Účet máte připravený. Pokračujte dalším krokem.",
+    s2Title: "Na čem máte e-shop?", s2Text: "Klikněte na systém, který používáte. Podle toho vám ukážeme přesný postup.",
+    sub: { shoptet: "Nejčastější v Česku", woo: "Stáhnete náš plugin", upgates: "Česká e-shop platforma", wix: "Webový editor Wix", webnode: "Webový editor Webnode", html: "Cokoli jiného" },
+    s3Title: "Vložte Chatnelo do svého e-shopu", s3CopyTitle: "A) Zkopírujte svůj kód", s3CopyText: "Kód je jen váš. Klikněte na „Zkopírovat kód“.",
+    s3WooTitle: "A) Budete potřebovat tyto dva údaje", s3WooText: "Za chvíli je vložíte do nastavení pluginu. Zkopírujete je kliknutím.",
+    s3PasteTitle: "B) Vložte ho v administraci – {p}",
+    s4Title: "Hotovo! Zkontrolujte, že chat funguje", s4Text: "Zadejte adresu svého e-shopu a my ověříme, že je chat správně vložený.",
+    urlPh: "https://vas-eshop.cz", verifyBtn: "Ověřit", checking: "Kontroluji…",
+    ok: "Výborně! Chatnelo je na vašem webu správně nainstalované. Otevřete svůj e-shop – vpravo dole uvidíte bublinu chatu.",
+    notFound: "Kód jsme na stránce zatím nenašli. Zkontrolujte, že jste změny uložili (a publikovali), a zkuste to za minutu znovu.",
+    unreachable: "Web se nepodařilo otevřít. Zkontrolujte adresu.",
+    recommendTitle: "Doporučeno: naučte chatbota vaše produkty", troubleTitle2: "Chat se neukazuje?",
+    helpTitle: "Potřebujete pomoct?", helpText: "Napište nám a s instalací vám rádi pomůžeme.", helpBtn: "Napsat podpoře",
   },
   sk: {
-    badges: ["⏱ Hotovo za 5 minút", "Bez programátora", "Podpora v slovenčine a češtine"],
-    nav: ["Platforma", "Váš kód", "Vloženie na web", "Produkty", "Overenie"], step: "Krok",
-    pickDesc: "Vyberte systém, na ktorom beží váš e-shop. Návod nižšie sa prispôsobí.",
-    sub: { shoptet: "Vzhľad a obsah → HTML kód", woo: "Oficiálny plugin Chatnelo", upgates: "Vlastné konverzné kódy", wix: "Settings → Custom Code", webnode: "HTML päta webu", html: "Akýkoľvek web s HTML" },
-    codeDesc: "Tento kód je len váš. Skopírujte ho jedným kliknutím – v ďalšom kroku ho vložíte na web.",
-    codeFile: "Vložte pred </body>", lockedTitle: "Prihláste sa a uvidíte svoj kód", lockedText: "Kód je unikátny pre každý obchod. Účet je zdarma a nič neplatíte, kým si sami nevyberiete tarif.",
-    register: "Vytvoriť účet zdarma",
-    pasteTitle: "Vložte kód na web", pasteDesc: "Presný postup pre", productsDesc: "Chatbot odpovedá podľa vašich skutočných produktov, cien a skladu.",
-    verifyDesc: "Zadajte adresu svojho e-shopu a skontrolujeme, že je kód správne vložený.",
-    urlPh: "https://vas-eshop.sk", verifyBtn: "Overiť inštaláciu", checking: "Kontrolujem…",
-    ok: "Výborne! Chatnelo je na webe správne nainštalované.", notFound: "Kód sme na stránke nenašli. Skontrolujte, že ste zmeny uložili (a publikovali), a skúste to znova o minútu.",
-    needLogin: "Na overenie sa najprv prihláste.", manualTitle: "Ručná kontrola", helpTitle: "Potrebujete pomôcť?", helpText: "Napíšte nám a s inštaláciou vám radi pomôžeme.", helpBtn: "Napísať podpore",
+    pageTitle: "Pridajte chatbota na svoj e-shop",
+    heroTitle: "Pridajte AI chatbota Chatnelo na svoj e-shop",
+    heroText: "Chatnelo za vás 24/7 odpovedá zákazníkom na otázky o produktoch, doprave a sklade. Tu ho za pár minút pridáte na svoj web – bez programátora.",
+    forWho: "Pre e-shopy na Shoptete, WordPresse/WooCommerce, Upgates, Wixe, Webnode aj na vlastnom webe.",
+    shopifyNote: "Máte e-shop na Shopify? Tam stačí jedno kliknutie:", shopifyLink: "Nainštalovať zo Shopify App Store →",
+    mockCaption: "Takto bude chat vyzerať na vašom webe", mockHello: "Dobrý deň 👋 S čím vám môžem poradiť?", mockQ: "Máte túto mikinu vo veľkosti M?", mockA: "Áno, veľkosť M je skladom – môžem ju pridať do košíka?",
+    steps: ["Účet", "Váš e-shop", "Vloženie kódu", "Hotovo"], stepOf: "Krok {n} zo 4",
+    next: "Pokračovať", back: "Späť", dashboard: "Prejsť do panelu",
+    s1Title: "Najprv si vytvorte účet Chatnelo", s1Text: "Účet je zdarma. Nič neplatíte – po registrácii si vyberiete 3 dni zdarma alebo rovno tarif.",
+    s1Create: "Vytvoriť účet zdarma", s1Login: "Už mám účet – prihlásiť sa",
+    s1Ok: "Ste prihlásení", s1OkText: "Účet máte pripravený. Pokračujte ďalším krokom.",
+    s2Title: "Na čom máte e-shop?", s2Text: "Kliknite na systém, ktorý používate. Podľa toho vám ukážeme presný postup.",
+    sub: { shoptet: "Najčastejší v Česku a na Slovensku", woo: "Stiahnete náš plugin", upgates: "Česká e-shop platforma", wix: "Webový editor Wix", webnode: "Webový editor Webnode", html: "Čokoľvek iné" },
+    s3Title: "Vložte Chatnelo do svojho e-shopu", s3CopyTitle: "A) Skopírujte svoj kód", s3CopyText: "Kód je len váš. Kliknite na „Skopírovať kód“.",
+    s3WooTitle: "A) Budete potrebovať tieto dva údaje", s3WooText: "O chvíľu ich vložíte do nastavení pluginu.",
+    s3PasteTitle: "B) Vložte ho v administrácii – {p}",
+    s4Title: "Hotovo! Skontrolujte, že chat funguje", s4Text: "Zadajte adresu svojho e-shopu a overíme, že je chat správne vložený.",
+    urlPh: "https://vas-eshop.sk", verifyBtn: "Overiť", checking: "Kontrolujem…",
+    ok: "Výborne! Chatnelo je na vašom webe správne nainštalované. Vpravo dole uvidíte bublinu chatu.",
+    notFound: "Kód sme na stránke zatiaľ nenašli. Skontrolujte, že ste zmeny uložili (a publikovali), a skúste to o minútu znova.",
+    unreachable: "Web sa nepodarilo otvoriť. Skontrolujte adresu.",
+    recommendTitle: "Odporúčané: naučte chatbota vaše produkty", troubleTitle2: "Chat sa nezobrazuje?",
+    helpTitle: "Potrebujete pomôcť?", helpText: "Napíšte nám a s inštaláciou vám radi pomôžeme.", helpBtn: "Napísať podpore",
   },
   en: {
-    badges: ["⏱ Done in 5 minutes", "No developer needed", "Personal support"],
-    nav: ["Platform", "Your code", "Add to website", "Products", "Verify"], step: "Step",
-    pickDesc: "Choose the system your store runs on. The guide below adapts to it.",
-    sub: { shoptet: "Appearance → HTML code", woo: "Official Chatnelo plugin", upgates: "Custom conversion codes", wix: "Settings → Custom Code", webnode: "Website HTML footer", html: "Any website with HTML" },
-    codeDesc: "This code is yours only. Copy it with one click – you will paste it into your website in the next step.",
-    codeFile: "Paste before </body>", lockedTitle: "Log in to see your code", lockedText: "Every store has its own unique code. The account is free and you pay nothing until you choose a plan.",
-    register: "Create free account",
-    pasteTitle: "Add the code to your website", pasteDesc: "Exact steps for", productsDesc: "The chatbot answers from your real products, prices and stock.",
-    verifyDesc: "Enter your store address and we will check that the code is installed correctly.",
-    urlPh: "https://your-store.com", verifyBtn: "Verify installation", checking: "Checking…",
-    ok: "Great! Chatnelo is installed correctly on your website.", notFound: "We could not find the code on that page. Make sure you saved (and published) the changes and try again in a minute.",
-    needLogin: "Log in first to verify.", manualTitle: "Manual check", helpTitle: "Need help?", helpText: "Write to us and we will gladly help with the installation.", helpBtn: "Contact support",
+    pageTitle: "Add the chatbot to your store",
+    heroTitle: "Add the Chatnelo AI chatbot to your online store",
+    heroText: "Chatnelo answers your customers 24/7 about products, shipping and stock. Here you add it to your website in a few minutes – no developer needed.",
+    forWho: "For stores on Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode or your own website.",
+    shopifyNote: "Is your store on Shopify? It's one click there:", shopifyLink: "Install from the Shopify App Store →",
+    mockCaption: "This is how the chat will look on your website", mockHello: "Hi 👋 How can I help you?", mockQ: "Do you have this hoodie in size M?", mockA: "Yes, size M is in stock – shall I add it to your cart?",
+    steps: ["Account", "Your store", "Add the code", "Done"], stepOf: "Step {n} of 4",
+    next: "Continue", back: "Back", dashboard: "Go to dashboard",
+    s1Title: "First, create your Chatnelo account", s1Text: "The account is free. You pay nothing – after signing up you choose 3 days free or a plan.",
+    s1Create: "Create free account", s1Login: "I have an account – log in",
+    s1Ok: "You are logged in", s1OkText: "Your account is ready. Continue to the next step.",
+    s2Title: "What does your store run on?", s2Text: "Click the system you use and we will show you the exact steps.",
+    sub: { shoptet: "Popular in Czechia", woo: "Download our plugin", upgates: "Czech store platform", wix: "Wix website builder", webnode: "Webnode website builder", html: "Anything else" },
+    s3Title: "Add Chatnelo to your store", s3CopyTitle: "A) Copy your code", s3CopyText: "The code is yours only. Click “Copy code”.",
+    s3WooTitle: "A) You will need these two values", s3WooText: "You will paste them into the plugin settings in a moment.",
+    s3PasteTitle: "B) Paste it in your admin – {p}",
+    s4Title: "Done! Check that the chat works", s4Text: "Enter your store address and we will verify the chat is installed correctly.",
+    urlPh: "https://your-store.com", verifyBtn: "Verify", checking: "Checking…",
+    ok: "Great! Chatnelo is installed correctly. Open your store – you will see the chat bubble bottom right.",
+    notFound: "We could not find the code on that page yet. Make sure you saved (and published) the changes and try again in a minute.",
+    unreachable: "We could not open that website. Please check the address.",
+    recommendTitle: "Recommended: teach the chatbot your products", troubleTitle2: "Chat not showing?",
+    helpTitle: "Need help?", helpText: "Write to us and we will gladly help with the installation.", helpBtn: "Contact support",
   },
 };
 
@@ -3549,176 +3582,214 @@ app.get("/store/install", (req, res) => {
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="robots" content="noindex">
-  <title>Chatnelo — Instalace</title>
+  <title>Chatnelo</title>
   <style>
-    :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc;--brand1:#22d3ee;--brand2:#a855f7;--brand:#7c3aed}
+    :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f6f7fb;--b1:#22d3ee;--b2:#a855f7;--brand:#7c3aed}
     *{box-sizing:border-box}
-    html{scroll-behavior:smooth}
     body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
     a{color:var(--brand)}
-    code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;background:#f1f5f9;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
-    .hero{position:relative;overflow:hidden;background:radial-gradient(900px 400px at 85% -10%,rgba(168,85,247,.45),transparent 60%),radial-gradient(700px 360px at 0% 120%,rgba(34,211,238,.25),transparent 60%),linear-gradient(135deg,#0b1020,#1e1b4b 60%,#2e1065);color:#fff}
-    .topbar{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:18px 24px}
-    .logo{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none;font-weight:800;font-size:1.15rem;letter-spacing:.01em}
-    .logo img{width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.2),0 8px 24px -6px rgba(168,85,247,.8)}
-    .logo small{font-weight:500;opacity:.6;padding-left:12px;margin-left:2px;border-left:1px solid rgba(255,255,255,.25)}
+    code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.86em;background:#f1f5f9;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+    .top{background:#fff;border-bottom:1px solid var(--line)}
+    .top-in{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 24px}
+    .logo{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-weight:800;font-size:1.1rem}
+    .logo img{width:36px;height:36px;border-radius:50%}
     #chatnelo-lang-switcher{position:relative}
-    #chatnelo-lang-current{font-size:1.2rem;line-height:1;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:7px 11px;cursor:pointer}
-    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:6px;flex-direction:column;gap:4px;z-index:30}
+    #chatnelo-lang-current{font-size:1.15rem;line-height:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 10px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px;flex-direction:column;gap:4px;z-index:30;box-shadow:0 12px 30px -12px rgba(15,23,42,.3)}
     #chatnelo-lang-dropdown.open{display:flex}
-    .chatnelo-lang-option{font-size:1.2rem;background:none;border:none;border-radius:8px;padding:6px 10px;cursor:pointer}
-    .hero-inner{max-width:1160px;margin:0 auto;padding:26px 24px 56px}
-    .hero h1{margin:0 0 10px;font-size:clamp(1.8rem,3.4vw,2.6rem);line-height:1.15;letter-spacing:-.02em}
-    .hero p{margin:0;max-width:640px;color:#cbd5e1;font-size:1.05rem}
-    .badges{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
-    .badges span{padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);font-size:.86rem;font-weight:600}
-    .layout{max-width:1160px;margin:-28px auto 60px;padding:0 24px;display:grid;grid-template-columns:240px 1fr;gap:28px;position:relative}
-    .rail{position:sticky;top:20px;align-self:start;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 12px 30px -22px rgba(15,23,42,.35)}
-    .rail a{display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.94rem}
-    .rail a:hover{background:#f8fafc}
-    .rail a .n{flex:none;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;background:#f1f5f9;color:var(--muted);border:1px solid var(--line)}
-    .rail a.done .n{background:#10b981;color:#fff;border-color:#10b981}
-    .rail a.active{background:#f5f3ff}
-    .rail a.active .n{background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;border-color:transparent}
-    .cards{display:flex;flex-direction:column;gap:20px;min-width:0}
-    .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 12px 30px -24px rgba(15,23,42,.35);scroll-margin-top:20px}
-    .eyebrow{display:inline-block;font-size:.74rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand);background:#f5f3ff;border-radius:999px;padding:4px 10px;margin-bottom:10px}
-    .card h2{margin:0 0 6px;font-size:1.35rem;letter-spacing:-.01em}
-    .desc{margin:0 0 20px;color:var(--muted)}
+    .chatnelo-lang-option{font-size:1.15rem;background:none;border:none;border-radius:8px;padding:6px 10px;cursor:pointer}
+    .chatnelo-lang-option:hover{background:#f1f5f9}
+    .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 64px}
+    .intro{display:grid;grid-template-columns:1.15fr .85fr;gap:32px;align-items:center;margin-bottom:30px}
+    .intro h1{margin:0 0 12px;font-size:clamp(1.7rem,3.2vw,2.35rem);line-height:1.15;letter-spacing:-.02em}
+    .intro p{margin:0 0 12px;color:#334155;font-size:1.04rem}
+    .who{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid var(--line);font-size:.93rem;color:#334155}
+    .shopify{margin-top:10px;font-size:.9rem;color:var(--muted)}
+    .mock{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 50px -30px rgba(15,23,42,.45);overflow:hidden}
+    .mock-bar{display:flex;gap:6px;padding:10px 12px;background:#f8fafc;border-bottom:1px solid var(--line)}
+    .mock-bar i{width:9px;height:9px;border-radius:50%;background:#cbd5e1;display:block}
+    .mock-body{position:relative;height:230px;padding:16px}
+    .sk{height:10px;border-radius:6px;background:#eef2f7;margin-bottom:10px}
+    .sk.img{height:70px;width:45%;display:inline-block;margin-right:4%}
+    .chat{position:absolute;right:14px;bottom:62px;width:66%;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 30px -14px rgba(15,23,42,.4);padding:10px;font-size:.78rem}
+    .chat .m{padding:6px 9px;border-radius:10px;margin-bottom:6px;max-width:92%}
+    .chat .bot{background:#f1f5f9}
+    .chat .me{background:linear-gradient(135deg,var(--b1),var(--b2));color:#fff;margin-left:auto}
+    .bubble{position:absolute;right:14px;bottom:12px;width:42px;height:42px;border-radius:50%;box-shadow:0 8px 20px -6px rgba(124,58,237,.8);overflow:hidden}
+    .bubble img{width:100%;height:100%}
+    .mock-cap{padding:10px 14px;font-size:.82rem;color:var(--muted);border-top:1px solid var(--line);text-align:center}
+    .wizard{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 20px 50px -34px rgba(15,23,42,.45);overflow:hidden}
+    .progress{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+    .progress div{padding:16px 10px 14px;text-align:center;font-size:.86rem;font-weight:700;color:#94a3b8;position:relative}
+    .progress div span{display:inline-flex;width:24px;height:24px;border-radius:50%;align-items:center;justify-content:center;margin-right:8px;background:#f1f5f9;font-size:.76rem}
+    .progress div::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:3px;background:transparent}
+    .progress div.on{color:var(--ink)}
+    .progress div.on span{background:linear-gradient(135deg,var(--b1),var(--b2));color:#fff}
+    .progress div.on::after{background:linear-gradient(90deg,var(--b1),var(--b2))}
+    .progress div.done{color:#059669}
+    .progress div.done span{background:#10b981;color:#fff}
+    .panel{padding:34px 36px}
+    .count{font-size:.8rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--brand)}
+    .panel h2{margin:6px 0 8px;font-size:1.5rem;letter-spacing:-.01em}
+    .lead{margin:0 0 22px;color:var(--muted)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--b1),var(--b2));color:#fff;font-weight:700;font-size:.98rem;cursor:pointer;text-decoration:none;box-shadow:0 12px 24px -14px rgba(124,58,237,.9)}
+    .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .okbox{display:flex;gap:14px;align-items:center;padding:16px 18px;border-radius:14px;background:#ecfdf5;border:1px solid #a7f3d0}
+    .okbox .ic{flex:none;width:40px;height:40px;border-radius:50%;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+    .okbox b{display:block}
+    .okbox span{color:#047857;font-size:.92rem}
     .platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    .pf{position:relative;display:flex;align-items:center;gap:12px;padding:14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;text-align:left;font:inherit;color:inherit;transition:border-color .15s,box-shadow .15s,transform .15s}
-    .pf:hover{border-color:#c4b5fd;transform:translateY(-1px)}
+    .pf{display:flex;align-items:center;gap:12px;padding:16px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;text-align:left;font:inherit;color:inherit;transition:border-color .15s,box-shadow .15s,transform .15s}
+    .pf:hover{border-color:#c4b5fd;transform:translateY(-1px);box-shadow:0 10px 20px -16px rgba(124,58,237,.7)}
     .pf.on{border-color:var(--brand);box-shadow:0 0 0 4px rgba(124,58,237,.12)}
-    .pf .mono{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1rem}
-    .pf b{display:block;font-size:.98rem}
-    .pf small{display:block;color:var(--muted);font-size:.8rem;line-height:1.35}
-    .pf .tick{position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:50%;background:var(--brand);color:#fff;font-size:.72rem;display:none;align-items:center;justify-content:center}
-    .pf.on .tick{display:flex}
-    .code{border-radius:14px;overflow:hidden;border:1px solid #1e293b;background:#0b1020}
-    .code-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#111827;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:.8rem}
-    .dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:#334155;display:block}
-    .copy{border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:8px;padding:6px 12px;font-weight:600;font-size:.82rem;cursor:pointer}
-    .copy:hover{background:#273449}
-    .code pre{margin:0;padding:18px;color:#c7d2fe;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;white-space:pre-wrap;word-break:break-all}
-    .creds{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .pf .mono{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+    .pf b{display:block}
+    .pf small{display:block;color:var(--muted);font-size:.8rem;line-height:1.3}
+    .part{margin-bottom:26px}
+    .part h3{margin:0 0 4px;font-size:1.05rem}
+    .part p.small{margin:0 0 12px;color:var(--muted);font-size:.92rem}
+    .code{border-radius:14px;overflow:hidden;background:#0b1020;border:1px solid #1e293b}
+    .code pre{margin:0;padding:16px 18px;color:#c7d2fe;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.84rem;white-space:pre-wrap;word-break:break-all}
+    .code-foot{display:flex;justify-content:flex-end;padding:10px 12px;background:#111827;border-top:1px solid #1e293b}
+    .creds{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .cred{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
     .cred div{min-width:0}
     .cred b{display:block;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
     .cred span{display:block;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .cred button{flex:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-size:.8rem;font-weight:600;cursor:pointer}
-    .locked{display:flex;gap:18px;align-items:center;padding:20px;border-radius:16px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #ddd6fe}
-    .locked .lock{flex:none;width:52px;height:52px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 6px 16px -8px rgba(124,58,237,.5)}
-    .locked h3{margin:0 0 4px;font-size:1.05rem}
-    .locked p{margin:0 0 12px;color:var(--muted);font-size:.92rem}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:11px;border:none;background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;font-weight:700;font-size:.95rem;cursor:pointer;text-decoration:none;box-shadow:0 10px 22px -12px rgba(124,58,237,.9)}
-    .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
-    .btn:disabled{opacity:.6;cursor:wait}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .timeline{list-style:none;margin:0;padding:0;position:relative}
-    .timeline li{position:relative;padding:0 0 22px 52px}
+    .mini{flex:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;font-size:.84rem;font-weight:700;cursor:pointer}
+    .timeline{list-style:none;margin:0;padding:0}
+    .timeline li{position:relative;padding:0 0 18px 48px}
     .timeline li:last-child{padding-bottom:0}
-    .timeline li::before{content:"";position:absolute;left:17px;top:36px;bottom:0;width:2px;background:var(--line)}
+    .timeline li::before{content:"";position:absolute;left:15px;top:34px;bottom:0;width:2px;background:var(--line)}
     .timeline li:last-child::before{display:none}
-    .timeline .dot{position:absolute;left:0;top:0;width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid #ddd6fe;color:var(--brand);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.9rem}
-    .timeline .txt{padding-top:6px}
-    .path{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;vertical-align:middle;margin:2px 0}
-    .path span{padding:2px 9px;border-radius:7px;background:#f1f5f9;border:1px solid var(--line);font-weight:600;font-size:.86rem;white-space:nowrap}
-    .path em{font-style:normal;color:#94a3b8;font-size:.8rem}
-    .tip{display:flex;gap:12px;margin-top:20px;padding:14px 16px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;font-size:.92rem}
+    .timeline .dot{position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:#fff;border:2px solid #ddd6fe;color:var(--brand);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.86rem}
+    .timeline .txt{padding-top:4px}
+    .path{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;vertical-align:middle}
+    .path span{padding:2px 9px;border-radius:7px;background:#f1f5f9;border:1px solid var(--line);font-weight:700;font-size:.86rem;white-space:nowrap}
+    .path em{font-style:normal;color:#94a3b8}
+    .tip{display:flex;gap:10px;margin-top:16px;padding:12px 14px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;font-size:.9rem}
     .verify{display:flex;gap:10px;flex-wrap:wrap}
-    .verify input{flex:1 1 260px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;font:inherit}
+    .verify input{flex:1 1 280px;padding:13px 15px;border:1px solid var(--line);border-radius:12px;font:inherit}
     .verify input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(124,58,237,.12)}
-    .result{margin-top:14px;padding:13px 16px;border-radius:12px;font-weight:600;font-size:.94rem}
+    .result{margin-top:14px;padding:14px 16px;border-radius:12px;font-weight:600;font-size:.94rem}
     .result.ok{background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46}
     .result.bad{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b}
     details{border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-top:12px}
     details summary{cursor:pointer;font-weight:700}
-    details ul{margin:10px 0 0;padding-left:20px;color:#334155}
-    .help{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:linear-gradient(135deg,#0b1020,#1e1b4b);color:#fff;border:none}
-    .help img{width:64px;height:64px;border-radius:50%}
-    .help h2{color:#fff}
-    .help p{margin:0;color:#cbd5e1}
-    .help .grow{flex:1 1 260px}
+    details .inner{margin-top:12px}
+    details ul{margin:0;padding-left:20px;color:#334155}
+    .foot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:18px 36px;border-top:1px solid var(--line);background:#fafbfd}
+    .help{display:flex;align-items:center;gap:14px;margin-top:22px;padding:18px 20px;border-radius:16px;background:#fff;border:1px solid var(--line)}
+    .help img{width:46px;height:46px;border-radius:50%}
+    .help div{flex:1}
+    .help b{display:block}
+    .help span{color:var(--muted);font-size:.92rem}
     [hidden]{display:none!important}
-    @media (max-width:900px){.layout{grid-template-columns:1fr}.rail{display:none}.platforms{grid-template-columns:1fr 1fr}}
-    @media (max-width:560px){.platforms,.creds{grid-template-columns:1fr}.card{padding:20px}.locked{flex-direction:column;align-items:flex-start}}
+    @media (max-width:880px){.intro{grid-template-columns:1fr}.mock{display:none}.platforms{grid-template-columns:1fr 1fr}}
+    @media (max-width:600px){.platforms,.creds{grid-template-columns:1fr}.panel{padding:24px 20px}.foot{padding:16px 20px}.progress div{font-size:0;padding:14px 4px}.progress div span{margin:0;font-size:.76rem}.help{flex-wrap:wrap}}
   </style>
 </head>
 <body>
-  <header class="hero">
-    <div class="topbar">
-      <a class="logo" href="/"><img src="/mascot.png" alt="Chatnelo">Chatnelo <small data-g="navInstall"></small></a>
-      <div id="chatnelo-lang-switcher"></div>
+  <div class="top"><div class="top-in">
+    <a class="logo" href="/"><img src="/mascot.png" alt="">Chatnelo</a>
+    <div id="chatnelo-lang-switcher"></div>
+  </div></div>
+  <div class="wrap">
+    <div class="intro">
+      <div>
+        <h1 data-g="heroTitle"></h1>
+        <p data-g="heroText"></p>
+        <div class="who"><span>✅</span><span data-g="forWho"></span></div>
+        <div class="shopify"><span data-g="shopifyNote"></span> <a href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-g="shopifyLink"></a></div>
+      </div>
+      <div class="mock" aria-hidden="true">
+        <div class="mock-bar"><i></i><i></i><i></i></div>
+        <div class="mock-body">
+          <div class="sk" style="width:55%"></div><div class="sk" style="width:35%"></div>
+          <div class="sk img"></div><div class="sk img"></div>
+          <div class="chat"><div class="m bot" data-g="mockHello"></div><div class="m me" data-g="mockQ"></div><div class="m bot" data-g="mockA"></div></div>
+          <div class="bubble"><img src="/mascot.png" alt=""></div>
+        </div>
+        <div class="mock-cap" data-g="mockCaption"></div>
+      </div>
     </div>
-    <div class="hero-inner">
-      <h1 data-g="title"></h1>
-      <p data-g="lead"></p>
-      <div class="badges" id="badges"></div>
-    </div>
-  </header>
-  <div class="layout">
-    <nav class="rail" id="rail"></nav>
-    <main class="cards">
-      <section class="card" id="s1">
-        <span class="eyebrow" data-step="1"></span>
-        <h2 data-g="pickTitle"></h2>
-        <p class="desc" data-g="pickDesc"></p>
+
+    <div class="wizard">
+      <div class="progress" id="progress"></div>
+
+      <div class="panel" data-panel="1">
+        <div class="count" data-count="1"></div>
+        <div id="s1-out">
+          <h2 data-g="s1Title"></h2>
+          <p class="lead" data-g="s1Text"></p>
+          <div class="row"><a class="btn" href="/store/dashboard?next=install" data-g="s1Create"></a><a class="btn ghost" href="/store/dashboard?next=install#login" data-g="s1Login"></a></div>
+        </div>
+        <div id="s1-in" hidden>
+          <h2 data-g="s1Ok"></h2>
+          <div class="okbox"><div class="ic">✓</div><div><b id="acct-name"></b><span data-g="s1OkText"></span></div></div>
+        </div>
+      </div>
+
+      <div class="panel" data-panel="2" hidden>
+        <div class="count" data-count="2"></div>
+        <h2 data-g="s2Title"></h2>
+        <p class="lead" data-g="s2Text"></p>
         <div class="platforms" id="platforms"></div>
-      </section>
-      <section class="card" id="s2">
-        <span class="eyebrow" data-step="2"></span>
-        <h2 data-g="codeTitle"></h2>
-        <div id="code-box" hidden>
-          <p class="desc" data-g="codeDesc"></p>
-          <div class="code">
-            <div class="code-head"><div class="dots"><i></i><i></i><i></i></div><span data-g="codeFile"></span><button type="button" class="copy" id="copy-btn" data-g="copy"></button></div>
-            <pre id="snippet"></pre>
-          </div>
+      </div>
+
+      <div class="panel" data-panel="3" hidden>
+        <div class="count" data-count="3"></div>
+        <h2 data-g="s3Title"></h2>
+        <p class="lead" id="s3-lead"></p>
+        <div class="part" id="part-code">
+          <h3 data-g="s3CopyTitle"></h3>
+          <p class="small" data-g="s3CopyText"></p>
+          <div class="code"><pre id="snippet"></pre><div class="code-foot"><button type="button" class="btn" id="copy-btn" data-g="copy"></button></div></div>
+        </div>
+        <div class="part" id="part-creds">
+          <h3 data-g="s3WooTitle"></h3>
+          <p class="small" data-g="s3WooText"></p>
           <div class="creds">
-            <div class="cred"><div><b data-g="storeIdL"></b><span id="store-id"></span></div><button type="button" data-copy="store-id" data-g="copyShort"></button></div>
-            <div class="cred"><div><b data-g="keyL"></b><span id="widget-key"></span></div><button type="button" data-copy="widget-key" data-g="copyShort"></button></div>
+            <div class="cred"><div><b data-g="storeIdL"></b><span id="store-id"></span></div><button type="button" class="mini" data-copy="store-id" data-g="copyShort"></button></div>
+            <div class="cred"><div><b data-g="keyL"></b><span id="widget-key"></span></div><button type="button" class="mini" data-copy="widget-key" data-g="copyShort"></button></div>
           </div>
         </div>
-        <div id="login-box" class="locked" hidden>
-          <div class="lock">🔒</div>
-          <div>
-            <h3 data-g="lockedTitle"></h3>
-            <p data-g="lockedText"></p>
-            <div class="row"><a class="btn" href="/store/dashboard#login" data-g="login"></a><a class="btn ghost" href="/store/dashboard" data-g="register"></a></div>
-          </div>
+        <div class="part">
+          <h3 id="paste-title"></h3>
+          <ol class="timeline" id="paste-steps"></ol>
+          <div class="tip" id="paste-note"></div>
         </div>
-      </section>
-      <section class="card" id="s3">
-        <span class="eyebrow" data-step="3"></span>
-        <h2 data-g="pasteTitle"></h2>
-        <p class="desc" id="paste-desc"></p>
-        <ol class="timeline" id="paste-steps"></ol>
-        <div class="tip" id="paste-note"></div>
-      </section>
-      <section class="card" id="s4">
-        <span class="eyebrow" data-step="4"></span>
-        <h2 data-g="productsTitle"></h2>
-        <p class="desc" data-g="productsDesc"></p>
-        <ol class="timeline" id="product-steps"></ol>
-      </section>
-      <section class="card" id="s5">
-        <span class="eyebrow" data-step="5"></span>
-        <h2 data-g="verifyTitle"></h2>
-        <p class="desc" data-g="verifyDesc"></p>
+      </div>
+
+      <div class="panel" data-panel="4" hidden>
+        <div class="count" data-count="4"></div>
+        <h2 data-g="s4Title"></h2>
+        <p class="lead" data-g="s4Text"></p>
         <form class="verify" id="verify-form">
-          <input id="verify-url" type="url" inputmode="url" autocomplete="url">
+          <input id="verify-url" type="text" inputmode="url" autocomplete="url">
           <button type="submit" class="btn" id="verify-btn" data-g="verifyBtn"></button>
         </form>
         <div class="result" id="verify-result" hidden></div>
-        <details><summary data-g="manualTitle"></summary><ul id="verify"></ul></details>
-        <details><summary data-g="troubleTitle"></summary><ul id="trouble"></ul></details>
-      </section>
-      <section class="card help">
-        <img src="/mascot.png" alt="">
-        <div class="grow"><h2 data-g="helpTitle"></h2><p data-g="helpText"></p></div>
-        <div class="row"><a class="btn" href="mailto:support@chatnelo.com" data-g="helpBtn"></a><a class="btn ghost" href="/store/dashboard" data-g="back"></a></div>
-      </section>
-    </main>
+        <details open><summary data-g="recommendTitle"></summary><div class="inner"><ol class="timeline" id="product-steps"></ol></div></details>
+        <details><summary data-g="troubleTitle2"></summary><div class="inner"><ul id="trouble"></ul></div></details>
+      </div>
+
+      <div class="foot">
+        <button type="button" class="btn ghost" id="back-btn" data-g="back"></button>
+        <div class="row">
+          <a class="btn ghost" id="dash-btn" href="/store/dashboard" data-g="dashboard" hidden></a>
+          <button type="button" class="btn" id="next-btn" data-g="next"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="help">
+      <img src="/mascot.png" alt="">
+      <div><b data-g="helpTitle"></b><span data-g="helpText"></span></div>
+      <a class="btn ghost" href="mailto:support@chatnelo.com" data-g="helpBtn"></a>
+    </div>
   </div>
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
@@ -3726,9 +3797,9 @@ app.get("/store/install", (req, res) => {
     var G = ${JSON.stringify(INSTALL_GUIDE).replace(/</g, "\\u003c")};
     var ORDER = ["shoptet", "woo", "upgates", "wix", "webnode", "html"];
     var MONO = { shoptet: ["S", "#16a34a"], woo: ["W", "#2563eb"], upgates: ["U", "#ea580c"], wix: ["Wx", "#111827"], webnode: ["Wn", "#0d9488"], html: ["&lt;/&gt;", "#7c3aed"] };
-    var state = { picked: "shoptet", session: null, codeReady: false, verified: false };
-    try { state.picked = new URLSearchParams(location.search).get("platform") || localStorage.getItem("chatnelo_platform") || "shoptet"; } catch (e) {}
-    if (ORDER.indexOf(state.picked) < 0) state.picked = "shoptet";
+    var state = { step: 1, picked: "", session: null, account: null };
+    try { state.picked = localStorage.getItem("chatnelo_platform") || ""; } catch (e) {}
+    if (ORDER.indexOf(state.picked) < 0) state.picked = "";
     function g() { var l = window.CHATNELO_LANG; return G[l] || (l === "sk" ? G.sk : G.en); }
     function byId(id) { return document.getElementById(id); }
     function chips(html) {
@@ -3739,45 +3810,61 @@ app.get("/store/install", (req, res) => {
     function timeline(items) {
       return items.map(function (x, i) { return '<li><span class="dot">' + (i + 1) + '</span><div class="txt">' + chips(x) + "</div></li>"; }).join("");
     }
+    function canNext() {
+      if (state.step === 1) return Boolean(state.account);
+      if (state.step === 2) return Boolean(state.picked);
+      return state.step < 4;
+    }
     function render() {
       var s = g();
-      s.navInstall = ({ cs: "Instalace", sk: "Inštalácia" })[window.CHATNELO_LANG] || "Installation";
-      document.title = "Chatnelo — " + s.title;
+      document.title = "Chatnelo — " + s.pageTitle;
       var nodes = document.querySelectorAll("[data-g]");
-      for (var i = 0; i < nodes.length; i++) { var v = s[nodes[i].getAttribute("data-g")]; if (typeof v === "string") nodes[i].textContent = v.replace(/^\\d\\.\\s*/, ""); }
-      var eb = document.querySelectorAll("[data-step]");
-      for (var j = 0; j < eb.length; j++) eb[j].textContent = s.step + " " + eb[j].getAttribute("data-step");
-      byId("badges").innerHTML = s.badges.map(function (b) { return "<span>" + b + "</span>"; }).join("");
-      var done = [true, state.codeReady, false, false, state.verified];
-      byId("rail").innerHTML = s.nav.map(function (label, i) {
-        return '<a href="#s' + (i + 1) + '" data-rail="' + (i + 1) + '" class="' + (done[i] && i !== 0 ? "done" : "") + '"><span class="n">' + (done[i] && i !== 0 ? "✓" : i + 1) + "</span>" + label + "</a>";
+      for (var i = 0; i < nodes.length; i++) { var v = s[nodes[i].getAttribute("data-g")]; if (typeof v === "string") nodes[i].textContent = v; }
+      var counts = document.querySelectorAll("[data-count]");
+      for (var c = 0; c < counts.length; c++) counts[c].textContent = s.stepOf.replace("{n}", counts[c].getAttribute("data-count"));
+      byId("progress").innerHTML = s.steps.map(function (label, idx) {
+        var n = idx + 1, cls = n === state.step ? "on" : (n < state.step ? "done" : "");
+        return '<div class="' + cls + '"><span>' + (n < state.step ? "✓" : n) + "</span>" + label + "</div>";
       }).join("");
+      var panels = document.querySelectorAll("[data-panel]");
+      for (var p = 0; p < panels.length; p++) panels[p].hidden = Number(panels[p].getAttribute("data-panel")) !== state.step;
+
+      byId("s1-in").hidden = !state.account;
+      byId("s1-out").hidden = Boolean(state.account);
+      if (state.account) byId("acct-name").textContent = state.account.name + (state.account.email ? " · " + state.account.email : "");
+
       byId("platforms").innerHTML = ORDER.map(function (key) {
-        return '<button type="button" class="pf' + (key === state.picked ? " on" : "") + '" data-p="' + key + '"><span class="mono" style="background:' + MONO[key][1] + '">' + MONO[key][0] + "</span><span><b>" + s.platforms[key].name + "</b><small>" + s.sub[key] + '</small></span><span class="tick">✓</span></button>';
+        return '<button type="button" class="pf' + (key === state.picked ? " on" : "") + '" data-p="' + key + '"><span class="mono" style="background:' + MONO[key][1] + '">' + MONO[key][0] + "</span><span><b>" + s.platforms[key].name + "</b><small>" + s.sub[key] + "</small></span></button>";
       }).join("");
-      var p = s.platforms[state.picked];
-      byId("paste-desc").textContent = s.pasteDesc + " " + p.name + ".";
-      byId("paste-steps").innerHTML = timeline(p.steps);
-      byId("product-steps").innerHTML = timeline(p.products);
-      byId("paste-note").innerHTML = "<span>💡</span><span><b>" + s.noteTitle + ":</b> " + p.note + "</span>";
-      byId("verify").innerHTML = s.verify.map(function (x) { return "<li>" + x + "</li>"; }).join("");
+
+      if (state.picked) {
+        var pf = s.platforms[state.picked];
+        var woo = state.picked === "woo";
+        byId("part-code").hidden = woo;
+        byId("part-creds").hidden = !woo;
+        byId("s3-lead").textContent = pf.name;
+        byId("paste-title").textContent = s.s3PasteTitle.replace("{p}", pf.name);
+        byId("paste-steps").innerHTML = timeline(pf.steps);
+        byId("paste-note").innerHTML = "<span>💡</span><span>" + pf.note + "</span>";
+        byId("product-steps").innerHTML = timeline(pf.products);
+      }
       byId("trouble").innerHTML = s.trouble.map(function (x) { return "<li>" + x + "</li>"; }).join("");
       byId("verify-url").placeholder = s.urlPh;
-      highlightRail();
+
+      byId("back-btn").style.visibility = state.step > 1 ? "visible" : "hidden";
+      byId("next-btn").hidden = state.step === 4;
+      byId("next-btn").disabled = !canNext();
+      byId("dash-btn").hidden = state.step !== 4;
     }
-    function highlightRail() {
-      var current = 1;
-      for (var i = 1; i <= 5; i++) { var el = byId("s" + i); if (el && el.getBoundingClientRect().top < 160) current = i; }
-      var links = document.querySelectorAll("[data-rail]");
-      for (var k = 0; k < links.length; k++) links[k].classList.toggle("active", Number(links[k].getAttribute("data-rail")) === current);
-    }
-    window.addEventListener("scroll", highlightRail, { passive: true });
+    function go(step) { state.step = step; render(); document.querySelector(".wizard").scrollIntoView({ behavior: "smooth", block: "start" }); }
+    byId("next-btn").addEventListener("click", function () { if (canNext()) go(state.step + 1); });
+    byId("back-btn").addEventListener("click", function () { if (state.step > 1) go(state.step - 1); });
     document.addEventListener("click", function (event) {
       var tile = event.target.closest && event.target.closest("[data-p]");
       if (tile) {
         state.picked = tile.getAttribute("data-p");
         try { localStorage.setItem("chatnelo_platform", state.picked); } catch (e) {}
-        render();
+        go(3);
         return;
       }
       var copy = event.target.closest && event.target.closest("[data-copy]");
@@ -3792,42 +3879,40 @@ app.get("/store/install", (req, res) => {
     byId("verify-form").addEventListener("submit", function (event) {
       event.preventDefault();
       var s = g(), out = byId("verify-result"), btn = byId("verify-btn");
-      out.hidden = false;
-      if (!state.session) { out.className = "result bad"; out.textContent = s.needLogin; return; }
-      btn.disabled = true; btn.textContent = s.checking;
+      if (!state.session) return;
+      out.hidden = false; out.className = "result"; out.textContent = s.checking;
+      btn.disabled = true;
       fetch("/store/" + encodeURIComponent(state.session.storeId) + "/verify-install", {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + state.session.adminKey },
         body: JSON.stringify({ url: byId("verify-url").value.trim() }),
       })
         .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "HTTP " + r.status); return d; }); })
         .then(function (d) {
-          state.verified = Boolean(d.found);
           out.className = "result " + (d.found ? "ok" : "bad");
-          out.textContent = d.found ? "✓ " + s.ok : s.notFound;
+          out.textContent = d.found ? "✓ " + s.ok : (d.reachable === false ? s.unreachable : s.notFound);
           try { localStorage.setItem("chatnelo_site_url", byId("verify-url").value.trim()); } catch (e) {}
-          render();
         })
         .catch(function (error) { out.className = "result bad"; out.textContent = error.message; })
-        .finally(function () { btn.disabled = false; btn.textContent = g().verifyBtn; });
+        .finally(function () { btn.disabled = false; });
     });
     document.addEventListener("chatnelo:langchange", render);
-    function loadCode() {
+    function loadAccount() {
       try { state.session = JSON.parse(localStorage.getItem("chatnelo_store_session") || "null"); } catch (e) {}
       try { byId("verify-url").value = localStorage.getItem("chatnelo_site_url") || ""; } catch (e) {}
-      if (!state.session || !state.session.storeId || !state.session.adminKey) { state.session = null; byId("login-box").hidden = false; return; }
+      if (!state.session || !state.session.storeId || !state.session.adminKey) { state.session = null; render(); return; }
       fetch("/store/" + encodeURIComponent(state.session.storeId), { headers: { Authorization: "Bearer " + state.session.adminKey } })
         .then(function (r) { if (!r.ok) throw new Error("auth"); return r.json(); })
         .then(function (data) {
+          state.account = { name: data.name, email: data.email };
           byId("snippet").textContent = data.embedSnippet;
           byId("store-id").textContent = data.storeId;
           byId("widget-key").textContent = data.apiKey;
-          byId("code-box").hidden = false;
-          state.codeReady = true;
+          state.step = 2;
           render();
         })
-        .catch(function () { state.session = null; byId("login-box").hidden = false; });
+        .catch(function () { state.session = null; render(); });
     }
-    function init() { render(); loadCode(); }
+    function init() { render(); loadAccount(); }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
   })();
   </script>
@@ -4216,6 +4301,11 @@ app.get("/store/dashboard", (req, res) => {
         .then(function (data) {
           state.data = data;
           saveSession();
+          var wantsGuide = new URLSearchParams(window.location.search).get("next") === "install";
+          if (wantsGuide && !(data.trial && data.trial.available && data.subscriptionStatus !== "active")) {
+            window.location.href = "/store/install";
+            return;
+          }
           byId("auth-view").hidden = true;
           byId("app-view").hidden = false;
           byId("logout-btn").hidden = false;
