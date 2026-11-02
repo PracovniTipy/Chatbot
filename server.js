@@ -2711,6 +2711,7 @@ app.get("/marketing", (req, res) => {
     #marketing-chat-input{flex:1;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font-size:1rem}
     #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
     #marketing-chat-form button:disabled{opacity:.6;cursor:default}
+    .cta-alt{margin-top:12px;font-size:.92rem}.cta-alt a{color:inherit;opacity:.8}
     .cta-button{display:inline-block;margin-top:22px;padding:14px 28px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;text-decoration:none;font-size:1.05rem;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
     #chatnelo-lang-switcher{position:absolute;top:16px;right:16px;z-index:5}
     #chatnelo-lang-current{font-size:1.4rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
@@ -2727,7 +2728,8 @@ app.get("/marketing", (req, res) => {
       <img src="/mascot.png" alt="Chatnelo maskot">
       <h1>Chatnelo</h1>
       <p data-i18n="marketing.tagline">AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
-      <a class="cta-button" href="/store/dashboard" data-i18n="marketing.cta">Vyzkoušet zdarma</a>
+      <a class="cta-button" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-i18n="marketing.cta">Nainstalovat do Shopify zdarma</a>
+      <p class="cta-alt"><a href="/store/dashboard" data-i18n="marketing.ctaOther">Nemáte Shopify? Registrace pro jiný web</a></p>
     </div>
   </header>
   <main>
@@ -3073,6 +3075,7 @@ app.get("/store/dashboard", (req, res) => {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/png" href="/mascot.png">
+  <meta name="robots" content="noindex">
   <title>Chatnelo — Store dashboard</title>
   <meta name="i18n-title" content="dashboard.title">
   <style>
