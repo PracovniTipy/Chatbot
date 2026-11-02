@@ -3003,6 +3003,7 @@ app.get("/marketing", (req, res) => {
     <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>
   </footer>
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
+  <script>(function (extra) { var all = window.CHATNELO_I18N || {}; Object.keys(extra).forEach(function (code) { if (all[code] && all[code].marketing) all[code].marketing.loginLink = extra[code]; }); })({ cs: "Přihlásit se", en: "Log in", sk: "Prihlásiť sa", de: "Anmelden", pl: "Zaloguj się" });</script>
   <script>
     (function () {
       var log = document.getElementById("marketing-chat-log");
