@@ -170,8 +170,26 @@ class CaseMessageLimitError extends Error {
 const FREE_PLAN_LIMIT = Math.max(0, Number(process.env.FREE_PLAN_LIMIT ?? 30) || 0);
 const FREE_PLAN = Object.freeze({ handle: "free", name: "Free", limit: FREE_PLAN_LIMIT, priceCzk: 0, priceUsd: 0, public: false });
 
+// Promo: selected stores (PROMO_PRO_SHOPS, comma-separated *.myshopify.com
+// domains) get the top Shopify plan free for PROMO_PRO_DAYS days instead of
+// the normal trial. No payment screen; afterwards the normal rules apply.
+const PROMO_PRO_SHOPS = new Set(String(process.env.PROMO_PRO_SHOPS || "")
+  .split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
+const PROMO_PRO_DAYS = Math.max(1, Number(process.env.PROMO_PRO_DAYS) || 30);
+const PROMO_PLAN_HANDLE = process.env.PROMO_PLAN_HANDLE || "pro-1000";
+
+function isPromoShop(shop) {
+  return PROMO_PRO_SHOPS.has(String(shop || "").toLowerCase());
+}
+
 async function effectivePlan(shop, subscription) {
-  if (subscription || !FREE_PLAN_LIMIT) return planForSubscription(subscription);
+  if (subscription) return planForSubscription(subscription);
+  if (isPromoShop(shop)) {
+    const trial = await getTrialInfo(shop);
+    const promoPlan = getPlan(PROMO_PLAN_HANDLE);
+    if (trial.active && promoPlan) return promoPlan;
+  }
+  if (!FREE_PLAN_LIMIT) return planForSubscription(null);
   const trial = await getTrialInfo(shop);
   return trial.active ? planForSubscription(null) : FREE_PLAN;
 }
@@ -2711,7 +2729,8 @@ app.get("/marketing", (req, res) => {
     #marketing-chat-input{flex:1;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font-size:1rem}
     #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
     #marketing-chat-form button:disabled{opacity:.6;cursor:default}
-    .cta-alt{margin-top:12px;font-size:.92rem}.cta-alt a{color:inherit;opacity:.8}
+    .cta-secondary{position:relative;display:block;margin-top:14px;color:#cbd5e1;font-size:.95rem;text-decoration:underline;text-underline-offset:3px}
+    .cta-secondary:hover{color:#fff}
     .cta-button{display:inline-block;margin-top:22px;padding:14px 28px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;text-decoration:none;font-size:1.05rem;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
     #chatnelo-lang-switcher{position:absolute;top:16px;right:16px;z-index:5}
     #chatnelo-lang-current{font-size:1.4rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
@@ -2728,8 +2747,8 @@ app.get("/marketing", (req, res) => {
       <img src="/mascot.png" alt="Chatnelo maskot">
       <h1>Chatnelo</h1>
       <p data-i18n="marketing.tagline">AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
-      <a class="cta-button" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-i18n="marketing.cta">Nainstalovat do Shopify zdarma</a>
-      <p class="cta-alt"><a href="/store/dashboard" data-i18n="marketing.ctaOther">Nemáte Shopify? Registrace pro jiný web</a></p>
+      <a class="cta-button" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-i18n="marketing.ctaShopify">Nainstalovat na Shopify · 3 dny zdarma</a>
+      <a class="cta-secondary" href="/store/dashboard" data-i18n="marketing.ctaOther">Jiný web? Registrace zdarma</a>
     </div>
   </header>
   <main>
@@ -3570,10 +3589,15 @@ app.post("/api/billing/subscribe", async (req, res) => {
     const result = await withAdminAccess(req, async (shop, accessToken) => {
       const storeHandle = shop.replace(/\.myshopify\.com$/i, "");
       const returnUrl = `https://admin.shopify.com/store/${storeHandle}/apps/${SHOPIFY_APP_HANDLE}`;
-      const isTest = String(process.env.SHOPIFY_BILLING_TEST_CHARGES || "").toLowerCase() === "true";
       const history = await shopifyGraphql(shop, accessToken, `{
+        shop { plan { partnerDevelopment } }
         currentAppInstallation { allSubscriptions(first: 50) { nodes { status } } }
       }`).catch(() => null);
+      // Real stores are always charged for real. Only Shopify development
+      // stores (our test store, App Store reviewers) get test charges, which
+      // Shopify requires there. SHOPIFY_BILLING_TEST_CHARGES no longer turns
+      // live stores into free test subscriptions.
+      const isTest = Boolean(history && history.shop && history.shop.plan && history.shop.plan.partnerDevelopment);
       // Only plans the merchant actually approved count; pending or declined
       // approval screens do not use up the trial and first-month offer.
       const usedBefore = history && history.currentAppInstallation
@@ -3680,7 +3704,8 @@ async function getTrialInfo(shop) {
     await database.query("INSERT INTO shop_trials (shop_hash) VALUES ($1) ON CONFLICT DO NOTHING", [shopHash]);
     const result = await database.query("SELECT started_at FROM shop_trials WHERE shop_hash = $1", [shopHash]);
     const startedAt = new Date(result.rows[0].started_at);
-    const endsAt = new Date(startedAt.getTime() + SHOPIFY_TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    const trialDays = isPromoShop(shop) ? PROMO_PRO_DAYS : SHOPIFY_TRIAL_DAYS;
+    const endsAt = new Date(startedAt.getTime() + trialDays * 24 * 60 * 60 * 1000);
     const msLeft = endsAt.getTime() - Date.now();
     return { active: msLeft > 0, endsAt: endsAt.toISOString(), daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)) };
   } catch (error) {
