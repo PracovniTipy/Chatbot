@@ -3608,7 +3608,7 @@ app.get("/store/install", (req, res) => {
     .mock{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 50px -30px rgba(15,23,42,.45);overflow:hidden}
     .mock-bar{display:flex;gap:6px;padding:10px 12px;background:#f8fafc;border-bottom:1px solid var(--line)}
     .mock-bar i{width:9px;height:9px;border-radius:50%;background:#cbd5e1;display:block}
-    .mock-body{position:relative;height:230px;padding:16px}
+    .mock-body{position:relative;height:300px;padding:16px}
     .sk{height:10px;border-radius:6px;background:#eef2f7;margin-bottom:10px}
     .sk.img{height:70px;width:45%;display:inline-block;margin-right:4%}
     .chat{position:absolute;right:14px;bottom:62px;width:66%;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 30px -14px rgba(15,23,42,.4);padding:10px;font-size:.78rem}
@@ -3852,7 +3852,7 @@ app.get("/store/install", (req, res) => {
       byId("verify-url").placeholder = s.urlPh;
 
       byId("back-btn").style.visibility = state.step > 1 ? "visible" : "hidden";
-      byId("next-btn").hidden = state.step === 4;
+      byId("next-btn").hidden = state.step === 4 || (state.step === 1 && !state.account);
       byId("next-btn").disabled = !canNext();
       byId("dash-btn").hidden = state.step !== 4;
     }
