@@ -3460,6 +3460,85 @@ const INSTALL_GUIDE = {
   },
 };
 
+// Professional installation wizard UI texts (merged into INSTALL_GUIDE).
+const INSTALL_UI = {
+  cs: {
+    badges: ["⏱ Hotovo za 5 minut", "Bez programátora", "Podpora v češtině"],
+    nav: ["Platforma", "Váš kód", "Vložení na web", "Produkty", "Ověření"], step: "Krok",
+    pickDesc: "Vyberte systém, na kterém běží váš e-shop. Návod níže se přizpůsobí.",
+    sub: { shoptet: "Vzhled a obsah → HTML kód", woo: "Oficiální plugin Chatnelo", upgates: "Vlastní konverzní kódy", wix: "Settings → Custom Code", webnode: "HTML patička webu", html: "Jakýkoli web s HTML" },
+    codeDesc: "Tento kód je jen váš. Zkopírujte ho jedním kliknutím – v dalším kroku ho vložíte na web.",
+    codeFile: "Vložte před </body>", lockedTitle: "Přihlaste se a uvidíte svůj kód", lockedText: "Kód je unikátní pro každý obchod. Účet je zdarma a nic neplatíte, dokud si sami nevyberete tarif.",
+    register: "Vytvořit účet zdarma",
+    pasteTitle: "Vložte kód na web", pasteDesc: "Přesný postup pro", productsDesc: "Chatbot odpovídá podle vašich skutečných produktů, cen a skladu.",
+    verifyDesc: "Zadejte adresu svého e-shopu a my zkontrolujeme, že je kód správně vložený.",
+    urlPh: "https://vas-eshop.cz", verifyBtn: "Ověřit instalaci", checking: "Kontroluji…",
+    ok: "Výborně! Chatnelo je na webu správně nainstalované.", notFound: "Kód jsme na stránce nenašli. Zkontrolujte, že jste změny uložili (a publikovali), a zkuste to znovu za minutu.",
+    needLogin: "Pro ověření se nejdřív přihlaste.", manualTitle: "Ruční kontrola", helpTitle: "Potřebujete pomoct?", helpText: "Napište nám a s instalací vám rádi pomůžeme.", helpBtn: "Napsat podpoře",
+  },
+  sk: {
+    badges: ["⏱ Hotovo za 5 minút", "Bez programátora", "Podpora v slovenčine a češtine"],
+    nav: ["Platforma", "Váš kód", "Vloženie na web", "Produkty", "Overenie"], step: "Krok",
+    pickDesc: "Vyberte systém, na ktorom beží váš e-shop. Návod nižšie sa prispôsobí.",
+    sub: { shoptet: "Vzhľad a obsah → HTML kód", woo: "Oficiálny plugin Chatnelo", upgates: "Vlastné konverzné kódy", wix: "Settings → Custom Code", webnode: "HTML päta webu", html: "Akýkoľvek web s HTML" },
+    codeDesc: "Tento kód je len váš. Skopírujte ho jedným kliknutím – v ďalšom kroku ho vložíte na web.",
+    codeFile: "Vložte pred </body>", lockedTitle: "Prihláste sa a uvidíte svoj kód", lockedText: "Kód je unikátny pre každý obchod. Účet je zdarma a nič neplatíte, kým si sami nevyberiete tarif.",
+    register: "Vytvoriť účet zdarma",
+    pasteTitle: "Vložte kód na web", pasteDesc: "Presný postup pre", productsDesc: "Chatbot odpovedá podľa vašich skutočných produktov, cien a skladu.",
+    verifyDesc: "Zadajte adresu svojho e-shopu a skontrolujeme, že je kód správne vložený.",
+    urlPh: "https://vas-eshop.sk", verifyBtn: "Overiť inštaláciu", checking: "Kontrolujem…",
+    ok: "Výborne! Chatnelo je na webe správne nainštalované.", notFound: "Kód sme na stránke nenašli. Skontrolujte, že ste zmeny uložili (a publikovali), a skúste to znova o minútu.",
+    needLogin: "Na overenie sa najprv prihláste.", manualTitle: "Ručná kontrola", helpTitle: "Potrebujete pomôcť?", helpText: "Napíšte nám a s inštaláciou vám radi pomôžeme.", helpBtn: "Napísať podpore",
+  },
+  en: {
+    badges: ["⏱ Done in 5 minutes", "No developer needed", "Personal support"],
+    nav: ["Platform", "Your code", "Add to website", "Products", "Verify"], step: "Step",
+    pickDesc: "Choose the system your store runs on. The guide below adapts to it.",
+    sub: { shoptet: "Appearance → HTML code", woo: "Official Chatnelo plugin", upgates: "Custom conversion codes", wix: "Settings → Custom Code", webnode: "Website HTML footer", html: "Any website with HTML" },
+    codeDesc: "This code is yours only. Copy it with one click – you will paste it into your website in the next step.",
+    codeFile: "Paste before </body>", lockedTitle: "Log in to see your code", lockedText: "Every store has its own unique code. The account is free and you pay nothing until you choose a plan.",
+    register: "Create free account",
+    pasteTitle: "Add the code to your website", pasteDesc: "Exact steps for", productsDesc: "The chatbot answers from your real products, prices and stock.",
+    verifyDesc: "Enter your store address and we will check that the code is installed correctly.",
+    urlPh: "https://your-store.com", verifyBtn: "Verify installation", checking: "Checking…",
+    ok: "Great! Chatnelo is installed correctly on your website.", notFound: "We could not find the code on that page. Make sure you saved (and published) the changes and try again in a minute.",
+    needLogin: "Log in first to verify.", manualTitle: "Manual check", helpTitle: "Need help?", helpText: "Write to us and we will gladly help with the installation.", helpBtn: "Contact support",
+  },
+};
+
+for (const code of Object.keys(INSTALL_UI)) Object.assign(INSTALL_GUIDE[code], INSTALL_UI[code]);
+
+// Checks that the merchant's page contains their Chatnelo embed code.
+app.post("/store/:id/verify-install", async (req, res) => {
+  try {
+    const store = await requireStoreAdmin(req);
+    let target = String(req.body?.url || "").trim();
+    if (target && !/^https?:\/\//i.test(target)) target = `https://${target}`;
+    let url;
+    try { url = new URL(validateFeedUrl(target)); } catch (error) { throw httpError("Zadejte platnou adresu webu (https://…).", 400); }
+    if (/^(172\.(1[6-9]|2\d|3[01])\.|\[|::)/.test(url.hostname)) throw httpError("Tato adresa není povolená.", 400);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    let html = "";
+    try {
+      const response = await fetch(url.toString(), {
+        signal: controller.signal, redirect: "follow",
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; ChatneloInstallCheck/1.0; +https://chatnelo.com)" },
+      });
+      html = (await response.text()).slice(0, 3 * 1024 * 1024);
+    } catch (error) {
+      return res.json({ found: false, reachable: false });
+    } finally {
+      clearTimeout(timer);
+    }
+    const found = html.includes(store.id) && /embed\.js/.test(html);
+    res.json({ found, reachable: true });
+  } catch (error) {
+    logRouteError("Verify install", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
 app.get("/store/install", (req, res) => {
   res.type("html").send(`<!doctype html>
 <html lang="cs">
@@ -3470,119 +3549,234 @@ app.get("/store/install", (req, res) => {
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="robots" content="noindex">
-  <title>Chatnelo — Návod k instalaci</title>
+  <title>Chatnelo — Instalace</title>
   <style>
+    :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc;--brand1:#22d3ee;--brand2:#a855f7;--brand:#7c3aed}
     *{box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#f5f6fa;color:#111827;line-height:1.55}
-    a{color:#7e22ce}
-    code{background:#f1f2f6;border-radius:5px;padding:1px 6px;font-size:.88em}
-    .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 28px;color:#fff}
-    .brand-left{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none}
-    .brand-left img{width:42px;height:42px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
-    .brand-left span{font-size:1.3rem;font-weight:800}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+    a{color:var(--brand)}
+    code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em;background:#f1f5f9;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+    .hero{position:relative;overflow:hidden;background:radial-gradient(900px 400px at 85% -10%,rgba(168,85,247,.45),transparent 60%),radial-gradient(700px 360px at 0% 120%,rgba(34,211,238,.25),transparent 60%),linear-gradient(135deg,#0b1020,#1e1b4b 60%,#2e1065);color:#fff}
+    .topbar{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:18px 24px}
+    .logo{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none;font-weight:800;font-size:1.15rem;letter-spacing:.01em}
+    .logo img{width:40px;height:40px;border-radius:50%;box-shadow:0 0 0 2px rgba(255,255,255,.2),0 8px 24px -6px rgba(168,85,247,.8)}
+    .logo small{font-weight:500;opacity:.6;padding-left:12px;margin-left:2px;border-left:1px solid rgba(255,255,255,.25)}
     #chatnelo-lang-switcher{position:relative}
-    #chatnelo-lang-current{font-size:1.3rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
-    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;z-index:20}
+    #chatnelo-lang-current{font-size:1.2rem;line-height:1;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:7px 11px;cursor:pointer}
+    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:6px;flex-direction:column;gap:4px;z-index:30}
     #chatnelo-lang-dropdown.open{display:flex}
-    .chatnelo-lang-option{font-size:1.3rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer}
-    main{max-width:880px;margin:30px auto 60px;padding:0 20px}
-    h1{margin:0 0 6px;font-size:1.9rem;background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent}
-    .lead{margin:0 0 22px;color:#4b5563}
-    section{background:#fff;border-radius:16px;box-shadow:0 10px 30px -20px rgba(15,23,42,.35);border:1px solid #eef0f4;padding:24px;margin-bottom:18px}
-    section h2{margin:0 0 8px;font-size:1.2rem}
-    .muted{color:#6b7280;font-size:.92rem;margin:0 0 12px}
-    pre{white-space:pre-wrap;word-break:break-all;background:#0b1020;color:#e0e7ff;padding:14px;border-radius:12px;font-size:.85rem;margin:0}
-    .btn{display:inline-block;margin-top:12px;padding:11px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;cursor:pointer;text-decoration:none;font-size:.95rem}
-    .btn.light{background:#f1f2f6;color:#111827}
-    .kv{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
-    .kv div{background:#f6f7fb;border-radius:10px;padding:10px 12px;font-size:.85rem}
-    .kv b{display:block;font-size:.8rem;color:#6b7280;font-weight:600}
-    .kv span{font-family:ui-monospace,Consolas,monospace;word-break:break-all}
-    .kv button{margin-top:6px;padding:4px 10px;border:1px solid #d9dde5;border-radius:7px;background:#fff;cursor:pointer;font-size:.8rem}
-    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-    .tile{padding:14px;border:2px solid #e5e7eb;border-radius:12px;background:#fff;font-weight:700;cursor:pointer;font-size:.95rem;text-align:center}
-    .tile.on{border-color:#a855f7;background:#faf5ff;color:#6b21a8}
-    ol.steps{counter-reset:s;list-style:none;padding:0;margin:14px 0 0}
-    ol.steps li{counter-increment:s;position:relative;padding:4px 0 14px 46px}
-    ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center}
-    h3{margin:18px 0 6px;font-size:1rem}
-    ul.plain{margin:6px 0 0;padding-left:20px}
-    .note{margin-top:14px;padding:12px 14px;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;font-size:.9rem}
-    .warn{padding:14px;border-radius:12px;background:#faf5ff;border:1px solid #d8b4fe}
-    @media (max-width:640px){.kv{grid-template-columns:1fr}.brand-header{padding:14px 16px}}
+    .chatnelo-lang-option{font-size:1.2rem;background:none;border:none;border-radius:8px;padding:6px 10px;cursor:pointer}
+    .hero-inner{max-width:1160px;margin:0 auto;padding:26px 24px 56px}
+    .hero h1{margin:0 0 10px;font-size:clamp(1.8rem,3.4vw,2.6rem);line-height:1.15;letter-spacing:-.02em}
+    .hero p{margin:0;max-width:640px;color:#cbd5e1;font-size:1.05rem}
+    .badges{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+    .badges span{padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);font-size:.86rem;font-weight:600}
+    .layout{max-width:1160px;margin:-28px auto 60px;padding:0 24px;display:grid;grid-template-columns:240px 1fr;gap:28px;position:relative}
+    .rail{position:sticky;top:20px;align-self:start;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 12px 30px -22px rgba(15,23,42,.35)}
+    .rail a{display:flex;align-items:center;gap:12px;padding:10px;border-radius:12px;color:var(--ink);text-decoration:none;font-weight:600;font-size:.94rem}
+    .rail a:hover{background:#f8fafc}
+    .rail a .n{flex:none;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:800;background:#f1f5f9;color:var(--muted);border:1px solid var(--line)}
+    .rail a.done .n{background:#10b981;color:#fff;border-color:#10b981}
+    .rail a.active{background:#f5f3ff}
+    .rail a.active .n{background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;border-color:transparent}
+    .cards{display:flex;flex-direction:column;gap:20px;min-width:0}
+    .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:0 12px 30px -24px rgba(15,23,42,.35);scroll-margin-top:20px}
+    .eyebrow{display:inline-block;font-size:.74rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand);background:#f5f3ff;border-radius:999px;padding:4px 10px;margin-bottom:10px}
+    .card h2{margin:0 0 6px;font-size:1.35rem;letter-spacing:-.01em}
+    .desc{margin:0 0 20px;color:var(--muted)}
+    .platforms{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .pf{position:relative;display:flex;align-items:center;gap:12px;padding:14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;text-align:left;font:inherit;color:inherit;transition:border-color .15s,box-shadow .15s,transform .15s}
+    .pf:hover{border-color:#c4b5fd;transform:translateY(-1px)}
+    .pf.on{border-color:var(--brand);box-shadow:0 0 0 4px rgba(124,58,237,.12)}
+    .pf .mono{flex:none;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:1rem}
+    .pf b{display:block;font-size:.98rem}
+    .pf small{display:block;color:var(--muted);font-size:.8rem;line-height:1.35}
+    .pf .tick{position:absolute;top:10px;right:10px;width:20px;height:20px;border-radius:50%;background:var(--brand);color:#fff;font-size:.72rem;display:none;align-items:center;justify-content:center}
+    .pf.on .tick{display:flex}
+    .code{border-radius:14px;overflow:hidden;border:1px solid #1e293b;background:#0b1020}
+    .code-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#111827;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:.8rem}
+    .dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:#334155;display:block}
+    .copy{border:1px solid #334155;background:#1e293b;color:#e2e8f0;border-radius:8px;padding:6px 12px;font-weight:600;font-size:.82rem;cursor:pointer}
+    .copy:hover{background:#273449}
+    .code pre{margin:0;padding:18px;color:#c7d2fe;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86rem;white-space:pre-wrap;word-break:break-all}
+    .creds{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+    .cred{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .cred div{min-width:0}
+    .cred b{display:block;font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .cred span{display:block;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cred button{flex:none;border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-size:.8rem;font-weight:600;cursor:pointer}
+    .locked{display:flex;gap:18px;align-items:center;padding:20px;border-radius:16px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #ddd6fe}
+    .locked .lock{flex:none;width:52px;height:52px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;box-shadow:0 6px 16px -8px rgba(124,58,237,.5)}
+    .locked h3{margin:0 0 4px;font-size:1.05rem}
+    .locked p{margin:0 0 12px;color:var(--muted);font-size:.92rem}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:11px;border:none;background:linear-gradient(135deg,var(--brand1),var(--brand2));color:#fff;font-weight:700;font-size:.95rem;cursor:pointer;text-decoration:none;box-shadow:0 10px 22px -12px rgba(124,58,237,.9)}
+    .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+    .btn:disabled{opacity:.6;cursor:wait}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .timeline{list-style:none;margin:0;padding:0;position:relative}
+    .timeline li{position:relative;padding:0 0 22px 52px}
+    .timeline li:last-child{padding-bottom:0}
+    .timeline li::before{content:"";position:absolute;left:17px;top:36px;bottom:0;width:2px;background:var(--line)}
+    .timeline li:last-child::before{display:none}
+    .timeline .dot{position:absolute;left:0;top:0;width:36px;height:36px;border-radius:50%;background:#fff;border:2px solid #ddd6fe;color:var(--brand);font-weight:800;display:flex;align-items:center;justify-content:center;font-size:.9rem}
+    .timeline .txt{padding-top:6px}
+    .path{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;vertical-align:middle;margin:2px 0}
+    .path span{padding:2px 9px;border-radius:7px;background:#f1f5f9;border:1px solid var(--line);font-weight:600;font-size:.86rem;white-space:nowrap}
+    .path em{font-style:normal;color:#94a3b8;font-size:.8rem}
+    .tip{display:flex;gap:12px;margin-top:20px;padding:14px 16px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;font-size:.92rem}
+    .verify{display:flex;gap:10px;flex-wrap:wrap}
+    .verify input{flex:1 1 260px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;font:inherit}
+    .verify input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(124,58,237,.12)}
+    .result{margin-top:14px;padding:13px 16px;border-radius:12px;font-weight:600;font-size:.94rem}
+    .result.ok{background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46}
+    .result.bad{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b}
+    details{border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-top:12px}
+    details summary{cursor:pointer;font-weight:700}
+    details ul{margin:10px 0 0;padding-left:20px;color:#334155}
+    .help{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:linear-gradient(135deg,#0b1020,#1e1b4b);color:#fff;border:none}
+    .help img{width:64px;height:64px;border-radius:50%}
+    .help h2{color:#fff}
+    .help p{margin:0;color:#cbd5e1}
+    .help .grow{flex:1 1 260px}
+    [hidden]{display:none!important}
+    @media (max-width:900px){.layout{grid-template-columns:1fr}.rail{display:none}.platforms{grid-template-columns:1fr 1fr}}
+    @media (max-width:560px){.platforms,.creds{grid-template-columns:1fr}.card{padding:20px}.locked{flex-direction:column;align-items:flex-start}}
   </style>
 </head>
 <body>
-  <div class="brand-header">
-    <a class="brand-left" href="/"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></a>
-    <div id="chatnelo-lang-switcher"></div>
-  </div>
-  <main>
-    <h1 data-g="title"></h1>
-    <p class="lead" data-g="lead"></p>
-    <section>
-      <h2 data-g="codeTitle"></h2>
-      <div id="code-box" hidden>
-        <p class="muted" data-g="codeText"></p>
-        <pre id="snippet"></pre>
-        <button type="button" class="btn" id="copy-btn" data-g="copy"></button>
-        <div class="kv">
-          <div><b data-g="storeIdL"></b><span id="store-id"></span><br><button type="button" data-copy="store-id" data-g="copyShort"></button></div>
-          <div><b data-g="keyL"></b><span id="widget-key"></span><br><button type="button" data-copy="widget-key" data-g="copyShort"></button></div>
+  <header class="hero">
+    <div class="topbar">
+      <a class="logo" href="/"><img src="/mascot.png" alt="Chatnelo">Chatnelo <small data-g="navInstall"></small></a>
+      <div id="chatnelo-lang-switcher"></div>
+    </div>
+    <div class="hero-inner">
+      <h1 data-g="title"></h1>
+      <p data-g="lead"></p>
+      <div class="badges" id="badges"></div>
+    </div>
+  </header>
+  <div class="layout">
+    <nav class="rail" id="rail"></nav>
+    <main class="cards">
+      <section class="card" id="s1">
+        <span class="eyebrow" data-step="1"></span>
+        <h2 data-g="pickTitle"></h2>
+        <p class="desc" data-g="pickDesc"></p>
+        <div class="platforms" id="platforms"></div>
+      </section>
+      <section class="card" id="s2">
+        <span class="eyebrow" data-step="2"></span>
+        <h2 data-g="codeTitle"></h2>
+        <div id="code-box" hidden>
+          <p class="desc" data-g="codeDesc"></p>
+          <div class="code">
+            <div class="code-head"><div class="dots"><i></i><i></i><i></i></div><span data-g="codeFile"></span><button type="button" class="copy" id="copy-btn" data-g="copy"></button></div>
+            <pre id="snippet"></pre>
+          </div>
+          <div class="creds">
+            <div class="cred"><div><b data-g="storeIdL"></b><span id="store-id"></span></div><button type="button" data-copy="store-id" data-g="copyShort"></button></div>
+            <div class="cred"><div><b data-g="keyL"></b><span id="widget-key"></span></div><button type="button" data-copy="widget-key" data-g="copyShort"></button></div>
+          </div>
         </div>
-      </div>
-      <div id="login-box" class="warn" hidden>
-        <span data-g="notLogged"></span><br>
-        <a class="btn" href="/store/dashboard#login" data-g="login"></a>
-      </div>
-    </section>
-    <section>
-      <h2 data-g="pickTitle"></h2>
-      <p class="muted" data-g="pickText"></p>
-      <div class="tiles" id="tiles"></div>
-      <div id="platform"></div>
-    </section>
-    <section>
-      <h2 data-g="verifyTitle"></h2>
-      <ul class="plain" id="verify"></ul>
-      <h3 data-g="troubleTitle"></h3>
-      <ul class="plain" id="trouble"></ul>
-      <p id="help" style="margin:16px 0 0"></p>
-    </section>
-    <a class="btn light" href="/store/dashboard" data-g="back"></a>
-  </main>
+        <div id="login-box" class="locked" hidden>
+          <div class="lock">🔒</div>
+          <div>
+            <h3 data-g="lockedTitle"></h3>
+            <p data-g="lockedText"></p>
+            <div class="row"><a class="btn" href="/store/dashboard#login" data-g="login"></a><a class="btn ghost" href="/store/dashboard" data-g="register"></a></div>
+          </div>
+        </div>
+      </section>
+      <section class="card" id="s3">
+        <span class="eyebrow" data-step="3"></span>
+        <h2 data-g="pasteTitle"></h2>
+        <p class="desc" id="paste-desc"></p>
+        <ol class="timeline" id="paste-steps"></ol>
+        <div class="tip" id="paste-note"></div>
+      </section>
+      <section class="card" id="s4">
+        <span class="eyebrow" data-step="4"></span>
+        <h2 data-g="productsTitle"></h2>
+        <p class="desc" data-g="productsDesc"></p>
+        <ol class="timeline" id="product-steps"></ol>
+      </section>
+      <section class="card" id="s5">
+        <span class="eyebrow" data-step="5"></span>
+        <h2 data-g="verifyTitle"></h2>
+        <p class="desc" data-g="verifyDesc"></p>
+        <form class="verify" id="verify-form">
+          <input id="verify-url" type="url" inputmode="url" autocomplete="url">
+          <button type="submit" class="btn" id="verify-btn" data-g="verifyBtn"></button>
+        </form>
+        <div class="result" id="verify-result" hidden></div>
+        <details><summary data-g="manualTitle"></summary><ul id="verify"></ul></details>
+        <details><summary data-g="troubleTitle"></summary><ul id="trouble"></ul></details>
+      </section>
+      <section class="card help">
+        <img src="/mascot.png" alt="">
+        <div class="grow"><h2 data-g="helpTitle"></h2><p data-g="helpText"></p></div>
+        <div class="row"><a class="btn" href="mailto:support@chatnelo.com" data-g="helpBtn"></a><a class="btn ghost" href="/store/dashboard" data-g="back"></a></div>
+      </section>
+    </main>
+  </div>
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
   <script>
   (function () {
     var G = ${JSON.stringify(INSTALL_GUIDE).replace(/</g, "\\u003c")};
     var ORDER = ["shoptet", "woo", "upgates", "wix", "webnode", "html"];
-    var picked = "shoptet";
-    try { picked = (new URLSearchParams(location.search).get("platform")) || localStorage.getItem("chatnelo_platform") || "shoptet"; } catch (e) {}
-    if (ORDER.indexOf(picked) < 0) picked = "shoptet";
-    function g() { return G[window.CHATNELO_LANG] || (window.CHATNELO_LANG === "sk" ? G.sk : (window.CHATNELO_LANG === "cs" ? G.cs : G.en)); }
+    var MONO = { shoptet: ["S", "#16a34a"], woo: ["W", "#2563eb"], upgates: ["U", "#ea580c"], wix: ["Wx", "#111827"], webnode: ["Wn", "#0d9488"], html: ["&lt;/&gt;", "#7c3aed"] };
+    var state = { picked: "shoptet", session: null, codeReady: false, verified: false };
+    try { state.picked = new URLSearchParams(location.search).get("platform") || localStorage.getItem("chatnelo_platform") || "shoptet"; } catch (e) {}
+    if (ORDER.indexOf(state.picked) < 0) state.picked = "shoptet";
+    function g() { var l = window.CHATNELO_LANG; return G[l] || (l === "sk" ? G.sk : G.en); }
     function byId(id) { return document.getElementById(id); }
-    function list(items) { return items.map(function (x) { return "<li>" + x + "</li>"; }).join(""); }
+    function chips(html) {
+      return html.replace(/<b>([^<]*→[^<]*)<\\/b>/g, function (_, path) {
+        return '<span class="path">' + path.split("→").map(function (p) { return "<span>" + p.trim() + "</span>"; }).join("<em>›</em>") + "</span>";
+      });
+    }
+    function timeline(items) {
+      return items.map(function (x, i) { return '<li><span class="dot">' + (i + 1) + '</span><div class="txt">' + chips(x) + "</div></li>"; }).join("");
+    }
     function render() {
       var s = g();
+      s.navInstall = ({ cs: "Instalace", sk: "Inštalácia" })[window.CHATNELO_LANG] || "Installation";
       document.title = "Chatnelo — " + s.title;
       var nodes = document.querySelectorAll("[data-g]");
-      for (var i = 0; i < nodes.length; i++) nodes[i].textContent = s[nodes[i].getAttribute("data-g")];
-      byId("tiles").innerHTML = ORDER.map(function (key) {
-        return '<button type="button" class="tile' + (key === picked ? " on" : "") + '" data-p="' + key + '">' + s.platforms[key].name + "</button>";
+      for (var i = 0; i < nodes.length; i++) { var v = s[nodes[i].getAttribute("data-g")]; if (typeof v === "string") nodes[i].textContent = v.replace(/^\\d\\.\\s*/, ""); }
+      var eb = document.querySelectorAll("[data-step]");
+      for (var j = 0; j < eb.length; j++) eb[j].textContent = s.step + " " + eb[j].getAttribute("data-step");
+      byId("badges").innerHTML = s.badges.map(function (b) { return "<span>" + b + "</span>"; }).join("");
+      var done = [true, state.codeReady, false, false, state.verified];
+      byId("rail").innerHTML = s.nav.map(function (label, i) {
+        return '<a href="#s' + (i + 1) + '" data-rail="' + (i + 1) + '" class="' + (done[i] && i !== 0 ? "done" : "") + '"><span class="n">' + (done[i] && i !== 0 ? "✓" : i + 1) + "</span>" + label + "</a>";
       }).join("");
-      var p = s.platforms[picked];
-      byId("platform").innerHTML = "<h3>" + s.stepsTitle + " " + p.name + '</h3><ol class="steps">' + list(p.steps) + "</ol>" +
-        "<h3>" + s.productsTitle + '</h3><ol class="steps">' + list(p.products) + "</ol>" +
-        '<div class="note"><b>' + s.noteTitle + ":</b> " + p.note + "</div>";
-      byId("verify").innerHTML = list(s.verify);
-      byId("trouble").innerHTML = list(s.trouble);
-      byId("help").innerHTML = s.help;
+      byId("platforms").innerHTML = ORDER.map(function (key) {
+        return '<button type="button" class="pf' + (key === state.picked ? " on" : "") + '" data-p="' + key + '"><span class="mono" style="background:' + MONO[key][1] + '">' + MONO[key][0] + "</span><span><b>" + s.platforms[key].name + "</b><small>" + s.sub[key] + '</small></span><span class="tick">✓</span></button>';
+      }).join("");
+      var p = s.platforms[state.picked];
+      byId("paste-desc").textContent = s.pasteDesc + " " + p.name + ".";
+      byId("paste-steps").innerHTML = timeline(p.steps);
+      byId("product-steps").innerHTML = timeline(p.products);
+      byId("paste-note").innerHTML = "<span>💡</span><span><b>" + s.noteTitle + ":</b> " + p.note + "</span>";
+      byId("verify").innerHTML = s.verify.map(function (x) { return "<li>" + x + "</li>"; }).join("");
+      byId("trouble").innerHTML = s.trouble.map(function (x) { return "<li>" + x + "</li>"; }).join("");
+      byId("verify-url").placeholder = s.urlPh;
+      highlightRail();
     }
+    function highlightRail() {
+      var current = 1;
+      for (var i = 1; i <= 5; i++) { var el = byId("s" + i); if (el && el.getBoundingClientRect().top < 160) current = i; }
+      var links = document.querySelectorAll("[data-rail]");
+      for (var k = 0; k < links.length; k++) links[k].classList.toggle("active", Number(links[k].getAttribute("data-rail")) === current);
+    }
+    window.addEventListener("scroll", highlightRail, { passive: true });
     document.addEventListener("click", function (event) {
       var tile = event.target.closest && event.target.closest("[data-p]");
       if (tile) {
-        picked = tile.getAttribute("data-p");
-        try { localStorage.setItem("chatnelo_platform", picked); } catch (e) {}
+        state.picked = tile.getAttribute("data-p");
+        try { localStorage.setItem("chatnelo_platform", state.picked); } catch (e) {}
         render();
         return;
       }
@@ -3595,20 +3789,43 @@ app.get("/store/install", (req, res) => {
       else { var t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand("copy"); done(); } catch (e) {} t.remove(); }
     }
     byId("copy-btn").addEventListener("click", function () { copyText(byId("snippet").textContent, this); });
+    byId("verify-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var s = g(), out = byId("verify-result"), btn = byId("verify-btn");
+      out.hidden = false;
+      if (!state.session) { out.className = "result bad"; out.textContent = s.needLogin; return; }
+      btn.disabled = true; btn.textContent = s.checking;
+      fetch("/store/" + encodeURIComponent(state.session.storeId) + "/verify-install", {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + state.session.adminKey },
+        body: JSON.stringify({ url: byId("verify-url").value.trim() }),
+      })
+        .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "HTTP " + r.status); return d; }); })
+        .then(function (d) {
+          state.verified = Boolean(d.found);
+          out.className = "result " + (d.found ? "ok" : "bad");
+          out.textContent = d.found ? "✓ " + s.ok : s.notFound;
+          try { localStorage.setItem("chatnelo_site_url", byId("verify-url").value.trim()); } catch (e) {}
+          render();
+        })
+        .catch(function (error) { out.className = "result bad"; out.textContent = error.message; })
+        .finally(function () { btn.disabled = false; btn.textContent = g().verifyBtn; });
+    });
     document.addEventListener("chatnelo:langchange", render);
     function loadCode() {
-      var session = null;
-      try { session = JSON.parse(localStorage.getItem("chatnelo_store_session") || "null"); } catch (e) {}
-      if (!session || !session.storeId || !session.adminKey) { byId("login-box").hidden = false; return; }
-      fetch("/store/" + encodeURIComponent(session.storeId), { headers: { Authorization: "Bearer " + session.adminKey } })
+      try { state.session = JSON.parse(localStorage.getItem("chatnelo_store_session") || "null"); } catch (e) {}
+      try { byId("verify-url").value = localStorage.getItem("chatnelo_site_url") || ""; } catch (e) {}
+      if (!state.session || !state.session.storeId || !state.session.adminKey) { state.session = null; byId("login-box").hidden = false; return; }
+      fetch("/store/" + encodeURIComponent(state.session.storeId), { headers: { Authorization: "Bearer " + state.session.adminKey } })
         .then(function (r) { if (!r.ok) throw new Error("auth"); return r.json(); })
         .then(function (data) {
           byId("snippet").textContent = data.embedSnippet;
           byId("store-id").textContent = data.storeId;
           byId("widget-key").textContent = data.apiKey;
           byId("code-box").hidden = false;
+          state.codeReady = true;
+          render();
         })
-        .catch(function () { byId("login-box").hidden = false; });
+        .catch(function () { state.session = null; byId("login-box").hidden = false; });
     }
     function init() { render(); loadCode(); }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
