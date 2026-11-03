@@ -3748,7 +3748,7 @@ app.get("/store/install", (req, res) => {
     [hidden]{display:none!important}
 
     /* dark theme (matches chatnelo.com) */
-    body{background:#04050d radial-gradient(60vw 50vh at 15% 0%,rgba(34,211,238,.14),transparent 60%) fixed,radial-gradient(55vw 55vh at 90% 10%,rgba(168,85,247,.2),transparent 60%) fixed;color:#f8fafc;font-family:"SF Pro Display",-apple-system,"Segoe UI",Inter,system-ui,sans-serif}
+    body{background-color:#04050d;background-image:radial-gradient(60vw 50vh at 15% 0%,rgba(34,211,238,.14),transparent 60%),radial-gradient(55vw 55vh at 90% 10%,rgba(168,85,247,.2),transparent 60%);background-attachment:fixed;color:#f8fafc;font-family:"SF Pro Display",-apple-system,"Segoe UI",Inter,system-ui,sans-serif}
     a{color:#c4b5fd}
     code{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#e2e8f0}
     .top{background:rgba(4,5,13,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:30}
@@ -4230,7 +4230,7 @@ app.get("/store/dashboard", (req, res) => {
     .choice .btn{margin-top:auto}
 
     /* dark theme (matches chatnelo.com) */
-    body{background:#04050d radial-gradient(60vw 50vh at 15% 0%,rgba(34,211,238,.14),transparent 60%) fixed,radial-gradient(55vw 55vh at 90% 10%,rgba(168,85,247,.2),transparent 60%) fixed;color:#f8fafc;font-family:"SF Pro Display",-apple-system,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    body{background-color:#04050d;background-image:radial-gradient(60vw 50vh at 15% 0%,rgba(34,211,238,.14),transparent 60%),radial-gradient(55vw 55vh at 90% 10%,rgba(168,85,247,.2),transparent 60%);background-attachment:fixed;color:#f8fafc;font-family:"SF Pro Display",-apple-system,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
     a{color:#c4b5fd}
     .brand-header{background:rgba(4,5,13,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:30}
     .brand-left .mascot{width:40px;height:40px}

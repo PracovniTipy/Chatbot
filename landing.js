@@ -269,23 +269,23 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     #marketing-chat-form{display:flex;gap:8px}
     #marketing-chat-input{flex:1;padding:14px 16px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#fff;font:inherit}
     #marketing-chat-form button{border:none;border-radius:999px;padding:0 22px;font-weight:800;color:#fff;background:linear-gradient(120deg,var(--c1),var(--c2));cursor:pointer}
-    #cn-try{color:#f8fafc}
-    #cn-try .box{background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 100px -50px rgba(168,85,247,.8)}
-    #cn-try h2{color:#fff;font-size:clamp(1.8rem,4vw,3rem);font-weight:900;letter-spacing:-.03em}
-    #cn-try .lead{color:#a5b0c8}
-    #cn-try form.go input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:16px 22px}
-    #cn-try form.go input:focus{background:rgba(255,255,255,.1)}
-    #cn-try .btn{border-radius:999px;background:linear-gradient(110deg,#22d3ee,#a855f7 60%,#f472b6)}
-    #cn-try .note{color:#64748b}
-    #cn-try .steps li{color:#64748b}#cn-try .steps li.on{color:#fff}
-    #cn-try .msg{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.3);color:#fde68a}
-    #cn-try .chat{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
-    #cn-try .m.bot{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.08);color:#e2e8f0}
-    #cn-try .card{background:#11132a;border-color:rgba(255,255,255,.1);color:#fff}
-    #cn-try .chips button{background:rgba(168,85,247,.12);border-color:rgba(192,132,252,.4);color:#e9d5ff}
-    #cn-try form.ask{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
-    #cn-try form.ask input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#fff}
-    #cn-try .invite{background:rgba(168,85,247,.12);border-color:rgba(192,132,252,.4);color:#e9d5ff}
+    body #cn-try{color:#f8fafc}
+    body #cn-try .box{background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 100px -50px rgba(168,85,247,.8)}
+    body #cn-try h2{color:#fff;font-size:clamp(1.8rem,4vw,3rem);font-weight:900;letter-spacing:-.03em}
+    body #cn-try .lead{color:#a5b0c8}
+    body #cn-try form.go input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:16px 22px}
+    body #cn-try form.go input:focus{background:rgba(255,255,255,.1)}
+    body #cn-try .btn{border-radius:999px;background:linear-gradient(110deg,#22d3ee,#a855f7 60%,#f472b6)}
+    body #cn-try .note{color:#64748b}
+    body #cn-try .steps li{color:#64748b}body #cn-try .steps li.on{color:#fff}
+    body #cn-try .msg{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.3);color:#fde68a}
+    body #cn-try .chat{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
+    body #cn-try .m.bot{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.08);color:#e2e8f0}
+    body #cn-try .card{background:#11132a;border-color:rgba(255,255,255,.1);color:#fff}
+    body #cn-try .chips button{background:rgba(168,85,247,.12);border-color:rgba(192,132,252,.4);color:#e9d5ff}
+    body #cn-try form.ask{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
+    body #cn-try form.ask input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#fff}
+    body #cn-try .invite{background:rgba(168,85,247,.12);border-color:rgba(192,132,252,.4);color:#e9d5ff}
     .final{text-align:center;padding:clamp(80px,12vw,160px) 0}
     .final h2{font-size:clamp(2.6rem,7vw,6.6rem);line-height:.95;letter-spacing:-.045em;margin:0 0 20px;font-weight:900}
     .final .mascot{width:120px;height:120px;margin-bottom:10px;filter:drop-shadow(0 20px 40px rgba(124,58,237,.6))}
