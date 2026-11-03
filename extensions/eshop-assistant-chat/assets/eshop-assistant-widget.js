@@ -275,6 +275,9 @@
     ".ea-lead-done{font-size:13.5px;color:#14532d}",
     "#ea-bottom{border-top:1px solid rgba(0,0,0,.07);background:#fff;flex:none}",
     "#ea-form{display:flex;align-items:center}",
+    "#ea-brand{display:block;text-align:center;font-size:11px;color:#9aa0ab;text-decoration:none;padding:0 0 8px;margin-top:-6px;letter-spacing:.01em}",
+    "#ea-brand:hover{color:#7c3aed}",
+    "#ea-brand[hidden]{display:none}",
     "#ea-input{min-width:0;flex:1;border:0;padding:15px 6px 15px 16px;font:inherit;outline:none;background:transparent;color:inherit}",
     "#ea-send{border:0;background:linear-gradient(135deg,var(--ea-accent),var(--ea-accent-dark));color:#fff;padding:0 18px;margin:8px;height:40px;border-radius:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;min-width:92px;box-shadow:0 4px 12px rgba(0,0,0,.12);transition:filter .18s ease,transform .1s ease}",
     "#ea-send:hover:not(:disabled){filter:brightness(1.06)}",
@@ -346,6 +349,14 @@
     return String(title || "").replace(/\s+/g, " ").trim().slice(0, 200);
   }
 
+  // Small "Chatnelo" link for stores on the free plan or trial.
+  var brandWanted = false;
+  function setBrand(on) {
+    brandWanted = on;
+    var link = typeof panel !== "undefined" && panel ? panel.querySelector("#ea-brand") : null;
+    if (link) link.hidden = !on;
+  }
+
   // Hide the whole chat when the store has no plan or used up its monthly
   // limit. Errors keep it visible (fail open).
   root.style.display = "none";
@@ -360,6 +371,7 @@
         .then(function (data) {
           clearTimeout(fallback);
           if (data && data.available === false) { root.style.display = "none"; shown = true; return; }
+          if (data && data.branding) setBrand(true);
           show();
         })
         .catch(function () { clearTimeout(fallback); show(); });
@@ -441,7 +453,8 @@
     '<input id="ea-input" maxlength="1000" autocomplete="off">' +
     '<button id="ea-mic" type="button" hidden><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>' +
     '<button id="ea-send" type="submit"><span class="ea-send-label"></span></button>' +
-    '</form><div id="ea-count" aria-hidden="true"></div></div>';
+    '</form><div id="ea-count" aria-hidden="true"></div>' +
+    '<a id="ea-brand" href="https://chatnelo.com/?utm_source=widget&amp;utm_medium=referral&amp;utm_campaign=shopify" target="_blank" rel="noopener" hidden>⚡ Chatnelo</a></div>';
   panel.querySelector(".ea-title-text").textContent = title;
   panel.querySelector(".ea-status").textContent = T.status;
 
@@ -457,6 +470,7 @@
 
   root.appendChild(panel);
   root.appendChild(bubble);
+  if (brandWanted) setBrand(true);
 
   var messages = panel.querySelector("#ea-msgs");
   var form = panel.querySelector("#ea-form");
