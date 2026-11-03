@@ -269,7 +269,23 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     #marketing-chat-form{display:flex;gap:8px}
     #marketing-chat-input{flex:1;padding:14px 16px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:#fff;font:inherit}
     #marketing-chat-form button{border:none;border-radius:999px;padding:0 22px;font-weight:800;color:#fff;background:linear-gradient(120deg,var(--c1),var(--c2));cursor:pointer}
-    #cn-try,#cn-calc{color:#0f172a}
+    #cn-try{color:#f8fafc}
+    #cn-try .box{background:linear-gradient(160deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);box-shadow:0 40px 100px -50px rgba(168,85,247,.8)}
+    #cn-try h2{color:#fff;font-size:clamp(1.8rem,4vw,3rem);font-weight:900;letter-spacing:-.03em}
+    #cn-try .lead{color:#a5b0c8}
+    #cn-try form.go input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:16px 22px}
+    #cn-try form.go input:focus{background:rgba(255,255,255,.1)}
+    #cn-try .btn{border-radius:999px;background:linear-gradient(110deg,#22d3ee,#a855f7 60%,#f472b6)}
+    #cn-try .note{color:#64748b}
+    #cn-try .steps li{color:#64748b}#cn-try .steps li.on{color:#fff}
+    #cn-try .msg{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.3);color:#fde68a}
+    #cn-try .chat{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
+    #cn-try .m.bot{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.08);color:#e2e8f0}
+    #cn-try .card{background:#11132a;border-color:rgba(255,255,255,.1);color:#fff}
+    #cn-try .chips button{background:rgba(168,85,247,.12);border-color:rgba(192,132,252,.4);color:#e9d5ff}
+    #cn-try form.ask{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
+    #cn-try form.ask input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#fff}
+    #cn-try .invite{background:rgba(168,85,247,.12);border-color:rgba(192,132,252,.4);color:#e9d5ff}
     .final{text-align:center;padding:clamp(80px,12vw,160px) 0}
     .final h2{font-size:clamp(2.6rem,7vw,6.6rem);line-height:.95;letter-spacing:-.045em;margin:0 0 20px;font-weight:900}
     .final .mascot{width:120px;height:120px;margin-bottom:10px;filter:drop-shadow(0 20px 40px rgba(124,58,237,.6))}
@@ -320,7 +336,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
   <nav class="top" id="nav">
     <a class="brand" href="/">${mascotSvg("nv")}Chatnelo</a>
     <div class="links">
-      <a class="hide-m" href="#cn-try" data-s="navDemo"></a>
+      <a class="hide-m" href="#demo" data-s="navDemo"></a>
       <a class="hide-m" href="#pricing" data-s="navPricing"></a>
       <a class="hide-m" href="#faq" data-s="navFaq"></a>
       <a href="/store/dashboard#login" data-s="navLogin"></a>
@@ -334,7 +350,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       <h1><span data-s="h1a"></span><span class="serif grad" data-s="h1b"></span></h1>
       <p class="sub" data-s="heroSub"></p>
       <div class="ctas">
-        <a class="pill glow big" href="#cn-try" data-s="ctaTry"></a>
+        <a class="pill glow big" href="#demo" data-s="ctaTry"></a>
         <a class="pill big" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-s="ctaShopify"></a>
       </div>
     </div>
@@ -387,7 +403,6 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
   </section>
 
   <main>
-    <div class="wrap" style="padding-top:clamp(40px,6vw,80px)">${tryHtml}</div>
     <section class="blk"><div class="wrap reveal">
       <div class="eyebrow">01</div>
       <h2 class="big" data-i18n="marketing.stepsHeading">Jak to funguje</h2>
@@ -407,6 +422,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       <h2 class="big" data-i18n="marketing.faqHeading">Časté dotazy</h2>
       ${faqHtml}
     </div></section>
+    <section class="blk" id="demo"><div class="wrap">${tryHtml}</div></section>
     <section class="final"><div class="wrap reveal">
       ${mascotSvg("fn")}
       <h2><span data-s="finalTitle"></span></h2>
@@ -526,4 +542,4 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
 </html>`;
 }
 
-module.exports = { renderLanding };
+module.exports = { renderLanding, mascotSvg };

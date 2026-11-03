@@ -29,7 +29,7 @@ const { parseFeed, fetchFeed, validateFeedUrl, selectRelevantProducts } = requir
 const insights = require("./insights");
 const { createGrowth } = require("./growth");
 const referrals = require("./referrals");
-const { renderLanding } = require("./landing");
+const { renderLanding, mascotSvg } = require("./landing");
 
 const app = express();
 app.set("trust proxy", true);
@@ -3746,13 +3746,55 @@ app.get("/store/install", (req, res) => {
     .help b{display:block}
     .help span{color:var(--muted);font-size:.92rem}
     [hidden]{display:none!important}
+
+    /* dark theme (matches chatnelo.com) */
+    body{background:#04050d radial-gradient(60vw 50vh at 15% 0%,rgba(34,211,238,.14),transparent 60%) fixed,radial-gradient(55vw 55vh at 90% 10%,rgba(168,85,247,.2),transparent 60%) fixed;color:#f8fafc;font-family:"SF Pro Display",-apple-system,"Segoe UI",Inter,system-ui,sans-serif}
+    a{color:#c4b5fd}
+    code{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#e2e8f0}
+    .top{background:rgba(4,5,13,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:30}
+    .logo{color:#fff}.logo .mascot{width:36px;height:36px}
+    #chatnelo-lang-current{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:999px}
+    #chatnelo-lang-dropdown{background:#0b0d1d;border-color:rgba(255,255,255,.12)}
+    .intro h1{font-weight:900;letter-spacing:-.04em;background:linear-gradient(100deg,#fff 30%,#c4b5fd);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .intro p,.shopify{color:#a5b0c8}
+    .who{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:#e2e8f0}
+    .mock{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
+    .mock-bar{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}
+    .sk{background:rgba(255,255,255,.07)}
+    .chat{background:#11132a;border-color:rgba(255,255,255,.1)}
+    .chat .bot{background:rgba(255,255,255,.08);color:#e2e8f0}
+    .mock-cap{border-color:rgba(255,255,255,.08);color:#a5b0c8}
+    .wizard,.help{background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border-color:rgba(255,255,255,.1);box-shadow:none}
+    .progress{border-color:rgba(255,255,255,.1)}
+    .progress div{color:#64748b}.progress div.on{color:#fff}.progress div span{background:rgba(255,255,255,.08)}
+    .count{color:#67e8f9}
+    .lead,.part p.small,.help span,details ul{color:#a5b0c8}
+    .btn{border-radius:999px;background:linear-gradient(110deg,#22d3ee,#a855f7 60%,#f472b6)}
+    .btn.ghost{background:rgba(255,255,255,.06);color:#fff;border-color:rgba(255,255,255,.14)}
+    .okbox{background:rgba(16,185,129,.12);border-color:rgba(52,211,153,.4)}.okbox span{color:#a7f3d0}
+    .pf{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.12);color:#fff}
+    .pf small{color:#a5b0c8}
+    .pf.on{background:rgba(168,85,247,.12)}
+    .cred{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
+    .cred b{color:#a5b0c8}
+    .mini{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14);color:#fff}
+    .timeline li::before{background:rgba(255,255,255,.12)}
+    .timeline .dot{background:#0b0d1d;border-color:rgba(168,85,247,.6);color:#c4b5fd}
+    .path span{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:#fff}
+    .tip{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.3);color:#fde68a}
+    .verify input{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14);color:#fff}
+    .result.ok{background:rgba(16,185,129,.12);border-color:rgba(52,211,153,.4);color:#a7f3d0}
+    .result.bad{background:rgba(239,68,68,.12);border-color:rgba(248,113,113,.4);color:#fecaca}
+    details{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
+    .foot{background:rgba(255,255,255,.03);border-color:rgba(255,255,255,.1)}
+    .help .mascot{width:48px;height:48px}
     @media (max-width:880px){.intro{grid-template-columns:1fr}.mock{display:none}.platforms{grid-template-columns:1fr 1fr}}
     @media (max-width:600px){.platforms,.creds{grid-template-columns:1fr}.panel{padding:24px 20px}.foot{padding:16px 20px}.progress div{font-size:0;padding:14px 4px}.progress div span{margin:0;font-size:.76rem}.help{flex-wrap:wrap}}
   </style>
 </head>
 <body>
   <div class="top"><div class="top-in">
-    <a class="logo" href="/"><img src="/mascot.png" alt="">Chatnelo</a>
+    <a class="logo" href="/">${mascotSvg("il")}Chatnelo</a>
     <div id="chatnelo-lang-switcher"></div>
   </div></div>
   <div class="wrap">
@@ -3845,7 +3887,7 @@ app.get("/store/install", (req, res) => {
     </div>
 
     <div class="help">
-      <img src="/mascot.png" alt="">
+      ${mascotSvg("ih")}
       <div><b data-g="helpTitle"></b><span data-g="helpText"></span></div>
       <a class="btn ghost" href="mailto:support@chatnelo.com" data-g="helpBtn"></a>
     </div>
@@ -4186,12 +4228,48 @@ app.get("/store/dashboard", (req, res) => {
     .choice h3{margin:0;font-size:1.1rem}
     .choice ul{margin:0;padding-left:18px;color:#4b5563;font-size:.9rem;line-height:1.55}
     .choice .btn{margin-top:auto}
+
+    /* dark theme (matches chatnelo.com) */
+    body{background:#04050d radial-gradient(60vw 50vh at 15% 0%,rgba(34,211,238,.14),transparent 60%) fixed,radial-gradient(55vw 55vh at 90% 10%,rgba(168,85,247,.2),transparent 60%) fixed;color:#f8fafc;font-family:"SF Pro Display",-apple-system,"Segoe UI",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#c4b5fd}
+    .brand-header{background:rgba(4,5,13,.6);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:30}
+    .brand-left .mascot{width:40px;height:40px}
+    .ghost,#chatnelo-lang-current{border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}
+    h1{font-size:clamp(2.2rem,5vw,3.6rem);font-weight:900;letter-spacing:-.04em;line-height:1.02;background:linear-gradient(100deg,#22d3ee,#a855f7 55%,#f472b6);-webkit-background-clip:text;background-clip:text}
+    .lead,.muted,.hint,.check,.choice ul,.shopify-card ul{color:#a5b0c8}
+    label{color:#e2e8f0}
+    .card,section.panel{background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);box-shadow:none;border-radius:24px}
+    .tabs{background:rgba(255,255,255,.06)}
+    .tabs button{color:#a5b0c8}
+    .tabs button.on{background:rgba(255,255,255,.14);color:#fff;box-shadow:none}
+    input,textarea{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:12px}
+    input::placeholder{color:#64748b}
+    input[readonly]{color:#c7d2fe}
+    pre{background:#0b0d1d;color:#c7d2fe;border:1px solid rgba(255,255,255,.08)}
+    .btn{border-radius:999px;background:linear-gradient(110deg,#22d3ee,#a855f7 60%,#f472b6);box-shadow:0 10px 30px -10px rgba(168,85,247,.9)}
+    .btn.dark{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}
+    .error{color:#fca5a5}.ok{color:#6ee7b7}
+    .linkbtn{color:#c4b5fd}
+    .shopify-logo{color:#86efac}
+    .status.trial{background:rgba(16,185,129,.12);border:1px solid rgba(52,211,153,.4);color:#a7f3d0}
+    .status.warn{background:rgba(239,68,68,.12);border:1px solid rgba(248,113,113,.4);color:#fecaca}
+    .status.offer,.guide-cta{background:rgba(168,85,247,.12);border:1px solid rgba(192,132,252,.4);color:#e9d5ff}
+    .status.paid{background:rgba(56,189,248,.12);border:1px solid rgba(125,211,252,.4);color:#bae6fd}
+    .plan{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
+    .plan.current{border-color:#a855f7;background:rgba(168,85,247,.12)}
+    .plan .per{color:#a5b0c8}
+    .overlay{background:rgba(2,3,10,.75);backdrop-filter:blur(6px)}
+    .modal{background:#0b0d1d;border:1px solid rgba(255,255,255,.1)}
+    .modal .mascot{width:90px;height:90px}
+    .modal h2{background:linear-gradient(100deg,#22d3ee,#a855f7 55%,#f472b6);-webkit-background-clip:text;background-clip:text}
+    .choice{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03)}
+    .choice.primary{border-color:#a855f7;background:rgba(168,85,247,.1)}
     @media (max-width:760px){.auth-grid,.choices{grid-template-columns:1fr}.brand-header{padding:14px 16px}.modal{padding:22px 18px}}
   </style>
 </head>
 <body>
   <div class="brand-header">
-    <a class="brand-left" href="/"><img src="/mascot.png" alt="Chatnelo"><span>Chatnelo</span></a>
+    <a class="brand-left" href="/">${mascotSvg("dh")}<span>Chatnelo</span></a>
     <div class="header-right">
       <button type="button" class="ghost" id="logout-btn" hidden data-d="logout"></button>
       <div id="chatnelo-lang-switcher"></div>
@@ -4300,7 +4378,7 @@ app.get("/store/dashboard", (req, res) => {
 
   <div class="overlay" id="choice" hidden role="dialog" aria-modal="true">
     <div class="modal">
-      <img src="/mascot.png" alt="Chatnelo">
+      ${mascotSvg("dm")}
       <h2 data-d="wTitle"></h2>
       <p class="muted" data-d="wText"></p>
       <div class="choices">
