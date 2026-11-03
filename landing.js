@@ -304,8 +304,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       .cart{top:6px;left:6px}
       .toast{top:4px}
       .chatwin{left:0;right:0;bottom:30px;border-radius:26px}
-      .langs span{font-size:.72rem;padding:6px 10px}
-      .langs span:nth-child(n+5){display:none}
+      .langs{display:none}
       .progress{bottom:10px;left:16px}
       .progress .bar{width:110px}
       section.blk{padding:64px 0}
