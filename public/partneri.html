@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" type="image/png" href="/mascot.png">
+<title>Partnerský program Chatnelo</title>
+<meta name="description" content="Doporučujte Chatnelo svým klientům a získejte 30 % z jejich plateb po dobu 12 měsíců. Pro české agentury, konzultanty a tvůrce.">
+<style>
+  :root{
+    --ink:#202223; --muted:#5b6472; --line:#dfe3e8; --bg:#f6f6f7; --card:#fff;
+    --night:#0b1020; --cyan:#22d3ee; --violet:#a855f7; --accent:#7e22ce; --ok:#047857; --err:#b42318;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.55;font-size:16px}
+  header{background:radial-gradient(circle at 20% 20%,#1e1b4b 0%,var(--night) 55%,#05060d 100%);color:#fff;position:relative;overflow:hidden}
+  header::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 85% 0%,rgba(168,85,247,.35),transparent 55%),radial-gradient(circle at 5% 95%,rgba(34,211,238,.22),transparent 50%);pointer-events:none}
+  .wrap{max-width:860px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+  .hero{position:relative;z-index:1;padding-block:44px 52px;display:grid;gap:18px}
+  .brand{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none;font-weight:700;letter-spacing:.2px}
+  .brand img{width:40px;height:40px;border-radius:50%;filter:drop-shadow(0 0 14px rgba(168,85,247,.6))}
+  .hero h1{margin:0;font-size:clamp(1.9rem,4.6vw,2.7rem);line-height:1.15;text-wrap:balance;background:linear-gradient(90deg,#67e8f9,#e9d5ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{margin:0;max-width:600px;opacity:.88;font-size:1.08rem}
+  .terms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:6px}
+  .term{border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);border-radius:12px;padding:14px 16px}
+  .term b{display:block;font-size:1.55rem;line-height:1.1;font-variant-numeric:tabular-nums}
+  .term span{font-size:.88rem;opacity:.8}
+  main{padding-block:36px 64px;display:grid;gap:32px}
+  h2{margin:0 0 12px;font-size:1.35rem}
+  .rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 28px;margin:0;padding:0;list-style:none}
+  .rules li{position:relative;padding-left:26px;color:var(--muted)}
+  .rules li::before{content:"";position:absolute;left:0;top:.42em;width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--violet))}
+  .rules li b{color:var(--ink)}
+  form{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 1px 4px #00000010;padding:28px clamp(18px,4vw,32px);display:grid;gap:26px}
+  fieldset{border:0;margin:0;padding:0;display:grid;gap:14px;min-width:0}
+  legend{font-weight:700;font-size:1.05rem;margin-bottom:6px;padding:0;display:flex;gap:10px;align-items:center}
+  legend .n{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--violet));color:#fff;font-size:.85rem;display:inline-flex;align-items:center;justify-content:center}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  label{display:grid;gap:6px;font-weight:600;font-size:.95rem;min-width:0}
+  label small,.hint{font-weight:400;color:var(--muted);font-size:.86rem}
+  .req::after{content:" *";color:var(--accent)}
+  input[type=text],input[type=email],input[type=tel],input[type=url],select,textarea{font:inherit;width:100%;padding:11px 12px;border:1px solid #c9cfd6;border-radius:10px;background:#fff;color:var(--ink)}
+  textarea{min-height:120px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--violet);outline-offset:1px;border-color:transparent}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{position:relative}
+  .chip input{position:absolute;opacity:0;inset:0;cursor:pointer}
+  .chip span{display:inline-block;padding:7px 13px;border:1px solid #c9cfd6;border-radius:999px;font-weight:500;font-size:.92rem;background:#fff;cursor:pointer}
+  .chip input:checked + span{background:linear-gradient(135deg,#ecfeff,#f5f3ff);border-color:var(--violet);color:#4c1d95}
+  .chip input:focus-visible + span{outline:2px solid var(--violet);outline-offset:2px}
+  .drop{border:2px dashed #c9cfd6;border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;background:#fafbfc}
+  .drop.over{border-color:var(--violet);background:#faf5ff}
+  .shots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .shot{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;aspect-ratio:4/3;background:#f1f2f4}
+  .shot img{width:100%;height:100%;object-fit:cover;display:block}
+  .shot button{position:absolute;top:6px;right:6px;border:0;border-radius:8px;background:rgba(11,16,32,.8);color:#fff;font:inherit;font-size:.8rem;padding:4px 8px;cursor:pointer}
+  .agree{display:flex;gap:10px;align-items:flex-start;font-weight:400;grid-template-columns:none}
+  .agree input{margin-top:4px;width:18px;height:18px;flex:none}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  button.send{font:inherit;font-weight:700;border:0;border-radius:12px;padding:13px 26px;color:#fff;background:linear-gradient(135deg,#0891b2,#7e22ce);cursor:pointer;box-shadow:0 6px 18px rgba(126,34,206,.28)}
+  button.send:disabled{opacity:.6;cursor:wait}
+  .msg{font-weight:600}
+  .msg.err{color:var(--err)}
+  .done{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:32px;text-align:center;display:grid;gap:10px}
+  .done h2{margin:0;color:var(--ok)}
+  footer{color:var(--muted);font-size:.88rem;padding-block:0 40px}
+  footer a{color:var(--accent)}
+  @media (max-width:640px){.terms,.grid,.rules{grid-template-columns:1fr}.shots{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hero">
+    <a class="brand" href="/"><img src="/mascot.png" alt="">Chatnelo</a>
+    <h1>Partnerský program Chatnelo</h1>
+    <p>Doporučte Chatnelo obchodům, se kterými pracujete. Chatnelo je AI asistent pro Shopify, který zákazníkům odpovídá 24/7 ze skutečných dat obchodu. Za každý obchod, který přivedete, dostanete podíl z jeho plateb.</p>
+    <div class="terms">
+      <div class="term"><b>30 %</b><span>z každé platby obchodu</span></div>
+      <div class="term"><b>12 měsíců</b><span>od první platby</span></div>
+      <div class="term"><b>měsíčně</b><span>výplata na fakturu</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<main>
+  <section>
+    <h2>Podmínky</h2>
+    <ul class="rules">
+      <li><b>Jen partneři z Česka</b> s IČO (agentura, konzultant nebo tvůrce s živností).</li>
+      <li><b>Každou přihlášku posuzujeme ručně.</b> Nejde o automatickou registraci.</li>
+      <li><b>Nárok vzniká</b>, až obchod zaplatí 2 celé měsíce přes Shopify.</li>
+      <li><b>Neplatí se</b> za vlastní, testovací a vývojové obchody ani za spam.</li>
+      <li><b>Obchod nahlásíte předem</b> e-mailem a on vás potvrdí. Platí první nahlášení.</li>
+      <li><b>Nikdy nic neplatíte</b> a nikdy po vás nebudeme chtít peníze ani přístupy.</li>
+    </ul>
+  </section>
+
+  <form id="f" novalidate>
+    <fieldset>
+      <legend><span class="n">1</span>Kdo jste</legend>
+      <label for="program">Program
+        <select id="program" name="program">
+          <option value="chatnelo">Chatnelo (AI asistent pro e-shopy)</option>
+          <option value="pracovni_tipy">Pracovní tipy (nabídky práce v zahraničí)</option>
+        </select>
+      </label>
+      <div class="chips" role="radiogroup" aria-label="Typ partnera">
+        <label class="chip"><input type="radio" name="typ" value="agentura" checked><span>Shopify agentura</span></label>
+        <label class="chip"><input type="radio" name="typ" value="konzultant"><span>E-commerce konzultant</span></label>
+        <label class="chip"><input type="radio" name="typ" value="tvurce"><span>Tvůrce obsahu</span></label>
+        <label class="chip"><input type="radio" name="typ" value="jine"><span>Jiné</span></label>
+      </div>
+      <div class="grid">
+        <label for="jmeno"><span class="req">Jméno a příjmení</span><input id="jmeno" name="jmeno" type="text" autocomplete="name" maxlength="120" required></label>
+        <label for="firma">Firma<input id="firma" name="firma" type="text" autocomplete="organization" maxlength="200"></label>
+        <label for="ico"><span id="icoLbl" class="req">IČO</span><input id="ico" name="ico" type="text" inputmode="numeric" maxlength="10" placeholder="8 číslic"><small>Ověříme ho v obchodním rejstříku (ARES).</small></label>
+        <label for="email"><span class="req">E-mail</span><input id="email" name="email" type="email" autocomplete="email" maxlength="200" required><small>Ideálně na doméně vaší firmy.</small></label>
+        <label for="telefon">Telefon<input id="telefon" name="telefon" type="tel" autocomplete="tel" maxlength="40"></label>
+        <label for="web">Web nebo portfolio<input id="web" name="web" type="url" placeholder="https://" maxlength="300"></label>
+      </div>
+      <label for="profily">Profily na sociálních sítích<textarea id="profily" name="profily" maxlength="1500" style="min-height:80px" placeholder="Jeden odkaz na řádek (Instagram, TikTok, YouTube, LinkedIn…)"></textarea></label>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="n">2</span>Jak chcete Chatnelo propagovat</legend>
+      <label for="publikum">Kolik obchodů spravujete nebo jak velké máte publikum?
+        <select id="publikum" name="publikum">
+          <option value="">Vyberte</option>
+          <option>1–5 obchodů</option><option>6–20 obchodů</option><option>více než 20 obchodů</option>
+          <option>publikum do 1 000</option><option>publikum 1 000–10 000</option><option>publikum 10 000–50 000</option><option>publikum nad 50 000</option>
+        </select>
+      </label>
+      <div>
+        <div class="hint" style="margin-bottom:8px;font-weight:600;color:var(--ink)">Kanály, které použijete</div>
+        <div class="chips" id="kanaly">
+          <label class="chip"><input type="checkbox" value="doporučení klientům"><span>Doporučení klientům</span></label>
+          <label class="chip"><input type="checkbox" value="web / blog"><span>Web / blog</span></label>
+          <label class="chip"><input type="checkbox" value="newsletter"><span>Newsletter</span></label>
+          <label class="chip"><input type="checkbox" value="YouTube"><span>YouTube</span></label>
+          <label class="chip"><input type="checkbox" value="Instagram"><span>Instagram</span></label>
+          <label class="chip"><input type="checkbox" value="TikTok"><span>TikTok</span></label>
+          <label class="chip"><input type="checkbox" value="Facebook"><span>Facebook</span></label>
+          <label class="chip"><input type="checkbox" value="LinkedIn"><span>LinkedIn</span></label>
+          <label class="chip"><input type="checkbox" value="webináře / školení"><span>Webináře / školení</span></label>
+        </div>
+      </div>
+      <label for="jak"><span class="req">Popište konkrétně, jak a komu Chatnelo nabídnete</span>
+        <textarea id="jak" name="jak_propagovat" maxlength="4000" required placeholder="Např.: Spravujeme 12 obchodů s módou. Chatnelo nabídneme při měsíční konzultaci a nastavíme ho jako součást balíčku péče. Napíšeme o něm článek na náš blog (3 000 návštěv měsíčně)."></textarea>
+        <small id="jakCnt">Alespoň 40 znaků.</small>
+      </label>
+      <label for="klienti">Obchody nebo klienti, kterým byste ho nabídli <small>(nepovinné)</small><textarea id="klienti" name="klienti" maxlength="2000" style="min-height:80px" placeholder="Názvy nebo weby obchodů"></textarea></label>
+      <label for="zkus">Zkušenosti s partnerskými programy <small>(nepovinné)</small><textarea id="zkus" name="zkusenosti" maxlength="2000" style="min-height:80px" placeholder="Které aplikace nebo služby už doporučujete a s jakým výsledkem"></textarea></label>
+    </fieldset>
+
+    <fieldset>
+      <legend><span class="n">3</span>Screenshoty <small style="font-weight:400;color:var(--muted)">(nepovinné, max. 3)</small></legend>
+      <p class="hint" style="margin:0">Přidejte třeba snímek svého webu, portfolia obchodů nebo statistik publika. Pomůže nám to s posouzením.</p>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Přidat screenshoty">Klikněte nebo sem přetáhněte obrázky (JPG, PNG, WebP)</div>
+      <input id="file" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      <div class="shots" id="shots"></div>
+    </fieldset>
+
+    <div class="hp" aria-hidden="true"><label for="web2">Nevyplňujte<input id="web2" name="web2" type="text" tabindex="-1" autocomplete="off"></label></div>
+
+    <label class="agree" for="souhlas"><input id="souhlas" type="checkbox"><span>Potvrzuji, že podnikám v České republice, údaje jsou pravdivé, souhlasím s podmínkami programu a se zpracováním údajů pro posouzení přihlášky.</span></label>
+
+    <div class="actions">
+      <button class="send" id="send" type="submit">Odeslat přihlášku</button>
+      <span class="msg" id="msg" role="status" aria-live="polite"></span>
+    </div>
+  </form>
+
+  <div class="done" id="done" hidden>
+    <h2>Přihláška odeslána</h2>
+    <p>Děkujeme. Přihlášku projdeme a do 5 pracovních dnů se vám ozveme e-mailem.</p>
+  </div>
+</main>
+<footer>Chatnelo · <a href="https://apps.shopify.com/chatnelo">Shopify App Store</a> · <a href="/">chatnelo.com</a></footer>
+</div>
+
+<script>
+(function () {
+  const API = 'https://smjplqxwqyraphfeqsyk.supabase.co/rest/v1/rpc/partner_prihlaska';
+  const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtanBscXh3cXlyYXBoZmVxc3lrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5MjA3NzMsImV4cCI6MjEwODQ5Njc3M30.X6VUO5NSdJFG4E00aAALSDkW39JqANjQmk0dees_Q78';
+  const $ = id => document.getElementById(id);
+  const form = $('f'), msg = $('msg'), shotsEl = $('shots'), drop = $('drop'), file = $('file');
+  const shots = [];
+
+  const q = new URLSearchParams(location.search).get('program');
+  if (q === 'pracovni_tipy') $('program').value = 'pracovni_tipy';
+  function syncProgram() {
+    const ch = $('program').value === 'chatnelo';
+    $('icoLbl').className = ch ? 'req' : '';
+    document.title = ch ? 'Partnerský program Chatnelo' : 'Partnerský program Pracovní tipy';
+  }
+  $('program').addEventListener('change', syncProgram); syncProgram();
+
+  $('jak').addEventListener('input', e => {
+    const n = e.target.value.trim().length;
+    $('jakCnt').textContent = n < 40 ? `Alespoň 40 znaků (zatím ${n}).` : `${n} znaků`;
+  });
+
+  function shrink(f) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onerror = () => rej(new Error('read'));
+      r.onload = () => {
+        const img = new Image();
+        img.onerror = () => rej(new Error('img'));
+        img.onload = () => {
+          let w = img.naturalWidth, h = img.naturalHeight, max = 1400;
+          for (let q = 0.82; ; q -= 0.12) {
+            const s = Math.min(1, max / Math.max(w, h));
+            const c = document.createElement('canvas');
+            c.width = Math.round(w * s); c.height = Math.round(h * s);
+            const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+            const d = c.toDataURL('image/jpeg', Math.max(q, 0.5));
+            if (d.length < 650000 || max < 700) return res(d);
+            max = Math.round(max * 0.8);
+          }
+        };
+        img.src = r.result;
+      };
+      r.readAsDataURL(f);
+    });
+  }
+  function render() {
+    shotsEl.innerHTML = '';
+    shots.forEach((d, i) => {
+      const box = document.createElement('div'); box.className = 'shot';
+      const im = document.createElement('img'); im.src = d; im.alt = 'Screenshot ' + (i + 1);
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = 'Odebrat';
+      b.addEventListener('click', () => { shots.splice(i, 1); render(); });
+      box.append(im, b); shotsEl.append(box);
+    });
+    drop.hidden = shots.length >= 3;
+  }
+  async function add(list) {
+    for (const f of list) {
+      if (shots.length >= 3) break;
+      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { msg.textContent = 'Přidat jde jen obrázek JPG, PNG nebo WebP.'; msg.className = 'msg err'; continue; }
+      try { shots.push(await shrink(f)); msg.textContent = ''; } catch (e) { msg.textContent = 'Obrázek se nepodařilo načíst.'; msg.className = 'msg err'; }
+    }
+    render();
+  }
+  drop.addEventListener('click', () => file.click());
+  drop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } });
+  file.addEventListener('change', () => { add([...file.files]); file.value = ''; });
+  ['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => add([...e.dataTransfer.files]));
+
+  const ERR = {
+    ico: 'Vyplňte prosím IČO (8 číslic).', souhlas: 'Potvrďte prosím souhlas s podmínkami.',
+    pole: 'Zkontrolujte prosím vyplněná pole (jméno, e-mail, IČO a popis alespoň 40 znaků).',
+    screenshoty: 'Některý screenshot je příliš velký. Zkuste jiný obrázek.', limit: 'Z vašeho připojení přišlo dnes už příliš mnoho přihlášek. Zkuste to prosím zítra.'
+  };
+  function fail(t, el) { msg.textContent = t; msg.className = 'msg err'; if (el) el.focus(); }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const prog = $('program').value, ico = $('ico').value.replace(/\s/g, '');
+    if ($('jmeno').value.trim().length < 2) return fail('Vyplňte prosím jméno a příjmení.', $('jmeno'));
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($('email').value.trim())) return fail('Zadejte prosím platný e-mail.', $('email'));
+    if ((prog === 'chatnelo' || ico) && !/^\d{8}$/.test(ico)) return fail(ERR.ico, $('ico'));
+    if ($('jak').value.trim().length < 40) return fail('Popište prosím, jak budete propagovat (alespoň 40 znaků).', $('jak'));
+    if (!$('souhlas').checked) return fail(ERR.souhlas, $('souhlas'));
+    const body = {
+      program: prog, typ: (form.querySelector('input[name=typ]:checked') || {}).value || 'jine',
+      jmeno: $('jmeno').value, firma: $('firma').value, ico: ico, email: $('email').value, telefon: $('telefon').value,
+      web: $('web').value, profily: $('profily').value, publikum: $('publikum').value,
+      kanaly: [...document.querySelectorAll('#kanaly input:checked')].map(x => x.value),
+      jak_propagovat: $('jak').value, klienti: $('klienti').value, zkusenosti: $('zkus').value,
+      screenshoty: shots, souhlas: true, web2: $('web2').value
+    };
+    const btn = $('send'); btn.disabled = true; msg.className = 'msg'; msg.textContent = 'Odesílám…';
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: 'Bearer ' + KEY }, body: JSON.stringify({ p: body }) });
+      const j = await r.json().catch(() => null);
+      if (r.ok && j && j.ok) { form.hidden = true; $('done').hidden = false; $('done').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+      fail((j && ERR[j.err]) || 'Přihlášku se nepodařilo odeslat. Zkuste to prosím znovu.');
+    } catch (err) {
+      fail('Nepodařilo se spojit se serverem. Zkontrolujte připojení a zkuste to znovu.');
+    }
+    btn.disabled = false;
+  });
+})();
+</script>
+</body>
+</html>

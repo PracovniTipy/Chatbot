@@ -2999,6 +2999,7 @@ app.get("/marketing", (req, res) => {
   </main>
   <footer style="text-align:center;padding:24px;color:#637381;font-size:.85rem">
     <a href="/privacy" style="color:#637381" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
+    · <a href="/partneri" style="color:#637381">Partnerský program</a>
     ${process.env.PRIVACY_CONTACT_EMAIL ? ` · <a href="mailto:${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}" style="color:#637381">${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}</a>` : ""}
     <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>
   </footer>
@@ -5059,6 +5060,11 @@ app.put("/api/leads/:id", async (req, res) => {
     logRouteError("Lead update", error);
     res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
+});
+
+// Partner program: public application form (submissions go to Supabase).
+app.get("/partneri", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "partneri.html"));
 });
 
 app.get("/health", (req, res) => {
