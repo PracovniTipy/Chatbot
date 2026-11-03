@@ -3091,6 +3091,7 @@ app.get("/marketing", (req, res) => {
     { "@context": "https://schema.org", "@type": "WebSite", name: "Chatnelo", url: "https://chatnelo.com/" },
     { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Chatnelo", applicationCategory: "BusinessApplication", operatingSystem: "Web, Shopify", url: "https://apps.shopify.com/chatnelo", image: "https://chatnelo.com/icon-512.png", offers: { "@type": "Offer", price: "16.99", priceCurrency: "USD" } },
   ]).replace(/</g, "\\u003c")}</script>`;
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'self';");
   res.type("html").send(renderLanding({
     stepsHtml, pricingHtml, faqHtml,
     tryHtml: growth.tryHtml(), calcHtml: growth.calcHtml(),

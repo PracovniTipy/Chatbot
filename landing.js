@@ -280,17 +280,36 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     .reveal.in{opacity:1;transform:none}
     @media (max-width:900px){
       nav .links a.hide-m{display:none}
-      .hero{grid-template-columns:1fr;text-align:left;padding-top:96px;gap:10px}
-      .hero-art{max-width:360px;order:-1;margin-top:10px}
-      .bubble-f{font-size:.78rem}
-      .stage{grid-template-columns:1fr;grid-template-rows:auto 1fr;align-content:start;gap:10px;padding:74px 18px 20px}
-      .chapters{height:26vh;min-height:170px}
-      .chap h2{font-size:clamp(2rem,9vw,3rem)}
-      .chap p{font-size:.95rem;margin-top:10px}
-      .clock{top:70px;opacity:calc(var(--clockO,1)*.6)}
-      .progress{bottom:14px}
+      .hero{grid-template-columns:1fr;padding:84px 20px 70px;gap:0;min-height:auto}
+      .hero-art{max-width:250px;order:-1;margin:0 auto 6px}
+      .bubble-f{display:none}
+      .hero h1{font-size:clamp(2.9rem,14vw,4.4rem);margin:14px 0 14px}
+      .hero p.sub{font-size:1.02rem;margin-bottom:22px}
+      .ctas{flex-direction:column;align-items:stretch}
+      .ctas .pill{width:100%}
+      .scrollhint{display:none}
+      .story{height:480vh}
+      .stage{display:flex;flex-direction:column;gap:0;padding:68px 16px 16px}
+      .clock{top:58px;left:16px;font-size:30vw;opacity:calc(var(--clockO,1)*.5)}
+      .chapters{flex:none;height:27svh;min-height:150px}
+      .chap h2{font-size:clamp(2.1rem,10.5vw,3.1rem)}
+      .chap p{font-size:.95rem;margin-top:8px}
+      .device{flex:1;width:100%;max-width:420px;aspect-ratio:auto;margin:0 auto;transform:none}
+      .device::before{inset:10%}
+      .phone{padding:0;background:none;box-shadow:none;border-radius:0}
+      .screen{background:none;border-radius:0;overflow:visible}
+      .notch,.sbar,.shop,.zzz{display:none}
+      .moon{top:8px;right:8px}
+      .cart{top:6px;left:6px}
+      .toast{top:4px}
+      .chatwin{left:0;right:0;bottom:30px;border-radius:26px}
       .langs span{font-size:.72rem;padding:6px 10px}
-      .device{width:min(300px,68vw,calc((100svh - 300px) / 2.06))}
+      .langs span:nth-child(n+5){display:none}
+      .progress{bottom:10px;left:16px}
+      .progress .bar{width:110px}
+      section.blk{padding:64px 0}
+      ol.steps li{padding:20px}
+      th,td{padding:12px 12px;font-size:.88rem}
     }
     @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.grain{display:none}}
   </style>
@@ -388,16 +407,6 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       <div class="eyebrow">03</div>
       <h2 class="big" data-i18n="marketing.faqHeading">Časté dotazy</h2>
       ${faqHtml}
-    </div></section>
-    <section class="blk"><div class="wrap reveal">
-      <h2 class="big" data-i18n="marketing.chatHeading">Zeptejte se rovnou chatbota</h2>
-      <div id="marketing-chat">
-        <div id="marketing-chat-log"></div>
-        <form id="marketing-chat-form">
-          <input id="marketing-chat-input" maxlength="500" autocomplete="off" data-i18n-placeholder="marketing.chatPlaceholder">
-          <button type="submit" data-i18n="marketing.chatSend">Odeslat</button>
-        </form>
-      </div>
     </div></section>
     <section class="final"><div class="wrap reveal">
       ${mascotSvg("fn")}
@@ -509,22 +518,9 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     var io = "IntersectionObserver" in window ? new IntersectionObserver(function (entries) { entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }); }, { threshold: .12 }) : null;
     document.querySelectorAll(".reveal").forEach(function (el) { if (io && !reduce) io.observe(el); else el.classList.add("in"); });
 
-    // marketing chat
-    var log = $("marketing-chat-log"), form = $("marketing-chat-form"), input = $("marketing-chat-input"), button = form.querySelector("button"), history = [];
-    function addMessage(role, text) { var el = document.createElement("div"); el.className = "msg " + role; el.textContent = text; log.appendChild(el); log.scrollTop = log.scrollHeight; }
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      var message = input.value.trim(); if (!message) return;
-      addMessage("user", message); history.push({ role: "user", content: message });
-      input.value = ""; input.disabled = true; button.disabled = true;
-      fetch("/marketing/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: message, history: history.slice(0, -1) }) })
-        .then(function (r) { return r.json(); })
-        .then(function (d) { if (d.error) throw new Error(d.error); addMessage("assistant", d.reply); history.push({ role: "assistant", content: d.reply }); })
-        .catch(function (e) { addMessage("assistant", e.message); })
-        .finally(function () { input.disabled = false; button.disabled = false; input.focus(); });
-    });
-
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", texts); else texts();
+    var jump = /[#&]p=([0-9.]+)/.exec(location.hash);
+    if (jump) setTimeout(function () { scrollTo(0, story.offsetTop + (story.offsetHeight - innerHeight) * parseFloat(jump[1])); }, 300);
   })();
   </script>
 </body>
