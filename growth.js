@@ -814,7 +814,6 @@ function seoPage(slug) {
       <ol class="st">${p.install.map((step) => `<li>${esc(step)}</li>`).join("")}</ol>
       ${shopify ? "" : '<p style="margin:12px 0 0"><a href="/store/install">Podrobný návod krok za krokem →</a></p>'}
     </div>
-    ${calcHtml({ lang: "cs" })}
     <div class="sec">
       <h2>Časté dotazy</h2>
       ${p.faq.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("")}

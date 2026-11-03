@@ -393,7 +393,6 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       <h2 class="big" data-i18n="marketing.stepsHeading">Jak to funguje</h2>
       <ol class="steps">${stepsHtml}</ol>
     </div></section>
-    <div class="wrap reveal">${calcHtml}</div>
     <section class="blk" id="pricing"><div class="wrap reveal">
       <div class="eyebrow">02</div>
       <h2 class="big" data-i18n="marketing.pricingHeading">Ceník</h2>
