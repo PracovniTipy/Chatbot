@@ -1,0 +1,49 @@
+name: Deploy WordPress plugin
+
+# Publishes the Chatnelo WooCommerce plugin to WordPress.org.
+# Runs when files in wordpress-plugin/ change, or manually (Actions → Run workflow).
+# Needs one repository secret: SVN_PASSWORD (WordPress.org → Profile → Account & Security → SVN password).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "wordpress-plugin/plugin/**"
+      - "wordpress-plugin/assets/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check SVN password
+        id: check
+        env:
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+        run: |
+          if [ -z "$SVN_PASSWORD" ]; then
+            echo "SVN_PASSWORD secret is not set yet – skipping deploy."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read version from readme
+        id: version
+        if: steps.check.outputs.skip != '1'
+        run: echo "version=$(grep -m1 '^Stable tag:' wordpress-plugin/plugin/readme.txt | awk '{print $3}' | tr -d '\r')" >> "$GITHUB_OUTPUT"
+
+      - name: Install Subversion
+        if: steps.check.outputs.skip != '1'
+        run: sudo apt-get update && sudo apt-get install -y subversion
+
+      - name: Deploy to WordPress.org
+        if: steps.check.outputs.skip != '1'
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: broswarsstudio
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: chatnelo-ai-chatbot-for-woocommerce
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_DIR: wordpress-plugin/plugin
+          ASSETS_DIR: wordpress-plugin/assets
