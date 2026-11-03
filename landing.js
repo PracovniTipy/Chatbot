@@ -224,14 +224,15 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     .msg.typing{color:var(--mut);font-style:italic}
     .caret::after{content:"▍";animation:blink 1s steps(2) infinite;margin-left:1px;color:#fff}
     @keyframes blink{50%{opacity:0}}
-    .pcard{display:flex;gap:10px;align-items:center;padding:9px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid var(--line);transform:translateY(calc((1 - var(--cardIn,0))*30px)) scale(calc(.9 + var(--cardIn,0)*.1));opacity:var(--cardIn,0)}
-    .pcard .img{flex:none;width:62px;height:62px;border-radius:14px;background:radial-gradient(circle at 30% 20%,#312e81,#0b0d1d);display:grid;place-items:center}
-    .pcard .img svg{width:52px;height:52px}
+    .pcard{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;padding:9px;border-radius:18px;background:rgba(255,255,255,.06);border:1px solid var(--line);transform:translateY(calc((1 - var(--cardIn,0))*30px)) scale(calc(.9 + var(--cardIn,0)*.1));opacity:var(--cardIn,0)}
+    .pcard .img{flex:none;width:52px;height:52px;border-radius:14px;background:radial-gradient(circle at 30% 20%,#312e81,#0b0d1d);display:grid;place-items:center}
+    .pcard .img svg{width:44px;height:44px}
     .pcard b{display:block;font-size:.88rem}
-    .pcard .meta{display:flex;gap:8px;align-items:center;margin-top:3px;font-size:.78rem}
+    .pcard .meta{display:flex;gap:8px;align-items:center;margin-top:3px;font-size:.78rem;white-space:nowrap}
+    .pcard>div:nth-child(2){flex:1;min-width:0}
     .pcard .price{font-weight:800}
     .pcard .stock{color:#34d399;font-weight:700}
-    .pcard button{margin-left:auto;border:none;border-radius:12px;padding:8px 10px;font-weight:800;font-size:.74rem;color:#fff;background:linear-gradient(120deg,var(--c1),var(--c2));transform:scale(calc(1 - var(--press,0)*.12));box-shadow:0 0 0 calc(var(--press,0)*8px) rgba(168,85,247,calc(.35 - var(--press,0)*.35))}
+    .pcard button{flex:1 0 100%;border:none;border-radius:12px;padding:9px 10px;font-weight:800;font-size:.74rem;color:#fff;background:linear-gradient(120deg,var(--c1),var(--c2));transform:scale(calc(1 - var(--press,0)*.12));box-shadow:0 0 0 calc(var(--press,0)*8px) rgba(168,85,247,calc(.35 - var(--press,0)*.35))}
     .cart{position:absolute;top:56px;left:20px;display:flex;align-items:center;gap:6px;font-weight:800;font-size:.8rem}
     .cart i{display:grid;place-items:center;min-width:20px;height:20px;border-radius:10px;font-style:normal;background:var(--c3);color:#fff;font-size:.72rem;transform:scale(var(--cartPop,1))}
     .toast{position:absolute;left:50%;top:92px;transform:translate(-50%,calc((1 - var(--toast,0))*-30px));opacity:var(--toast,0);white-space:nowrap;padding:9px 14px;border-radius:999px;background:rgba(16,185,129,.16);border:1px solid rgba(52,211,153,.5);color:#a7f3d0;font-weight:800;font-size:.8rem;z-index:6}
@@ -357,10 +358,10 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
         </div></div>
       </div>
       <div class="langs" id="langs">
-        <span style="left:52%;top:20%;--lx:-60;--ly:-20">Dobrý den 👋</span><span style="right:4%;top:16%;--lx:50;--ly:-30">Hello 🇬🇧</span>
-        <span style="left:50%;bottom:30%;--lx:-60;--ly:20">Hallo 🇩🇪</span><span style="right:3%;bottom:24%;--lx:50;--ly:30">Dzień dobry 🇵🇱</span>
-        <span style="left:58%;top:6%;--lx:-10;--ly:-40">Bonjour 🇫🇷</span><span style="right:8%;bottom:6%;--lx:30;--ly:50">Ciao 🇮🇹</span>
-        <span style="right:2%;top:46%;--lx:60;--ly:0">Hola 🇪🇸</span>
+        <span style="left:52%;top:20%;--lx:-21;--ly:-10">Dobrý den 👋</span><span style="right:7%;top:16%;--lx:17;--ly:-15">Hello 🇬🇧</span>
+        <span style="left:50%;bottom:30%;--lx:-21;--ly:10">Hallo 🇩🇪</span><span style="right:6%;bottom:24%;--lx:17;--ly:15">Dzień dobry 🇵🇱</span>
+        <span style="left:58%;top:6%;--lx:-3;--ly:-20">Bonjour 🇫🇷</span><span style="right:8%;bottom:6%;--lx:10;--ly:25">Ciao 🇮🇹</span>
+        <span style="right:5%;top:46%;--lx:21;--ly:0">Hola 🇪🇸</span>
       </div>
       <div class="progress"><span id="chapN">01 / 05</span><span class="bar"><i></i></span></div>
     </div>
