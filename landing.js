@@ -289,7 +289,8 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       .ctas .pill{width:100%}
       .scrollhint{display:none}
       .story{height:480vh}
-      .stage{display:flex;flex-direction:column;gap:0;padding:68px 16px 16px}
+      .stage{display:flex;flex-direction:column;align-items:stretch;gap:0;padding:68px 16px 16px}
+      .stage>div:not(.device):not(.clock):not(.langs):not(.progress){width:100%}
       .clock{top:58px;left:16px;font-size:30vw;opacity:calc(var(--clockO,1)*.5)}
       .chapters{flex:none;height:27svh;min-height:150px}
       .chap h2{font-size:clamp(2.1rem,10.5vw,3.1rem)}
