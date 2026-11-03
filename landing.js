@@ -187,7 +187,9 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     .stage{position:sticky;top:0;height:100svh;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:4vw;padding:80px clamp(18px,6vw,90px) 40px}
     .clock{position:absolute;left:clamp(18px,6vw,90px);top:96px;font-variant-numeric:tabular-nums;font-weight:900;font-size:clamp(4rem,14vw,13rem);letter-spacing:-.05em;line-height:1;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.14);opacity:var(--clockO,1);transform:translateY(calc(var(--clockY,0)*1px))}
     .chapters{position:relative;height:60vh;min-height:320px}
-    .chap{position:absolute;inset:auto 0 0 0;top:50%;transform:translateY(-50%)}
+    .chap{position:absolute;inset:auto 0 0 0;top:50%;transform:translateY(-50%);opacity:0;visibility:hidden;transition:opacity .45s,visibility .45s}
+    .chap.on{opacity:1;visibility:visible}
+    .chap .gw .w{background:linear-gradient(100deg,var(--c1),var(--c2) 55%,var(--c3));-webkit-background-clip:text;background-clip:text;color:transparent}
     .chap h2{margin:0;font-size:clamp(2.4rem,5.8vw,6rem);line-height:.98;letter-spacing:-.04em;font-weight:900}
     .chap h2 .serif{font-weight:400}
     .chap p{margin:18px 0 0;max-width:480px;font-size:clamp(1rem,1.4vw,1.2rem);color:var(--mut);line-height:1.5}
@@ -199,7 +201,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     .progress .bar{width:160px;height:2px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden}
     .progress .bar i{display:block;height:100%;width:calc(var(--p,0)*100%);background:linear-gradient(90deg,var(--c1),var(--c2),var(--c3))}
     /* phone */
-    .device{justify-self:center;position:relative;width:min(390px,80vw);aspect-ratio:9/18.5;transform:perspective(1400px) rotateY(calc(-12deg + var(--p,0)*12deg)) rotateX(calc(6deg - var(--p,0)*6deg)) scale(var(--ds,1));transform-style:preserve-3d;transition:transform .15s linear}
+    .device{justify-self:center;position:relative;width:min(360px,80vw,calc((100svh - 130px) / 2.06));aspect-ratio:9/18.5;transform:perspective(1400px) rotateY(calc(-12deg + var(--p,0)*12deg)) rotateX(calc(6deg - var(--p,0)*6deg)) scale(var(--ds,1));transform-style:preserve-3d;transition:transform .15s linear}
     .device::before{content:"";position:absolute;inset:-14%;background:radial-gradient(closest-side,rgba(168,85,247,.4),transparent);filter:blur(30px);z-index:-1}
     .phone{position:absolute;inset:0;border-radius:54px;padding:12px;background:linear-gradient(145deg,#2a2d4a,#0b0c18 40%,#1b1d33);box-shadow:0 0 0 1.5px rgba(255,255,255,.12) inset,0 60px 120px -40px rgba(0,0,0,.9),0 30px 60px -30px rgba(124,58,237,.6)}
     .screen{position:relative;width:100%;height:100%;border-radius:43px;overflow:hidden;background:linear-gradient(180deg,#0b0e22,#05060f);display:flex;flex-direction:column}
@@ -284,9 +286,10 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       .chapters{height:26vh;min-height:170px}
       .chap h2{font-size:clamp(2rem,9vw,3rem)}
       .chap p{font-size:.95rem;margin-top:10px}
-      .device{width:min(300px,68vw)}
       .clock{top:70px;opacity:calc(var(--clockO,1)*.6)}
       .progress{bottom:14px}
+      .langs span{font-size:.72rem;padding:6px 10px}
+      .device{width:min(300px,68vw,calc((100svh - 300px) / 2.06))}
     }
     @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.grain{display:none}}
   </style>
@@ -330,9 +333,9 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
         <div class="chapters">
           <div class="chap" data-c="0"><h2 data-split="c1"></h2></div>
           <div class="chap" data-c="1"><h2 data-split="c2"></h2><p data-s="c2s"></p></div>
-          <div class="chap" data-c="2"><h2 class="grad" data-split="c3"></h2><p data-s="c3s"></p></div>
+          <div class="chap" data-c="2"><h2 data-split="c3" class="gw"></h2><p data-s="c3s"></p></div>
           <div class="chap" data-c="3"><h2 data-split="c4"></h2><p data-s="c4s"></p></div>
-          <div class="chap" data-c="4"><h2><span data-split="c5"></span><br><span class="serif grad" data-split="c5b"></span></h2><p data-s="c5s"></p></div>
+          <div class="chap" data-c="4"><h2><span data-split="c5"></span><br><span class="serif gw" data-split="c5b"></span></h2><p data-s="c5s"></p></div>
         </div>
       </div>
       <div class="device" id="device">
@@ -354,10 +357,10 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
         </div></div>
       </div>
       <div class="langs" id="langs">
-        <span style="left:8%;top:30%;--lx:-60;--ly:-20">Dobrý den 👋</span><span style="right:6%;top:18%;--lx:60;--ly:-30">Hello 🇬🇧</span>
-        <span style="left:14%;bottom:22%;--lx:-50;--ly:30">Hallo 🇩🇪</span><span style="right:10%;bottom:16%;--lx:50;--ly:40">Dzień dobry 🇵🇱</span>
-        <span style="left:42%;top:10%;--lx:0;--ly:-50">Bonjour 🇫🇷</span><span style="right:30%;bottom:6%;--lx:20;--ly:60">Ciao 🇮🇹</span>
-        <span style="left:30%;bottom:40%;--lx:-30;--ly:10">Hola 🇪🇸</span>
+        <span style="left:52%;top:20%;--lx:-60;--ly:-20">Dobrý den 👋</span><span style="right:4%;top:16%;--lx:50;--ly:-30">Hello 🇬🇧</span>
+        <span style="left:50%;bottom:30%;--lx:-60;--ly:20">Hallo 🇩🇪</span><span style="right:3%;bottom:24%;--lx:50;--ly:30">Dzień dobry 🇵🇱</span>
+        <span style="left:58%;top:6%;--lx:-10;--ly:-40">Bonjour 🇫🇷</span><span style="right:8%;bottom:6%;--lx:30;--ly:50">Ciao 🇮🇹</span>
+        <span style="right:2%;top:46%;--lx:60;--ly:0">Hola 🇪🇸</span>
       </div>
       <div class="progress"><span id="chapN">01 / 05</span><span class="bar"><i></i></span></div>
     </div>
