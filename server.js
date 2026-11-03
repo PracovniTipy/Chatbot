@@ -27,6 +27,8 @@ const {
 } = require("./stores");
 const { parseFeed, fetchFeed, validateFeedUrl, selectRelevantProducts } = require("./feed");
 const insights = require("./insights");
+const { createGrowth } = require("./growth");
+const referrals = require("./referrals");
 
 const app = express();
 app.set("trust proxy", true);
@@ -184,6 +186,7 @@ function isPromoShop(shop) {
 
 async function effectivePlan(shop, subscription) {
   if (subscription) return planForSubscription(subscription);
+  if (database && await referrals.shopBonusUntil(database, shop).catch(() => null)) return planForSubscription(null);
   if (isPromoShop(shop)) {
     const trial = await getTrialInfo(shop);
     const promoPlan = getPlan(PROMO_PLAN_HANDLE);
@@ -362,6 +365,7 @@ async function initializeDatabase() {
     ON generic_usage_events (store_id, period_start, status)
   `);
   await insights.ensureTables(database);
+  await referrals.ensureTables(database);
 
   databaseReady = true;
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
@@ -870,12 +874,14 @@ function emailHash(email) {
 }
 
 function genericTrialInfo(store) {
-  if (store.access_mode !== "trial") return { mode: "legacy", started: false, available: false, active: false, endsAt: null, daysLeft: 0, days: GENERIC_TRIAL_DAYS };
-  if (!store.trial_started_at) return { mode: "trial", started: false, available: true, active: false, endsAt: null, daysLeft: 0, days: GENERIC_TRIAL_DAYS };
-  const endsAt = new Date(new Date(store.trial_started_at).getTime() + GENERIC_TRIAL_DAYS * 86400000);
+  const days = Number(store.trial_days) > 0 ? Number(store.trial_days) : GENERIC_TRIAL_DAYS;
+  const bonusUntil = store.free_until && new Date(store.free_until).getTime() > Date.now() ? new Date(store.free_until).toISOString() : null;
+  if (store.access_mode !== "trial") return { mode: "legacy", started: false, available: false, active: false, endsAt: null, daysLeft: 0, days, bonusUntil };
+  if (!store.trial_started_at) return { mode: "trial", started: false, available: true, active: false, endsAt: null, daysLeft: 0, days, bonusUntil };
+  const endsAt = new Date(new Date(store.trial_started_at).getTime() + days * 86400000);
   const msLeft = endsAt.getTime() - Date.now();
   return {
-    mode: "trial", started: true, available: false, active: msLeft > 0, days: GENERIC_TRIAL_DAYS,
+    mode: "trial", started: true, available: false, active: msLeft > 0, days, bonusUntil,
     endsAt: endsAt.toISOString(), daysLeft: Math.max(0, Math.ceil(msLeft / 86400000)),
   };
 }
@@ -883,6 +889,7 @@ function genericTrialInfo(store) {
 function genericAccess(store) {
   if (store.access_mode !== "trial") return { allowed: true, reason: "legacy" };
   if (store.subscription_status === "active" || store.subscription_status === "trialing") return { allowed: true, reason: "paid" };
+  if (store.free_until && new Date(store.free_until).getTime() > Date.now()) return { allowed: true, reason: "bonus" };
   const trial = genericTrialInfo(store);
   if (trial.active) return { allowed: true, reason: "trial" };
   return { allowed: false, reason: trial.started ? "trial_ended" : "not_started" };
@@ -893,7 +900,7 @@ async function findStoreById(id) {
   const result = await database.query(
     `SELECT id, name, email, api_key, admin_key, plan_handle, active,
             stripe_customer_id, stripe_subscription_id, subscription_status,
-            access_mode, trial_started_at, created_at
+            access_mode, trial_started_at, created_at, trial_days, free_until
      FROM generic_stores WHERE id = $1`,
     [id],
   );
@@ -1168,6 +1175,7 @@ async function answerGenericChat(store, body) {
     const reply = await generateGenericAnswer(store, catalog, message, history);
     await finalizeGenericUsageReservation(reservation);
     return {
+      branding: store.subscription_status !== "active" && store.subscription_status !== "trialing",
       caseId,
       reply,
       products: genericProductCards(catalog.products, reply),
@@ -2407,6 +2415,20 @@ td button:active{transform:translateY(0)}
 .welcome-choice button:disabled{opacity:.6;cursor:wait}
 .welcome-note{margin:16px 0 0;font-size:.82rem;color:#6b7280}
 .welcome-error{margin:10px 0 0;color:#b42318;font-size:.9rem}
+.ref-card{margin-top:18px;padding:20px 22px;border-radius:16px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #ddd6fe}
+.ref-card h3{margin:0 0 4px;font-size:1.05rem}
+.ref-card p{margin:0 0 12px;color:#4b5563;font-size:.92rem}
+.ref-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ref-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;font-size:1.05rem;letter-spacing:.08em;padding:8px 12px;border-radius:10px;background:#fff;border:1px dashed #a855f7;color:#6d28d9}
+.ref-link{flex:1 1 220px;min-width:0;padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;font-size:.88rem;color:#374151}
+.ref-row button{padding:9px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;cursor:pointer}
+.ref-count{margin-top:10px;font-size:.85rem;color:#6b7280}
+.welcome-ref{margin:14px 0 0;font-size:.88rem}
+.welcome-ref button.link{background:none;border:none;color:#7c3aed;text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+.welcome-ref form{display:inline-flex;gap:6px;margin-top:8px}
+.welcome-ref input{padding:8px 10px;border:1px solid #d1d5db;border-radius:9px;font:inherit;text-transform:uppercase;width:140px}
+.welcome-ref form button{padding:8px 12px;border:none;border-radius:9px;background:#111827;color:#fff;font-weight:700;cursor:pointer}
+.welcome-ref .ok{color:#047857;font-weight:700}
 .trial-offer{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 18px;padding:14px 18px;border-radius:12px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #d8b4fe}
 .trial-offer[hidden]{display:none}
 .trial-offer span{font-weight:600;color:#4c1d95}
@@ -2506,6 +2528,12 @@ td button:active{transform:translateY(0)}
       <p class="muted" id="setup-text">Chat se zákazníkům zobrazí až po zapnutí v editoru šablony (Vložení aplikací → Chatnelo Chat → Uložit).</p>
       <a id="setup-link" class="setup-button" href="#" target="_top">Otevřít editor šablony</a>
     </section>
+    <section class="ref-card" id="ref-card" hidden>
+      <h3 id="ref-title"></h3>
+      <p id="ref-text"></p>
+      <div class="ref-row"><span class="ref-code" id="ref-code"></span><input class="ref-link" id="ref-link" readonly><button type="button" id="ref-copy"></button></div>
+      <div class="ref-count" id="ref-count"></div>
+    </section>
   </main>
   <div id="welcome" class="welcome-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="welcome-title">
     <div class="welcome-box">
@@ -2525,6 +2553,11 @@ td button:active{transform:translateY(0)}
         </div>
       </div>
       <p class="welcome-error" id="welcome-error" hidden></p>
+      <div class="welcome-ref" id="welcome-ref">
+        <button type="button" class="link" id="ref-toggle"></button>
+        <form id="ref-form" hidden><input id="ref-input" maxlength="12" autocomplete="off"><button type="submit" id="ref-apply"></button></form>
+        <div class="ok" id="ref-ok" hidden></div>
+      </div>
       <p class="welcome-note" id="welcome-note"></p>
     </div>
   </div>
@@ -2540,6 +2573,8 @@ td button:active{transform:translateY(0)}
         pl: { freePlan: "Korzystasz z planu Darmowego – czat działa dalej, do {n} rozmów miesięcznie. Aby mieć więcej, wybierz płatny plan.", freeName: "Darmowy", trialActive: "🎉 Okres próbny jest aktywny – czat działa w Twoim sklepie za darmo do {date}. Nic nie płacisz; wybierz plan, gdy zechcesz kontynuować.", trialEnded: "Okres próbny się zakończył i czat jest ukryty dla klientów. Wybierz plan, aby od razu go włączyć.", offerFirst: "1. miesiąc", offerThen: "potem", offerOnce: "🔥 Jednorazowa oferta – tylko przy pierwszej subskrypcji", offerSave: "Oszczędzasz", limitReached: "Limit wyczerpany – czat jest ukryty dla klientów. Wybierz wyższy plan lub poczekaj na nowy okres.", trialNote: "3 dni za darmo · pełna wersja", tryFree: "Wypróbuj 3 dni za darmo", offer: "🎁 1. miesiąc tylko 4,45 $", popular: "Najpopularniejszy", perMonth: "/ miesiąc", selectPlan: "Wybierz plan", currentPlan: "✓ Twój obecny plan", fCases: "rozwiązanych rozmów miesięcznie", f1: "Odpowiedzi AI z Twoich produktów i stanów", f2: "Klikalne karty produktów w czacie", f3: "Własna ikona, styl okna i kolory", f4: "Odpowiedzi w języku klienta", trust: "🔒 3 dni za darmo, potem płatność przez Shopify · bez zobowiązań · anuluj w każdej chwili", plansTitle: "Wybierz plan", plansText: "Płatność obsługuje bezpiecznie Shopify (Shopify Billing). Plan możesz zmienić w każdej chwili.", loading: "Ładowanie…", loadError: "Nie udało się wczytać", meteringOff: "Pomiar wyłączony", plan: "Plan", planPrice: "Cena planu", period: "Okres", caseHint: "Jeden przypadek to jeden wątek czatu z udaną odpowiedzią.", select: "Wybierz", active: "Aktywny", payError: "Nie udało się rozpocząć płatności.", setupTitle: "Włącz czat w sklepie", setupText: "Klienci zobaczą czat po włączeniu go w edytorze motywu (Osadzenia aplikacji → Chatnelo Chat → Zapisz). Tam wybierzesz też ikonę przycisku (lub własny obraz), jeden z 5 stylów okna i kolory marki.", setupButton: "Włącz i dostosuj czat", billingNote: "Płatność obsługuje Shopify w USD; kwoty w CZK są orientacyjne.", noSubscription: "Brak płatnego planu" },
       };
       var WELCOME = {"cs": {"wTitle": "Vítejte v Chatnelo 👋", "wText": "Jak chcete začít? Vyberte si – nic se neplatí, dokud to sami nepotvrdíte.", "wTrialTitle": "Vyzkoušet 3 dny zdarma", "wTrialList": ["Plná verze bez omezení", "Bez platby a bez karty", "Po 3 dnech si vyberete tarif"], "wTrialBtn": "Začít 3 dny zdarma", "wPayTitle": "Vybrat tarif a zaplatit hned", "wPayList": ["Okamžitě plný tarif", "Platba bezpečně přes Shopify", "Kdykoli změníte nebo zrušíte"], "wPayBtn": "Vybrat tarif", "wNote": "Zkušební verzi lze využít jednou na obchod – kdykoli později, pokud ji teď nespustíte.", "trialOffer": "🎁 Máte k dispozici 3 dny plné verze zdarma – bez platby.", "trustChoice": "🔒 Zaplatit můžete hned, nebo nejdřív vyzkoušet 3 dny zdarma · platba přes Shopify · bez závazků", "trustPaid": "🔒 Platba bezpečně přes Shopify · bez závazků · kdykoli můžete změnit nebo zrušit", "startError": "Zkušební verzi se nepodařilo spustit. Zkuste to prosím znovu."}, "en": {"wTitle": "Welcome to Chatnelo 👋", "wText": "How would you like to start? Pick one – nothing is charged until you confirm it yourself.", "wTrialTitle": "Try 3 days free", "wTrialList": ["Full version, no limits", "No payment, no card", "Choose a plan after 3 days"], "wTrialBtn": "Start 3-day free trial", "wPayTitle": "Choose a plan and pay now", "wPayList": ["Full plan right away", "Billed securely through Shopify", "Change or cancel anytime"], "wPayBtn": "Choose a plan", "wNote": "The free trial can be used once per store – anytime later if you don't start it now.", "trialOffer": "🎁 You have 3 days of the full version free – no payment.", "trustChoice": "🔒 Pay now or try 3 days free first · billed through Shopify · no commitment", "trustPaid": "🔒 Billed securely through Shopify · no commitment · change or cancel anytime", "startError": "Could not start the free trial. Please try again."}, "sk": {"wTitle": "Vitajte v Chatnelo 👋", "wText": "Ako chcete začať? Vyberte si – nič sa neplatí, kým to sami nepotvrdíte.", "wTrialTitle": "Vyskúšať 3 dni zdarma", "wTrialList": ["Plná verzia bez obmedzení", "Bez platby a bez karty", "Po 3 dňoch si vyberiete tarif"], "wTrialBtn": "Začať 3 dni zdarma", "wPayTitle": "Vybrať tarif a zaplatiť hneď", "wPayList": ["Okamžite plný tarif", "Platba bezpečne cez Shopify", "Kedykoľvek zmeníte alebo zrušíte"], "wPayBtn": "Vybrať tarif", "wNote": "Skúšobnú verziu je možné využiť raz na obchod – kedykoľvek neskôr, ak ju teraz nespustíte.", "trialOffer": "🎁 Máte k dispozícii 3 dni plnej verzie zdarma – bez platby.", "trustChoice": "🔒 Zaplatiť môžete hneď, alebo najprv vyskúšať 3 dni zdarma · platba cez Shopify · bez záväzkov", "trustPaid": "🔒 Platba bezpečne cez Shopify · bez záväzkov · kedykoľvek zmeniť alebo zrušiť", "startError": "Skúšobnú verziu sa nepodarilo spustiť. Skúste to prosím znova."}, "de": {"wTitle": "Willkommen bei Chatnelo 👋", "wText": "Wie möchten Sie starten? Wählen Sie – es wird nichts berechnet, bevor Sie es selbst bestätigen.", "wTrialTitle": "3 Tage kostenlos testen", "wTrialList": ["Vollversion ohne Einschränkungen", "Keine Zahlung, keine Karte", "Tarif nach 3 Tagen wählen"], "wTrialBtn": "3 Tage kostenlos starten", "wPayTitle": "Tarif wählen und sofort zahlen", "wPayList": ["Sofort voller Tarif", "Sichere Abrechnung über Shopify", "Jederzeit änder- oder kündbar"], "wPayBtn": "Tarif wählen", "wNote": "Die Testphase kann einmal pro Shop genutzt werden – auch später, wenn Sie sie jetzt nicht starten.", "trialOffer": "🎁 Sie haben 3 Tage Vollversion kostenlos – ohne Zahlung.", "trustChoice": "🔒 Sofort zahlen oder zuerst 3 Tage kostenlos testen · Abrechnung über Shopify · keine Bindung", "trustPaid": "🔒 Sichere Abrechnung über Shopify · keine Bindung · jederzeit kündbar", "startError": "Die Testphase konnte nicht gestartet werden. Bitte erneut versuchen."}, "pl": {"wTitle": "Witaj w Chatnelo 👋", "wText": "Jak chcesz zacząć? Wybierz – nic nie zostanie pobrane, dopóki sam tego nie potwierdzisz.", "wTrialTitle": "Wypróbuj 3 dni za darmo", "wTrialList": ["Pełna wersja bez ograniczeń", "Bez płatności i bez karty", "Po 3 dniach wybierasz plan"], "wTrialBtn": "Rozpocznij 3 dni za darmo", "wPayTitle": "Wybierz plan i zapłać teraz", "wPayList": ["Od razu pełny plan", "Bezpieczna płatność przez Shopify", "Zmień lub anuluj w każdej chwili"], "wPayBtn": "Wybierz plan", "wNote": "Okres próbny można wykorzystać raz na sklep – także później, jeśli nie uruchomisz go teraz.", "trialOffer": "🎁 Masz 3 dni pełnej wersji za darmo – bez płatności.", "trustChoice": "🔒 Zapłać od razu lub najpierw wypróbuj 3 dni za darmo · płatność przez Shopify · bez zobowiązań", "trustPaid": "🔒 Bezpieczna płatność przez Shopify · bez zobowiązań · anuluj w każdej chwili", "startError": "Nie udało się uruchomić okresu próbnego. Spróbuj ponownie."}};
+      var REF = {"cs": {"refToggle": "Máte kód od známého? Získejte 30 dní zdarma", "refApply": "Použít", "refOk": "✓ Kód přijat – máte 30 dní plné verze zdarma.", "refBad": "Tento kód neplatí.", "wTrialBtn30": "Začít 30 dní zdarma", "refTitle": "🎁 Doporučte Chatnelo – měsíc zdarma za každý e-shop", "refText": "Pošlete odkaz nebo kód známému s e-shopem. On dostane 30 dní zdarma místo 3 a vy měsíc Chatnela zdarma (při placeném tarifu jako kredit na další platbu).", "refCopy": "Kopírovat odkaz", "refCopied": "Zkopírováno ✓", "refCount": "Doporučeno e-shopů: {n}", "bonus": "🎁 Díky doporučení máte Chatnelo zdarma do {date}."}, "en": {"refToggle": "Got a code from a friend? Get 30 days free", "refApply": "Apply", "refOk": "✓ Code accepted – you get 30 days of the full version free.", "refBad": "This code is not valid.", "wTrialBtn30": "Start 30 days free", "refTitle": "🎁 Recommend Chatnelo – a month free for every store", "refText": "Send your link or code to a friend with an online store. They get 30 days free instead of 3, and you get a month of Chatnelo free (as credit on your next bill if you are on a paid plan).", "refCopy": "Copy link", "refCopied": "Copied ✓", "refCount": "Stores recommended: {n}", "bonus": "🎁 Thanks to a recommendation, Chatnelo is free for you until {date}."}, "sk": {"refToggle": "Máte kód od známeho? Získajte 30 dní zdarma", "refApply": "Použiť", "refOk": "✓ Kód prijatý – máte 30 dní plnej verzie zdarma.", "refBad": "Tento kód neplatí.", "wTrialBtn30": "Začať 30 dní zdarma", "refTitle": "🎁 Odporučte Chatnelo – mesiac zdarma za každý e-shop", "refText": "Pošlite odkaz alebo kód známemu s e-shopom. Dostane 30 dní zdarma namiesto 3 a vy mesiac Chatnela zdarma (pri platenom tarife ako kredit).", "refCopy": "Kopírovať odkaz", "refCopied": "Skopírované ✓", "refCount": "Odporučené e-shopy: {n}", "bonus": "🎁 Vďaka odporúčaniu máte Chatnelo zdarma do {date}."}, "de": {"refToggle": "Code von einem Bekannten? 30 Tage gratis", "refApply": "Anwenden", "refOk": "✓ Code akzeptiert – 30 Tage Vollversion gratis.", "refBad": "Dieser Code ist ungültig.", "wTrialBtn30": "30 Tage gratis starten", "refTitle": "🎁 Chatnelo empfehlen – ein Monat gratis pro Shop", "refText": "Senden Sie Ihren Link oder Code an Bekannte mit Onlineshop. Sie erhalten 30 statt 3 Tage gratis, Sie selbst einen Monat Chatnelo gratis (bei bezahltem Tarif als Guthaben).", "refCopy": "Link kopieren", "refCopied": "Kopiert ✓", "refCount": "Empfohlene Shops: {n}", "bonus": "🎁 Dank einer Empfehlung ist Chatnelo für Sie bis {date} gratis."}, "pl": {"refToggle": "Masz kod od znajomego? 30 dni za darmo", "refApply": "Użyj", "refOk": "✓ Kod przyjęty – 30 dni pełnej wersji za darmo.", "refBad": "Ten kod jest nieważny.", "wTrialBtn30": "Rozpocznij 30 dni za darmo", "refTitle": "🎁 Poleć Chatnelo – miesiąc gratis za każdy sklep", "refText": "Wyślij link lub kod znajomemu ze sklepem. Dostanie 30 dni za darmo zamiast 3, a Ty miesiąc Chatnelo gratis (przy płatnym planie jako kredyt).", "refCopy": "Kopiuj link", "refCopied": "Skopiowano ✓", "refCount": "Polecone sklepy: {n}", "bonus": "🎁 Dzięki poleceniu masz Chatnelo za darmo do {date}."}};
+      Object.keys(REF).forEach(function (code) { Object.keys(REF[code]).forEach(function (key) { STRINGS[code][key] = REF[code][key]; }); });
       Object.keys(WELCOME).forEach(function (code) {
         Object.keys(WELCOME[code]).forEach(function (key) { STRINGS[code][key] = WELCOME[code][key]; });
       });
@@ -2588,6 +2623,22 @@ td button:active{transform:translateY(0)}
         byId("trial-offer").hidden = !canTry;
         byId("trial-offer-text").textContent = t("trialOffer");
         byId("trial-offer-btn").textContent = t("wTrialBtn");
+        var thirty = Boolean(welcomeTrial && welcomeTrial.days >= 30);
+        if (thirty) { byId("w-trial-btn").textContent = t("wTrialBtn30"); byId("trial-offer-btn").textContent = t("wTrialBtn30"); }
+        byId("ref-toggle").textContent = t("refToggle");
+        byId("ref-apply").textContent = t("refApply");
+        byId("welcome-ref").hidden = thirty && byId("ref-ok").hidden;
+        if (!byId("ref-ok").hidden) byId("ref-ok").textContent = t("refOk");
+        var ref = state.referral;
+        byId("ref-card").hidden = !ref;
+        if (ref) {
+          byId("ref-title").textContent = t("refTitle");
+          byId("ref-text").textContent = t("refText");
+          byId("ref-code").textContent = ref.code;
+          byId("ref-link").value = ref.link;
+          byId("ref-copy").textContent = t("refCopy");
+          byId("ref-count").textContent = t("refCount").replace("{n}", ref.count);
+        }
         var counter = byId("usage-count");
         if (state.error) {
           counter.textContent = t("loadError");
@@ -2614,7 +2665,11 @@ td button:active{transform:translateY(0)}
         // "trial ended / chat hidden" warning would be misleading there.
         var chatStillOn = data.availability && data.availability.available;
         var onFree = !subscribedNow && data.usage && data.usage.plan && data.usage.plan.handle === "free";
-        if (trial && trial.available && !subscribedNow) {
+        if (state.referral && state.referral.bonusUntil && !subscribedNow) {
+          banner.hidden = false;
+          banner.className = "trial-banner";
+          banner.textContent = t("bonus").replace("{date}", new Date(state.referral.bonusUntil).toLocaleDateString(locale()));
+        } else if (trial && trial.available && !subscribedNow) {
           banner.hidden = true;
         } else if (onFree && !(trial && trial.active)) {
           banner.hidden = false;
@@ -2799,6 +2854,31 @@ td button:active{transform:translateY(0)}
             .finally(function () { button.disabled = false; });
         }
         byId("w-trial-btn").addEventListener("click", function () { startTrial(this); });
+        byId("ref-toggle").addEventListener("click", function () { byId("ref-form").hidden = !byId("ref-form").hidden; byId("ref-input").focus(); });
+        byId("ref-form").addEventListener("submit", function (event) {
+          event.preventDefault();
+          var errorBox = byId("welcome-error");
+          errorBox.hidden = true;
+          byId("ref-apply").disabled = true;
+          window.fetch("/api/referral/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: byId("ref-input").value.trim() }) })
+            .then(readJson)
+            .then(function (result) {
+              if (state.data && state.data.trial) state.data.trial.days = result.days;
+              byId("ref-form").hidden = true; byId("ref-toggle").hidden = true;
+              byId("ref-ok").hidden = false;
+              render();
+            })
+            .catch(function (error) { errorBox.textContent = error.message || t("refBad"); errorBox.hidden = false; })
+            .finally(function () { byId("ref-apply").disabled = false; });
+        });
+        byId("ref-copy").addEventListener("click", function () {
+          var input = byId("ref-link"), button = this;
+          input.select();
+          var done = function () { button.textContent = t("refCopied"); setTimeout(function () { button.textContent = t("refCopy"); }, 1600); };
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(input.value).then(done, function () { try { document.execCommand("copy"); done(); } catch (e) {} });
+          else { try { document.execCommand("copy"); done(); } catch (e) {} }
+        });
+        window.fetch("/api/referral").then(readJson).then(function (data) { state.referral = data; render(); }).catch(function () {});
         byId("trial-offer-btn").addEventListener("click", function () { startTrial(this); });
         byId("w-pay-btn").addEventListener("click", function () {
           state.welcomeClosed = true;
@@ -2855,6 +2935,90 @@ td button:active{transform:translateY(0)}
 </html>`);
 });
 
+// Reward for a recommendation: 30 days free, or one month of app credit when
+// the recommender already pays through Shopify.
+async function rewardReferrer(owner) {
+  if (owner.owner_kind === "store") {
+    await referrals.extendStore(database, owner.owner_id);
+    return;
+  }
+  const shop = owner.owner_id;
+  try {
+    const accessToken = await getShopToken(shop);
+    if (accessToken) {
+      const data = await shopifyGraphql(shop, accessToken, `{
+        shop { plan { partnerDevelopment } }
+        currentAppInstallation { activeSubscriptions { id name status } }
+      }`);
+      const subscription = data.currentAppInstallation.activeSubscriptions[0] || null;
+      const plan = subscription ? planForSubscription(subscription) : null;
+      if (plan && Number.isFinite(plan.priceUsd)) {
+        const result = await shopifyGraphql(shop, accessToken, `mutation($description: String!, $amount: MoneyInput!, $test: Boolean) {
+          appCreditCreate(description: $description, amount: $amount, test: $test) { appCredit { id } userErrors { field message } }
+        }`, {
+          description: "Chatnelo – 1 month free for a recommendation",
+          amount: { amount: plan.priceUsd, currencyCode: "USD" },
+          test: Boolean(data.shop.plan && data.shop.plan.partnerDevelopment),
+        });
+        const errors = (result && result.appCreditCreate && result.appCreditCreate.userErrors) || [];
+        if (!errors.length) return;
+        console.warn("Kredit za doporučení:", { shop, errors });
+      }
+    }
+  } catch (error) {
+    console.warn("Kredit za doporučení:", { shop, error: error.message });
+  }
+  await referrals.extendShop(database, shop);
+  availabilityCache.delete(shop);
+}
+
+function referralLink(code) {
+  return `https://chatnelo.com/r/${code}`;
+}
+
+app.get("/r/:code", async (req, res) => {
+  const code = referrals.normalizeCode(req.params.code);
+  const owner = database && code ? await referrals.resolveCode(database, code).catch(() => null) : null;
+  res.redirect(302, owner ? `/?ref=${encodeURIComponent(owner.code)}#cn-try` : "/");
+});
+
+// Shopify admin: the merchant's own recommendation link.
+app.get("/api/referral", async (req, res) => {
+  try {
+    const { shop } = await getAdminAccess(req);
+    requireMeteringDatabase();
+    const code = await referrals.getOrCreateCode(database, "shop", shop);
+    const bonusUntil = await referrals.shopBonusUntil(database, shop);
+    res.json({ code, link: referralLink(code), count: await referrals.countRewards(database, code), bonusUntil, days: referrals.REFERRAL_DAYS });
+  } catch (error) {
+    logRouteError("Referral", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+// Shopify admin: a new merchant enters a recommendation code before the trial.
+app.post("/api/referral/apply", async (req, res) => {
+  try {
+    const { shop } = await getAdminAccess(req);
+    requireMeteringDatabase();
+    const trial = await getTrialInfo(shop);
+    if (!trial.available) throw httpError("Kód lze použít jen před spuštěním zkušební verze.", 400);
+    const owner = await referrals.resolveCode(database, req.body && req.body.code);
+    if (!owner || (owner.owner_kind === "shop" && owner.owner_id === shop)) throw httpError("Tento kód neplatí.", 400);
+    const claimed = await referrals.claim(database, { code: owner.code, refereeKey: `shop:${referrals.hash(shop)}`, refereeKind: "shop", refereeId: shop });
+    if (!claimed) throw httpError("Kód už nelze použít.", 400);
+    await rewardReferrer(claimed).catch((error) => console.warn("Odměna za doporučení:", error.message));
+    res.json({ ok: true, days: referrals.REFERRAL_DAYS });
+  } catch (error) {
+    logRouteError("Referral apply", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+// "Try it on your store" demo, revenue calculator and Czech landing pages.
+const growth = createGrowth({ parseFeed, generateGenericAnswer, genericProductCards, logRouteError });
+growth.register(app);
+
 app.get("/robots.txt", (req, res) => {
   res.type("text/plain").send("User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /proxy/\nDisallow: /widget-preview\n\nSitemap: https://chatnelo.com/sitemap.xml\n");
 });
@@ -2863,6 +3027,7 @@ app.get("/sitemap.xml", (req, res) => {
   res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://chatnelo.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+${growth.seoPaths.map((p) => `  <url><loc>https://chatnelo.com${p}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>`).join("\n")}
   <url><loc>https://chatnelo.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>`);
 });
@@ -2984,11 +3149,13 @@ app.get("/marketing", (req, res) => {
     </div>
   </header>
   <main>
+    ${growth.tryHtml()}
     <section>
       <h2 data-i18n="marketing.stepsHeading">Jak to funguje</h2>
       <ol class="steps">${stepsHtml}
       </ol>
     </section>
+    ${growth.calcHtml()}
     <section>
       <h2 data-i18n="marketing.pricingHeading">Ceník</h2>
       <p class="muted" data-i18n="marketing.pricingIntro">Pevná měsíční cena za tarif, ne platba za jednotlivou zprávu. Víte tedy dopředu, kolik appka bude stát, i v měsíci, kdy dorazí jen pár dotazů.</p>
@@ -3319,6 +3486,22 @@ app.post("/store/signup", async (req, res) => {
       "INSERT INTO generic_catalog (store_id, products, rules) VALUES ($1, '[]', '{}')",
       [id],
     );
+    if (req.body && req.body.ref) {
+      try {
+        const owner = await referrals.resolveCode(database, req.body.ref);
+        const ownerStore = owner && owner.owner_kind === "store" ? await findStoreById(owner.owner_id) : null;
+        const selfReferral = ownerStore && String(ownerStore.email).toLowerCase() === email;
+        const claimed = owner && !selfReferral
+          ? await referrals.claim(database, { code: owner.code, refereeKey: `email:${referrals.hash(email)}`, refereeKind: "store", refereeId: id })
+          : null;
+        if (claimed) {
+          await database.query("UPDATE generic_stores SET trial_days = $2 WHERE id = $1", [id, referrals.REFERRAL_DAYS]);
+          await rewardReferrer(claimed);
+        }
+      } catch (error) {
+        console.warn("Doporučení při registraci:", error.message);
+      }
+    }
 
     const baseUrl = appBaseUrl(req);
     res.status(201).json({
@@ -3940,6 +4123,7 @@ app.get("/store/install", (req, res) => {
 // Texts of the sign-up / log-in page and dashboard for stores outside Shopify.
 const DASHBOARD_STRINGS = {
   cs: {
+    refTitle: "🎁 Doporučte Chatnelo – měsíc zdarma za každý e-shop", refText: "Pošlete odkaz známému s e-shopem. Dostane 30 dní zdarma místo 3 a vy měsíc Chatnela zdarma.", refCopy: "Kopírovat odkaz", refCopied: "Zkopírováno ✓", refCount: "Doporučeno e-shopů: {n}", stBonus: "🎁 Díky doporučení máte Chatnelo zdarma do {date}.", invite: "🎁 Máte pozvánku od známého – po registraci dostanete 30 dní zdarma místo 3.",
     guideTitle: "Přesný návod krok za krokem", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode i vlastní web – otevře se v novém okně.", guideBtn: "Otevřít návod k instalaci",
     authTitle: "Chatnelo pro váš e-shop", authLead: "Vytvořte si účet během minuty, nebo se přihlaste. Nic neplatíte, dokud sami nevyberete tarif.",
     tabSignup: "Registrace", tabLogin: "Přihlášení", storeName: "Název obchodu", email: "E-mail", password: "Heslo (min. 8 znaků)",
@@ -3963,6 +4147,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Vyplňte prosím název obchodu a e-mail.", errPassword: "Heslo musí mít alespoň 8 znaků.", errConsent: "Pro registraci je potřeba souhlas se zásadami ochrany osobních údajů.",
   },
   en: {
+    refTitle: "🎁 Recommend Chatnelo – a month free for every store", refText: "Send the link to a friend with an online store. They get 30 days free instead of 3, and you get a month of Chatnelo free.", refCopy: "Copy link", refCopied: "Copied ✓", refCount: "Stores recommended: {n}", stBonus: "🎁 Thanks to a recommendation, Chatnelo is free for you until {date}.", invite: "🎁 You were invited by a friend – sign up and get 30 days free instead of 3.",
     guideTitle: "Exact step-by-step guide", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode or your own website – opens in a new window.", guideBtn: "Open installation guide",
     authTitle: "Chatnelo for your online store", authLead: "Create an account in a minute or log in. You pay nothing until you choose a plan yourself.",
     tabSignup: "Sign up", tabLogin: "Log in", storeName: "Store name", email: "E-mail", password: "Password (min. 8 characters)",
@@ -3986,6 +4171,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Please fill in the store name and e-mail.", errPassword: "The password must have at least 8 characters.", errConsent: "Please agree to the privacy policy to sign up.",
   },
   sk: {
+    refTitle: "🎁 Odporučte Chatnelo – mesiac zdarma za každý e-shop", refText: "Pošlite odkaz známemu s e-shopom. Dostane 30 dní zdarma namiesto 3 a vy mesiac Chatnela zdarma.", refCopy: "Kopírovať odkaz", refCopied: "Skopírované ✓", refCount: "Odporučené e-shopy: {n}", stBonus: "🎁 Vďaka odporúčaniu máte Chatnelo zdarma do {date}.", invite: "🎁 Máte pozvánku od známeho – po registrácii dostanete 30 dní zdarma namiesto 3.",
     guideTitle: "Presný návod krok za krokom", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode aj vlastný web – otvorí sa v novom okne.", guideBtn: "Otvoriť návod na inštaláciu",
     authTitle: "Chatnelo pre váš e-shop", authLead: "Vytvorte si účet za minútu alebo sa prihláste. Nič neplatíte, kým si sami nevyberiete tarif.",
     tabSignup: "Registrácia", tabLogin: "Prihlásenie", storeName: "Názov obchodu", email: "E-mail", password: "Heslo (min. 8 znakov)",
@@ -4009,6 +4195,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Vyplňte prosím názov obchodu a e-mail.", errPassword: "Heslo musí mať aspoň 8 znakov.", errConsent: "Na registráciu je potrebný súhlas so zásadami ochrany osobných údajov.",
   },
   de: {
+    refTitle: "🎁 Chatnelo empfehlen – ein Monat gratis pro Shop", refText: "Senden Sie den Link an Bekannte mit Onlineshop. Sie erhalten 30 statt 3 Tage gratis, Sie selbst einen Monat Chatnelo gratis.", refCopy: "Link kopieren", refCopied: "Kopiert ✓", refCount: "Empfohlene Shops: {n}", stBonus: "🎁 Dank einer Empfehlung ist Chatnelo für Sie bis {date} gratis.", invite: "🎁 Sie wurden eingeladen – nach der Anmeldung 30 statt 3 Tage gratis.",
     guideTitle: "Genaue Schritt-für-Schritt-Anleitung", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode oder eigene Website – öffnet sich in einem neuen Fenster.", guideBtn: "Installationsanleitung öffnen",
     authTitle: "Chatnelo für Ihren Onlineshop", authLead: "Konto in einer Minute erstellen oder anmelden. Sie zahlen nichts, bis Sie selbst einen Tarif wählen.",
     tabSignup: "Registrieren", tabLogin: "Anmelden", storeName: "Shopname", email: "E-Mail", password: "Passwort (mind. 8 Zeichen)",
@@ -4032,6 +4219,7 @@ const DASHBOARD_STRINGS = {
     errFill: "Bitte Shopname und E-Mail ausfüllen.", errPassword: "Das Passwort muss mindestens 8 Zeichen haben.", errConsent: "Für die Registrierung ist die Zustimmung zur Datenschutzerklärung nötig.",
   },
   pl: {
+    refTitle: "🎁 Poleć Chatnelo – miesiąc gratis za każdy sklep", refText: "Wyślij link znajomemu ze sklepem. Dostanie 30 dni za darmo zamiast 3, a Ty miesiąc Chatnelo gratis.", refCopy: "Kopiuj link", refCopied: "Skopiowano ✓", refCount: "Polecone sklepy: {n}", stBonus: "🎁 Dzięki poleceniu masz Chatnelo za darmo do {date}.", invite: "🎁 Masz zaproszenie od znajomego – po rejestracji 30 dni za darmo zamiast 3.",
     guideTitle: "Dokładna instrukcja krok po kroku", guideText: "Shoptet, WordPress/WooCommerce, Upgates, Wix, Webnode lub własna strona – otworzy się w nowym oknie.", guideBtn: "Otwórz instrukcję instalacji",
     authTitle: "Chatnelo dla Twojego sklepu", authLead: "Załóż konto w minutę lub zaloguj się. Nic nie płacisz, dopóki sam nie wybierzesz planu.",
     tabSignup: "Rejestracja", tabLogin: "Logowanie", storeName: "Nazwa sklepu", email: "E-mail", password: "Hasło (min. 8 znaków)",
@@ -4154,6 +4342,7 @@ app.get("/store/dashboard", (req, res) => {
     <div id="auth-view">
       <h1 data-d="authTitle"></h1>
       <p class="lead" data-d="authLead"></p>
+      <div class="status offer" id="invite" hidden><span data-d="invite"></span></div>
       <div class="auth-grid">
         <div class="card">
           <div class="tabs" role="tablist">
@@ -4225,6 +4414,12 @@ app.get("/store/dashboard", (req, res) => {
         <div class="plans" id="plan-list"></div>
         <div id="billing-error" class="error"></div>
       </section>
+      <section class="panel" id="ref-section" hidden>
+        <h2 data-d="refTitle"></h2>
+        <p class="muted" data-d="refText"></p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="ref-link" readonly style="flex:1 1 240px"><button type="button" class="btn small" id="ref-copy" style="margin:0" data-d="refCopy"></button></div>
+        <p class="muted" id="ref-count" style="margin:10px 0 0"></p>
+      </section>
       <section class="panel" id="feed-section">
         <h2>Produkty z XML feedu (doporučeno)</h2>
         <p class="muted">Vložte odkaz na produktový XML feed pro Heureku, Zboží.cz nebo Google Nákupy. Najdete ho v administraci e-shopu (Shoptet: Propojení → Srovnávače zboží; WooCommerce: plugin pro Google/Heureka feed). Chatbot si produkty, ceny, dostupnost, odkazy a obrázky načte sám a každých 6 hodin je aktualizuje.</p>
@@ -4289,6 +4484,10 @@ app.get("/store/dashboard", (req, res) => {
     }
     document.addEventListener("chatnelo:langchange", applyTexts);
 
+    function refCode() { try { return localStorage.getItem("cn_ref") || ""; } catch (e) { return ""; } }
+    (function captureRef() {
+      try { var r = new URLSearchParams(location.search).get("ref"); if (r) localStorage.setItem("cn_ref", r); } catch (e) {}
+    })();
     function saveSession() { try { localStorage.setItem(SESSION_KEY, JSON.stringify({ storeId: state.storeId, adminKey: state.adminKey })); } catch (e) {} }
     function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
     function authHeaders() { return { "Content-Type": "application/json", Authorization: "Bearer " + state.adminKey }; }
@@ -4348,7 +4547,7 @@ app.get("/store/dashboard", (req, res) => {
       if (!byId("signup-consent").checked) { errorEl.textContent = L("errConsent"); return; }
       var button = byId("signup-btn");
       button.disabled = true;
-      fetch("/store/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name, email: email, password: password }) })
+      fetch("/store/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name, email: email, password: password, ref: refCode() }) })
         .then(readJson)
         .then(function (data) { return enter(data.storeId, data.adminKey, "signup-error"); })
         .catch(function (error) { if (!errorEl.textContent) errorEl.textContent = error.message; })
@@ -4417,7 +4616,10 @@ app.get("/store/dashboard", (req, res) => {
       var status = byId("status"), statusText = byId("status-text"), statusBtn = byId("status-btn");
       status.hidden = false;
       statusBtn.hidden = true;
-      if (paid) {
+      if (!paid && trial.bonusUntil) {
+        status.className = "status trial";
+        statusText.textContent = L("stBonus").replace("{date}", dateText(trial.bonusUntil));
+      } else if (paid) {
         status.className = "status paid";
         statusText.textContent = L("stPaid").replace("{plan}", data.usage.plan.name);
       } else if (trial.mode !== "trial") {
@@ -4438,6 +4640,8 @@ app.get("/store/dashboard", (req, res) => {
       byId("choice").hidden = !(trial.mode === "trial" && trial.available && !paid && !state.choiceClosed);
 
       byId("billing-status").textContent = data.billingConfigured ? L("billingSecure") : L("billingManual");
+      byId("ref-section").hidden = !data.referral;
+      if (data.referral) { byId("ref-link").value = data.referral.link; byId("ref-count").textContent = L("refCount").replace("{n}", data.referral.count); }
       var list = byId("plan-list");
       list.innerHTML = "";
       (data.usage.plans || []).forEach(function (plan) {
@@ -4514,8 +4718,15 @@ app.get("/store/dashboard", (req, res) => {
         .finally(function () { btn.disabled = false; });
     });
 
+    byId("ref-copy").addEventListener("click", function () {
+      var input = byId("ref-link"), button = this; input.select();
+      var done = function () { button.textContent = L("refCopied"); setTimeout(function () { button.textContent = L("refCopy"); }, 1600); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(input.value).then(done, function () {}); else { try { document.execCommand("copy"); done(); } catch (e) {} }
+    });
+
     function init() {
       applyTexts();
+      byId("invite").hidden = !refCode();
       if (window.location.hash === "#login") showTab("login");
       var params = new URLSearchParams(window.location.search);
       var saved = null;
@@ -4548,6 +4759,10 @@ app.get("/store/:id", async (req, res) => {
       billingConfigured: Boolean(stripeClient),
       trial: genericTrialInfo(store),
       access: genericAccess(store),
+      referral: await (async () => {
+        const code = await referrals.getOrCreateCode(database, "store", store.id);
+        return { code, link: referralLink(code), count: await referrals.countRewards(database, code), days: referrals.REFERRAL_DAYS };
+      })().catch(() => null),
       catalog,
       usage,
       apiKey: store.api_key,
@@ -4893,10 +5108,12 @@ async function getTrialInfo(shop, options = {}) {
     }
     const result = await database.query("SELECT started_at FROM shop_trials WHERE shop_hash = $1", [shopHash]);
     if (!result.rows.length) {
-      return { ...fallback, available: true };
+      const referred = await referrals.wasReferred(database, `shop:${shopHash}`).catch(() => false);
+      return { ...fallback, available: true, days: referred ? referrals.REFERRAL_DAYS : SHOPIFY_TRIAL_DAYS, referred };
     }
     const startedAt = new Date(result.rows[0].started_at);
-    const trialDays = isPromoShop(shop) ? PROMO_PRO_DAYS : SHOPIFY_TRIAL_DAYS;
+    const trialDays = isPromoShop(shop) ? PROMO_PRO_DAYS
+      : (await referrals.wasReferred(database, `shop:${shopHash}`).catch(() => false) ? referrals.REFERRAL_DAYS : SHOPIFY_TRIAL_DAYS);
     const endsAt = new Date(startedAt.getTime() + trialDays * 24 * 60 * 60 * 1000);
     const msLeft = endsAt.getTime() - Date.now();
     return {
@@ -4936,6 +5153,8 @@ async function storefrontAvailability(shop) {
         const summary = await getUsageSummary(shop, accessToken, subscription);
         if (summary.enabled && summary.usage >= summary.limit) value = { available: false, reason: "limit" };
       }
+      // Free and trial stores show a small "Chatnelo" link in the chat.
+      value.branding = !subscription;
     }
   } catch (error) {
     // Fail open: a temporary error must not hide the chat on a paying store.
