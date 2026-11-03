@@ -210,17 +210,41 @@ function jsonLdProducts(html, pageUrl) {
     const body = block.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "").replace(/<!--|-->/g, "").trim();
     try { visit(JSON.parse(body)); } catch (_) { /* invalid JSON-LD */ }
   }
-  if (!found.length && /<meta[^>]+(property|name)=["']og:type["'][^>]+content=["']product/i.test(html)) {
-    const meta = (prop) => {
-      const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']*)`, "i")) ||
-        html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${prop}["']`, "i"));
-      return m ? decodeEntities(m[1]) : "";
-    };
+  if (found.length) return found.filter(Boolean);
+  // Microdata (schema.org/Product with itemprop) and Open Graph product tags,
+  // used e.g. by Shoptet and many Czech platforms.
+  const meta = (prop) => {
+    const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']*)`, "i")) ||
+      html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${prop}["']`, "i"));
+    return m ? decodeEntities(m[1]) : "";
+  };
+  const itemprop = (prop) => {
+    const m = html.match(new RegExp(`itemprop=["']${prop}["'][^>]*content=["']([^"']*)`, "i")) ||
+      html.match(new RegExp(`content=["']([^"']*)["'][^>]*itemprop=["']${prop}["']`, "i")) ||
+      html.match(new RegExp(`itemprop=["']${prop}["'][^>]*href=["']([^"']*)`, "i")) ||
+      html.match(new RegExp(`itemprop=["']${prop}["'][^>]*>([^<]{1,200})<`, "i"));
+    return m ? decodeEntities(m[1]).trim() : "";
+  };
+  const hasMicrodata = /itemtype=["']https?:\/\/schema\.org\/Product["']/i.test(html);
+  const ogPrice = meta("product:price:amount") || meta("og:price:amount");
+  const isOgProduct = /<meta[^>]+(property|name)=["']og:type["'][^>]+content=["']product/i.test(html);
+  if (hasMicrodata || ogPrice || isOgProduct) {
+    let name = "";
+    if (hasMicrodata) {
+      const block = html.slice(html.search(/itemtype=["']https?:\/\/schema\.org\/Product["']/i));
+      const m = block.match(/itemprop=["']name["'][^>]*content=["']([^"']+)/i) || block.match(/itemprop=["']name["'][^>]*>([^<]{2,200})</i);
+      name = m ? decodeEntities(m[1]).trim() : "";
+    }
+    if (!name) { const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i); name = h1 ? stripHtml(h1[1]) : meta("og:title"); }
+    const availability = itemprop("availability") || meta("product:availability");
     found.push(product({
-      name: meta("og:title"), price: toNumber(meta("product:price:amount") || meta("og:price:amount")),
-      currency: meta("product:price:currency") || meta("og:price:currency"), url: meta("og:url") || pageUrl,
-      image: meta("og:image"), description: meta("og:description"),
-      inStock: meta("product:availability") ? /in.?stock|instock|skladem/i.test(meta("product:availability")) : undefined,
+      name,
+      price: toNumber(itemprop("price") || ogPrice),
+      currency: itemprop("priceCurrency") || meta("product:price:currency") || meta("og:price:currency"),
+      url: pageUrl,
+      image: meta("og:image") || itemprop("image"),
+      description: itemprop("description") || meta("og:description"),
+      inStock: availability ? /InStock|in.?stock|skladem|LimitedAvailability|PreOrder/i.test(availability) : undefined,
     }));
   }
   return found.filter(Boolean);
@@ -255,12 +279,15 @@ async function sitemapUrls(origin) {
     const map = queue.shift(); fetched += 1;
     const res = await safeFetch(map, { timeoutMs: 8000, maxBytes: 8 * 1024 * 1024 }).catch(() => null);
     if (!res || !res.ok) continue;
-    const locs = (res.text.match(/<loc>\s*([^<\s]+)\s*<\/loc>/gi) || []).map((l) => decodeEntities(l.replace(/<\/?loc>/gi, "").trim()));
     if (/<sitemapindex/i.test(res.text)) {
+      const locs = (res.text.match(/<loc>\s*([^<\s]+)\s*<\/loc>/gi) || []).map((l) => decodeEntities(l.replace(/<\/?loc>/gi, "").trim()));
       const ranked = locs.sort((a, b) => Number(/product|produkt|zbozi|goods|item/i.test(b)) - Number(/product|produkt|zbozi|goods|item/i.test(a)));
       queue.unshift(...ranked.slice(0, 2));
     } else {
-      urls.push(...locs);
+      for (const block of res.text.match(/<url>[\s\S]*?<\/url>/gi) || []) {
+        const loc = block.match(/<loc>\s*([^<\s]+)\s*<\/loc>/i);
+        if (loc) urls.push({ loc: decodeEntities(loc[1]), image: /<image:image/i.test(block) });
+      }
     }
   }
   return urls;
@@ -276,12 +303,21 @@ async function mapLimit(items, limit, fn) {
 async function fromWebsite(origin, homeHtml, deadline) {
   const base = new URL(origin);
   const products = jsonLdProducts(homeHtml, origin);
-  let candidates = [];
-  const fromMap = await sitemapUrls(origin).catch(() => []);
-  const productish = fromMap.filter((u) => /product|produkt|zbozi|\/p\/|\/item/i.test(u));
-  candidates = (productish.length ? productish : fromMap).filter((u) => { try { return new URL(u).hostname === base.hostname; } catch (_) { return false; } });
-  if (candidates.length < 10) candidates = candidates.concat(sameHostLinks(homeHtml, base));
-  candidates = [...new Set(candidates)].filter((u) => u.replace(/\/$/, "") !== origin).slice(0, 36);
+  const scored = new Map();
+  const score = (url, bonus) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname !== base.hostname) return;
+      const path = parsed.pathname.toLowerCase();
+      if (path === "/" || /(kosik|cart|login|registr|kontakt|contact|blog|clanek|novink|podmink|terms|privacy|ochrana|gdpr|reklamac|kariera|o-nas|about|faq|newsletter|znacka|brand|search|hledat)/.test(path)) return;
+      const depth = path.split("/").filter(Boolean).length;
+      const value = bonus + (depth >= 2 ? 1 : 0) + (/product|produkt|zbozi|\/p\/|\/item/.test(path) ? 3 : 0);
+      scored.set(parsed.toString(), Math.max(scored.get(parsed.toString()) || 0, value));
+    } catch (_) { /* ignore */ }
+  };
+  for (const entry of await sitemapUrls(origin).catch(() => [])) score(entry.loc, entry.image ? 2 : 0);
+  for (const link of sameHostLinks(homeHtml, base)) score(link, 1.5);
+  const candidates = [...scored.entries()].sort((a, b) => b[1] - a[1]).slice(0, 36).map(([url]) => url);
   const pages = await mapLimit(candidates, 6, async (url) => {
     if (Date.now() > deadline) return null;
     const res = await safeFetch(url, { timeoutMs: 7000, maxBytes: 2 * 1024 * 1024, accept: "text/html" });
