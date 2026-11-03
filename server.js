@@ -29,6 +29,7 @@ const { parseFeed, fetchFeed, validateFeedUrl, selectRelevantProducts } = requir
 const insights = require("./insights");
 const { createGrowth } = require("./growth");
 const referrals = require("./referrals");
+const { renderLanding } = require("./landing");
 
 const app = express();
 app.set("trust proxy", true);
@@ -3066,12 +3067,11 @@ app.get("/marketing", (req, res) => {
           <p data-i18n="marketing.faq.${index}.a">${escapeHtml(item.answer)}</p>
         </details>`).join("");
 
-  res.type("html").send(`<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  const footerHtml = `<a href="/privacy" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
+    · <a href="/partneri">Partnerský program</a>
+    ${process.env.PRIVACY_CONTACT_EMAIL ? ` · <a href="mailto:${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}">${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}</a>` : ""}
+    <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>`;
+  const headExtra = `  <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -3090,154 +3090,12 @@ app.get("/marketing", (req, res) => {
     { "@context": "https://schema.org", "@type": "Organization", name: "Chatnelo", url: "https://chatnelo.com/", logo: "https://chatnelo.com/icon-512.png", email: "support@chatnelo.com", parentOrganization: { "@type": "Organization", name: "BrosWars Studio" } },
     { "@context": "https://schema.org", "@type": "WebSite", name: "Chatnelo", url: "https://chatnelo.com/" },
     { "@context": "https://schema.org", "@type": "SoftwareApplication", name: "Chatnelo", applicationCategory: "BusinessApplication", operatingSystem: "Web, Shopify", url: "https://apps.shopify.com/chatnelo", image: "https://chatnelo.com/icon-512.png", offers: { "@type": "Offer", price: "16.99", priceCurrency: "USD" } },
-  ]).replace(/</g, "\\u003c")}</script>
-  <meta name="i18n-title" content="marketing.pageTitle">
-  <style>
-    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.5}
-    header{background:radial-gradient(circle at 20% 20%,#1e1b4b 0%,#0b1020 55%,#05060d 100%);color:#fff;padding:64px 24px 72px;text-align:center;position:relative;overflow:hidden}
-    header::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 80% 0%,rgba(168,85,247,.35),transparent 55%),radial-gradient(circle at 10% 90%,rgba(34,211,238,.25),transparent 50%);pointer-events:none}
-    header .brand-mark{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px}
-    header img{width:96px;height:96px;border-radius:50%;object-fit:cover;filter:drop-shadow(0 0 24px rgba(168,85,247,.55))}
-    header h1{margin:0;font-size:2.3rem;background:linear-gradient(90deg,#67e8f9,#e9d5ff);-webkit-background-clip:text;background-clip:text;color:transparent}
-    header p{margin:10px 0 0;opacity:.85;font-size:1.1rem;max-width:560px}
-    main{max-width:900px;margin:0 auto;padding:40px 24px}
-    section{margin-bottom:48px}
-    h2{background:linear-gradient(90deg,#0891b2,#7e22ce);-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block}
-    ol.steps{list-style:none;padding:0;display:grid;gap:20px}
-    ol.steps li{display:flex;gap:16px;align-items:flex-start}
-    .step-number{flex:none;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
-    ol.steps h3{margin:0 0 4px}
-    ol.steps p{margin:0;color:#4b5563}
-    table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px #00000012}
-    th,td{padding:12px 16px;text-align:left;border-bottom:1px solid #dfe3e8}
-    th{background:#171335;color:#e9d5ff}
-    details{background:#fff;border-radius:10px;padding:14px 18px;margin-bottom:10px;box-shadow:0 1px 4px #00000012;border-left:3px solid #a855f7}
-    summary{font-weight:600;cursor:pointer}
-    details p{margin:10px 0 0;color:#4b5563}
-    #marketing-chat{background:#fff;border-radius:16px;box-shadow:0 1px 4px #00000012;padding:24px}
-    #marketing-chat-log{min-height:120px;max-height:320px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
-    .msg{padding:10px 14px;border-radius:10px;max-width:80%}
-    .msg.user{align-self:flex-end;background:linear-gradient(135deg,#0891b2,#7e22ce);color:#fff}
-    .msg.assistant{align-self:flex-start;background:#f1f2f4}
-    #marketing-chat-form{display:flex;gap:8px}
-    #marketing-chat-input{flex:1;padding:10px 12px;border:1px solid #dfe3e8;border-radius:8px;font-size:1rem}
-    #marketing-chat-form button{padding:10px 18px;border:none;border-radius:8px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 14px -4px rgba(168,85,247,.6)}
-    #marketing-chat-form button:disabled{opacity:.6;cursor:default}
-    .login-link{position:absolute;top:16px;right:84px;z-index:5;padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);color:#fff;font-weight:600;font-size:.9rem;text-decoration:none}
-    .login-link:hover{background:rgba(255,255,255,.2)}
-    .cta-secondary{position:relative;display:block;margin-top:14px;color:#cbd5e1;font-size:.95rem;text-decoration:underline;text-underline-offset:3px}
-    .cta-secondary:hover{color:#fff}
-    .cta-button{display:inline-block;margin-top:22px;padding:14px 28px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;text-decoration:none;font-size:1.05rem;box-shadow:0 8px 24px -8px rgba(168,85,247,.7)}
-    #chatnelo-lang-switcher{position:absolute;top:16px;right:16px;z-index:5}
-    #chatnelo-lang-current{font-size:1.4rem;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);border-radius:8px;padding:6px 10px;cursor:pointer}
-    #chatnelo-lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#0b1020;border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:6px;flex-direction:column;gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
-    #chatnelo-lang-dropdown.open{display:flex}
-    .chatnelo-lang-option{font-size:1.4rem;line-height:1;background:none;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;text-align:left}
-    .chatnelo-lang-option:hover{background:rgba(255,255,255,.12)}
-  </style>
-</head>
-<body>
-  <header>
-    <a class="login-link" href="/store/dashboard#login" data-i18n="marketing.loginLink">Přihlásit se</a>
-    <div id="chatnelo-lang-switcher"></div>
-    <div class="brand-mark">
-      <img src="/mascot.png" alt="Chatnelo maskot">
-      <h1>Chatnelo</h1>
-      <p data-i18n="marketing.tagline">AI chatbot, který za vás na e-shopu odpovídá zákazníkům — podle reálných produktů a skladu. Funguje na Shopify i na jakémkoli jiném webu.</p>
-      <a class="cta-button" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-i18n="marketing.ctaShopify">Nainstalovat na Shopify · 3 dny zdarma</a>
-      <a class="cta-secondary" href="/store/dashboard" data-i18n="marketing.ctaOther">Jiný web? Registrace zdarma</a>
-    </div>
-  </header>
-  <main>
-    ${growth.tryHtml()}
-    <section>
-      <h2 data-i18n="marketing.stepsHeading">Jak to funguje</h2>
-      <ol class="steps">${stepsHtml}
-      </ol>
-    </section>
-    ${growth.calcHtml()}
-    <section>
-      <h2 data-i18n="marketing.pricingHeading">Ceník</h2>
-      <p class="muted" data-i18n="marketing.pricingIntro">Pevná měsíční cena za tarif, ne platba za jednotlivou zprávu. Víte tedy dopředu, kolik appka bude stát, i v měsíci, kdy dorazí jen pár dotazů.</p>
-      <table>
-        <thead><tr><th data-i18n="marketing.thPlan">Tarif</th><th data-i18n="marketing.thLimit">Případů / měsíc</th><th data-i18n="marketing.thPrice">Cena / měsíc</th></tr></thead>
-        <tbody>${pricingHtml}
-        </tbody>
-      </table>
-    </section>
-    <section>
-      <h2 data-i18n="marketing.faqHeading">Časté dotazy</h2>
-      ${faqHtml}
-    </section>
-    <section>
-      <h2 data-i18n="marketing.chatHeading">Zeptejte se rovnou chatbota</h2>
-      <div id="marketing-chat">
-        <div id="marketing-chat-log"></div>
-        <form id="marketing-chat-form">
-          <input id="marketing-chat-input" maxlength="500" autocomplete="off" placeholder="Např. Jak dlouho trvá instalace?" data-i18n-placeholder="marketing.chatPlaceholder">
-          <button type="submit" data-i18n="marketing.chatSend">Odeslat</button>
-        </form>
-      </div>
-    </section>
-  </main>
-  <footer style="text-align:center;padding:24px;color:#637381;font-size:.85rem">
-    <a href="/privacy" style="color:#637381" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
-    · <a href="/partneri" style="color:#637381">Partnerský program</a>
-    ${process.env.PRIVACY_CONTACT_EMAIL ? ` · <a href="mailto:${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}" style="color:#637381">${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}</a>` : ""}
-    <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>
-  </footer>
-  <script src="/i18n.js?v=${ASSET_VERSION}"></script>
-  <script>(function (extra) { var all = window.CHATNELO_I18N || {}; Object.keys(extra).forEach(function (code) { if (all[code] && all[code].marketing) all[code].marketing.loginLink = extra[code]; }); })({ cs: "Přihlásit se", en: "Log in", sk: "Prihlásiť sa", de: "Anmelden", pl: "Zaloguj się" });</script>
-  <script>
-    (function () {
-      var log = document.getElementById("marketing-chat-log");
-      var form = document.getElementById("marketing-chat-form");
-      var input = document.getElementById("marketing-chat-input");
-      var button = form.querySelector("button");
-      var history = [];
-
-      function addMessage(role, text) {
-        var el = document.createElement("div");
-        el.className = "msg " + role;
-        el.textContent = text;
-        log.appendChild(el);
-        log.scrollTop = log.scrollHeight;
-      }
-
-      form.addEventListener("submit", function (event) {
-        event.preventDefault();
-        var message = input.value.trim();
-        if (!message) return;
-        addMessage("user", message);
-        history.push({ role: "user", content: message });
-        input.value = "";
-        input.disabled = true;
-        button.disabled = true;
-
-        fetch("/marketing/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: message, history: history.slice(0, -1) }),
-        })
-          .then(function (response) { return response.json(); })
-          .then(function (data) {
-            if (data.error) throw new Error(data.error);
-            addMessage("assistant", data.reply);
-            history.push({ role: "assistant", content: data.reply });
-          })
-          .catch(function (error) {
-            addMessage("assistant", "Omlouvám se, teď se mi nedaří odpovědět (" + error.message + "). Zkuste to prosím znovu.");
-          })
-          .finally(function () {
-            input.disabled = false;
-            button.disabled = false;
-            input.focus();
-          });
-      });
-    })();
-  </script>
-</body>
-</html>`);
+  ]).replace(/</g, "\\u003c")}</script>`;
+  res.type("html").send(renderLanding({
+    stepsHtml, pricingHtml, faqHtml,
+    tryHtml: growth.tryHtml(), calcHtml: growth.calcHtml(),
+    footerHtml, headExtra, assetVersion: ASSET_VERSION,
+  }));
 });
 
 app.post("/marketing/chat", async (req, res) => {
