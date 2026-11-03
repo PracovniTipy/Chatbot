@@ -2712,10 +2712,26 @@ td button:active{transform:translateY(0)}
             '<button type="button" class="ins-btn" data-lead="' + escapeText(lead.id) + '" data-handled="' + (lead.handled ? "0" : "1") + '">' + escapeText(lead.handled ? it("reopen") : it("done")) + "</button></div></div>";
         }).join("");
       }
+      // Ask for an App Store review only after the app has clearly worked for the
+      // merchant (10+ answered customer questions in 30 days), never tied to a
+      // click and never with any incentive. Shopify itself limits the modal to
+      // once per 60 days and skips merchants who already reviewed.
+      function maybeAskReview(data) {
+        try {
+          var answered = (data && data.total || 0) - (data && data.unanswered || 0);
+          if (answered < 10 || !window.shopify || !shopify.reviews || !shopify.reviews.request) return;
+          try { if (window.sessionStorage.getItem("chatnelo-review-asked")) return; window.sessionStorage.setItem("chatnelo-review-asked", "1"); } catch (e) {}
+          window.setTimeout(function () {
+            Promise.resolve(shopify.reviews.request()).then(function (result) {
+              if (result && !result.success) console.log("Review modal not shown: " + result.code);
+            }).catch(function () {});
+          }, 2500);
+        } catch (e) {}
+      }
       function loadInsights() {
         window.fetch("/api/insights?days=30")
           .then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error); return data; }); })
-          .then(function (data) { ins.data = data; ins.error = false; renderInsights(); })
+          .then(function (data) { ins.data = data; ins.error = false; renderInsights(); maybeAskReview(data); })
           .catch(function () { ins.error = true; renderInsights(); });
       }
       document.addEventListener("chatnelo:langchange", renderInsights);
