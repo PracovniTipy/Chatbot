@@ -293,6 +293,9 @@
     ".ea-card-cta{font-size:12px;font-weight:700;color:var(--ea-primary)}",
     "#ea-bottom{border-top:1px solid rgba(0,0,0,.07);background:#fff;flex:none}",
     "#ea-form{display:flex;align-items:center}",
+    "#ea-brand{display:block;text-align:center;font-size:11px;color:#9aa0ab;text-decoration:none;padding:0 0 8px;margin-top:-6px;letter-spacing:.01em}",
+    "#ea-brand:hover{color:#7c3aed}",
+    "#ea-brand[hidden]{display:none}",
     "#ea-input{min-width:0;flex:1;border:0;padding:15px 6px 15px 16px;font:inherit;outline:none;background:transparent;color:inherit}",
     "#ea-send{border:0;background:linear-gradient(135deg,var(--ea-accent),var(--ea-accent-dark));color:#fff;padding:0 18px;margin:8px;height:40px;border-radius:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;min-width:92px;box-shadow:0 4px 12px rgba(0,0,0,.12);transition:filter .18s ease,transform .1s ease}",
     "#ea-send:hover:not(:disabled){filter:brightness(1.06)}",
@@ -399,7 +402,8 @@
     '<div id="ea-bottom"><form id="ea-form">' +
     '<input id="ea-input" maxlength="1000" autocomplete="off">' +
     '<button id="ea-send" type="submit"><span class="ea-send-label"></span></button>' +
-    '</form><div id="ea-count" aria-hidden="true"></div></div>';
+    '</form><div id="ea-count" aria-hidden="true"></div>' +
+    '<a id="ea-brand" href="https://chatnelo.com/?utm_source=widget&amp;utm_medium=referral&amp;utm_campaign=web" target="_blank" rel="noopener">⚡ Chatnelo</a></div>';
   panel.querySelector(".ea-title-text").textContent = title;
   panel.querySelector(".ea-status").textContent = T.status;
 
@@ -664,6 +668,7 @@
       waiting.remove();
       renderMessage(data.reply, "assistant");
       renderProductCards(data.products);
+      if (data.branding === false) { var brandLink = panel.querySelector("#ea-brand"); if (brandLink) brandLink.hidden = true; }
       transcript.push({ role: "assistant", text: data.reply, products: data.products || [] });
       history.push({ role: "assistant", content: data.reply });
       if (data.caseId) activeCase.id = data.caseId;
