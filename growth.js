@@ -444,12 +444,13 @@ function tryHtml(options = {}) {
     #cn-try .chat-head b{display:block;font-size:.95rem;line-height:1.2}
     #cn-try .chat-head span{font-size:.78rem;opacity:.8}
     #cn-try .log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+    #cn-try .log>*{flex-shrink:0}
     #cn-try .m{max-width:86%;padding:10px 13px;border-radius:14px;font-size:.93rem;line-height:1.45;white-space:pre-wrap;word-wrap:break-word}
     #cn-try .m.bot{background:#fff;border:1px solid #e2e8f0;align-self:flex-start;border-bottom-left-radius:4px}
     #cn-try .m.me{background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
     #cn-try .m.typing{color:#94a3b8}
     #cn-try .cards{display:flex;gap:8px;overflow-x:auto;align-self:stretch;padding-bottom:2px}
-    #cn-try .card{flex:0 0 150px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;text-decoration:none;color:#0f172a;font-size:.8rem}
+    #cn-try .card{flex:0 0 150px;display:block;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;text-decoration:none;color:#0f172a;font-size:.8rem}
     #cn-try .card img{width:100%;height:96px;object-fit:cover;background:#f1f5f9;display:block}
     #cn-try .card div{padding:7px 9px}
     #cn-try .card b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
