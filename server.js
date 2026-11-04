@@ -3020,6 +3020,8 @@ app.post("/api/referral/apply", async (req, res) => {
 const growth = createGrowth({ parseFeed, generateGenericAnswer, genericProductCards, logRouteError });
 growth.register(app);
 
+app.get("/google562cd178b70f9ab1.html", (req, res) => res.type("text/html").send("google-site-verification: google562cd178b70f9ab1.html"));
+
 app.get("/robots.txt", (req, res) => {
   res.type("text/plain").send("User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /proxy/\nDisallow: /widget-preview\n\nSitemap: https://chatnelo.com/sitemap.xml\n");
 });
