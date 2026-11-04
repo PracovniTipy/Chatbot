@@ -43,6 +43,9 @@ app.disable("x-powered-by");
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   next();
 });
 // Canonical public domain: www.chatnelo.com -> chatnelo.com.
@@ -2049,8 +2052,26 @@ function genericProductCards(products, reply) {
   return cards;
 }
 
+// Railway's edge sets X-Real-IP to the real client address; the left-most
+// X-Forwarded-For entry can be forged by the client, so it is not trusted.
+function clientIp(req) {
+  const real = String(req.get("x-real-ip") || "").trim();
+  return real || req.socket.remoteAddress || req.ip || "unknown";
+}
+
+// Global safety net for public AI endpoints: even with rotating IPs nobody
+// can burn through the OpenAI budget.
+let marketingChatGlobal = { windowStart: 0, count: 0 };
+const MARKETING_CHAT_GLOBAL_LIMIT = Number(process.env.MARKETING_CHAT_GLOBAL_LIMIT || 400);
+
 function isMarketingChatRateLimited(ip) {
   const now = Date.now();
+  if (now - marketingChatGlobal.windowStart > MARKETING_CHAT_RATE_WINDOW_MS) {
+    marketingChatGlobal = { windowStart: now, count: 0 };
+  }
+  marketingChatGlobal.count += 1;
+  if (marketingChatGlobal.count > MARKETING_CHAT_GLOBAL_LIMIT) return true;
+  if (marketingChatRateLimit.size > 50000) marketingChatRateLimit.clear();
   const entry = marketingChatRateLimit.get(ip);
   if (!entry || now - entry.windowStart > MARKETING_CHAT_RATE_WINDOW_MS) {
     marketingChatRateLimit.set(ip, { windowStart: now, count: 1 });
@@ -3103,7 +3124,7 @@ app.get("/marketing", (req, res) => {
 
 app.post("/marketing/chat", async (req, res) => {
   try {
-    if (isMarketingChatRateLimited(req.ip)) {
+    if (isMarketingChatRateLimited(clientIp(req))) {
       return res.status(429).json({ error: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu." });
     }
     const { message, history } = validateChatBody(req.body);
@@ -3138,7 +3159,7 @@ app.options("/studio/chat", (req, res) => {
 app.post("/studio/chat", async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   try {
-    if (isMarketingChatRateLimited(req.ip)) {
+    if (isMarketingChatRateLimited(clientIp(req))) {
       return res.status(429).json({ error: "Too many messages, please try again in a moment." });
     }
     const { message, history } = validateChatBody(req.body);
@@ -3314,7 +3335,7 @@ app.get("/widget-preview", (req, res) => {
 app.post("/store/signup", async (req, res) => {
   try {
     requireMeteringDatabase();
-    if (isSignupRateLimited(req.ip)) {
+    if (isSignupRateLimited(clientIp(req))) {
       return res.status(429).json({ error: "Příliš mnoho registrací, zkuste to prosím za chvíli znovu." });
     }
     let signup;
@@ -3385,7 +3406,7 @@ app.post("/store/login", async (req, res) => {
     requireMeteringDatabase();
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const password = typeof req.body?.password === "string" ? req.body.password : "";
-    if (isLoginRateLimited(req.ip) || isLoginRateLimited(`e:${email}`)) {
+    if (isLoginRateLimited(clientIp(req)) || isLoginRateLimited(`e:${email}`)) {
       return res.status(429).json({ error: "Příliš mnoho pokusů o přihlášení, zkuste to prosím za 15 minut." });
     }
     if (!email || !password) throw httpError("Zadejte e-mail a heslo.", 400);
@@ -4830,7 +4851,7 @@ app.options("/widget/chat", (req, res) => {
 
 app.post("/widget/chat", async (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
-  if (isWidgetChatRateLimited(req.ip)) {
+  if (isWidgetChatRateLimited(clientIp(req))) {
     return res.status(429).json({ error: "Příliš mnoho dotazů, zkuste to prosím za chvíli znovu." });
   }
   try {
@@ -5170,7 +5191,7 @@ async function notifyMerchantAboutLead(shop, email, question) {
 
 async function saveLead(shop, req) {
   if (!database || !databaseReady) throw httpError("Ukládání je dočasně nedostupné.", 503);
-  if (isWidgetChatRateLimited(req.ip)) throw httpError("Příliš mnoho požadavků. Zkuste to prosím za chvíli.", 429);
+  if (isWidgetChatRateLimited(clientIp(req))) throw httpError("Příliš mnoho požadavků. Zkuste to prosím za chvíli.", 429);
   const body = req.body || {};
   const caseId = typeof body.caseId === "string" && /^[A-Za-z0-9-]{8,64}$/.test(body.caseId) ? body.caseId : null;
   const question = insights.sanitizeQuestion(typeof body.question === "string" ? body.question : "");
