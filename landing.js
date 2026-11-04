@@ -191,8 +191,8 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     /* STORY */
     .story{position:relative;height:620vh}
     .stage{position:sticky;top:0;height:100svh;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:4vw;padding:80px clamp(18px,6vw,90px) 40px}
-    .clock{position:absolute;left:clamp(18px,6vw,90px);top:96px;font-variant-numeric:tabular-nums;font-weight:900;font-size:clamp(4rem,14vw,13rem);letter-spacing:-.05em;line-height:1;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.14);opacity:var(--clockO,1);transform:translateY(calc(var(--clockY,0)*1px))}
-    .chapters{position:relative;height:60vh;min-height:320px}
+    .clock{position:absolute;left:clamp(18px,6vw,90px);top:96px;font-variant-numeric:tabular-nums;font-weight:900;font-size:clamp(4rem,11vw,10.5rem);letter-spacing:-.05em;line-height:1;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.14);opacity:var(--clockO,1);transform:translateY(calc(var(--clockY,0)*1px))}
+    .chapters{position:relative;height:56vh;min-height:300px;margin-top:22vh}
     .chap{position:absolute;inset:auto 0 0 0;top:50%;transform:translateY(-50%);opacity:0;visibility:hidden;transition:opacity .45s,visibility .45s}
     .chap.on{opacity:1;visibility:visible}
     .chap .gw .w{background:linear-gradient(100deg,var(--c1),var(--c2) 55%,var(--c3));-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -314,7 +314,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       .stage{display:flex;flex-direction:column;align-items:stretch;gap:0;padding:68px 16px 16px}
       .stage>div:not(.device):not(.clock):not(.langs):not(.progress){width:100%}
       .clock{top:58px;left:16px;font-size:30vw;opacity:calc(var(--clockO,1)*.5)}
-      .chapters{flex:none;height:27svh;min-height:150px}
+      .chapters{flex:none;height:27svh;min-height:150px;margin-top:26vw}
       .chap h2{font-size:clamp(2.1rem,10.5vw,3.1rem)}
       .chap p{font-size:.95rem;margin-top:8px}
       .device{flex:1;width:100%;max-width:420px;aspect-ratio:auto;margin:0 auto;transform:none}
