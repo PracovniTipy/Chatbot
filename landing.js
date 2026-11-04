@@ -80,29 +80,35 @@ const STORY = {
   },
 };
 
-// Vector Chatnelo head – crisp at any size.
-function mascotSvg(id) {
-  return `<svg class="mascot" viewBox="0 0 240 240" aria-hidden="true">
+// Vector Chatnelo owl ("Nela") – crisp at any size.
+function mascotSvg(id, options = {}) {
+  const bg = options.background
+    ? `<rect width="240" height="240" fill="url(#${id}bg)"/>`
+    : "";
+  return `<svg class="mascot" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
-    <radialGradient id="${id}h" cx="38%" cy="30%" r="75%"><stop offset="0" stop-color="#3b3f7a"/><stop offset=".45" stop-color="#161936"/><stop offset="1" stop-color="#05060f"/></radialGradient>
-    <linearGradient id="${id}v" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1230"/><stop offset="1" stop-color="#020412"/></linearGradient>
-    <linearGradient id="${id}r" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#c026d3"/></linearGradient>
-    <filter id="${id}g" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <radialGradient id="${id}bg" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#3b1d8f"/><stop offset=".6" stop-color="#160f3a"/><stop offset="1" stop-color="#05060f"/></radialGradient>
+    <linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset=".55" stop-color="#4c1d95"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient>
+    <linearGradient id="${id}y" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ddd6fe"/><stop offset="1" stop-color="#818cf8"/></linearGradient>
+    <linearGradient id="${id}r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22d3ee"/><stop offset=".55" stop-color="#a855f7"/><stop offset="1" stop-color="#f472b6"/></linearGradient>
+    <radialGradient id="${id}s" cx="34%" cy="22%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".45" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <filter id="${id}g" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
-  <ellipse class="orbit" cx="120" cy="96" rx="104" ry="30" fill="none" stroke="url(#${id}r)" stroke-width="2.5" stroke-dasharray="3 9" opacity=".75"/>
-  <circle cx="50" cy="64" r="4" fill="#67e8f9" filter="url(#${id}g)"/><circle cx="196" cy="72" r="5" fill="#e879f9" filter="url(#${id}g)"/>
-  <rect x="22" y="100" width="22" height="58" rx="11" fill="#1e2152" stroke="url(#${id}r)" stroke-width="3" filter="url(#${id}g)"/>
-  <rect x="196" y="100" width="22" height="58" rx="11" fill="#1e2152" stroke="url(#${id}r)" stroke-width="3" filter="url(#${id}g)"/>
-  <circle cx="120" cy="128" r="84" fill="url(#${id}h)"/>
-  <path d="M62 86 Q120 40 178 86" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="7" stroke-linecap="round"/>
-  <rect x="58" y="104" width="124" height="68" rx="34" fill="url(#${id}v)" stroke="url(#${id}r)" stroke-width="2.5"/>
-  <g class="eyes" filter="url(#${id}g)">
-    <rect x="80" y="122" width="34" height="24" rx="8" fill="#22d3ee"/>
-    <circle cx="90" cy="134" r="2.6" fill="#0b1230"/><circle cx="97" cy="134" r="2.6" fill="#0b1230"/><circle cx="104" cy="134" r="2.6" fill="#0b1230"/>
-    <path d="M86 146 l-4 8 10-6z" fill="#22d3ee"/>
-    <path class="wink" d="M130 136 q12 -12 24 0" fill="none" stroke="#f472b6" stroke-width="6" stroke-linecap="round"/>
-  </g>
-  <path d="M104 160 q16 10 32 0" fill="none" stroke="#a78bfa" stroke-width="4" stroke-linecap="round" filter="url(#${id}g)"/>
+  ${bg}
+  <path d="M66 96 L56 42 L100 72 Q120 64 140 72 L184 42 L174 96 Q204 132 196 174 Q186 224 120 228 Q54 224 44 174 Q36 132 66 96Z" fill="url(#${id}b)"/>
+  <path d="M82 170 Q120 136 158 170 Q158 214 120 218 Q82 214 82 170Z" fill="url(#${id}y)"/>
+  <path d="M98 186 q8 6 16 0 M126 186 q8 6 16 0 M112 202 q8 6 16 0" fill="none" stroke="#4c1d95" stroke-width="3" stroke-linecap="round" opacity=".55"/>
+  <path d="M66 96 L56 42 L100 72 Q120 64 140 72 L184 42 L174 96 Q204 132 196 174 Q186 224 120 228 Q54 224 44 174 Q36 132 66 96Z" fill="url(#${id}s)"/>
+  <circle cx="92" cy="122" r="30" fill="#0b1230" stroke="url(#${id}r)" stroke-width="5"/>
+  <circle cx="148" cy="122" r="30" fill="#0b1230" stroke="url(#${id}r)" stroke-width="5"/>
+  <g class="eyes" filter="url(#${id}g)"><circle cx="92" cy="122" r="15" fill="#22d3ee"/><circle cx="148" cy="122" r="15" fill="#22d3ee"/></g>
+  <circle cx="98" cy="116" r="5" fill="#fff"/><circle cx="154" cy="116" r="5" fill="#fff"/>
+  <path d="M111 148 L120 164 L129 148Z" fill="#fbbf24"/>
+  <path d="M44 124 Q38 46 120 36 Q202 46 196 124" fill="none" stroke="#e2e8f0" stroke-width="7" stroke-linecap="round"/>
+  <rect x="30" y="108" width="22" height="42" rx="11" fill="#a855f7" stroke="#e9d5ff" stroke-opacity=".5" stroke-width="2"/>
+  <rect x="188" y="108" width="22" height="42" rx="11" fill="#a855f7" stroke="#e9d5ff" stroke-opacity=".5" stroke-width="2"/>
+  <path d="M42 148 Q50 186 90 184" fill="none" stroke="#e2e8f0" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="92" cy="184" r="6" fill="#22d3ee" filter="url(#${id}g)"/>
 </svg>`;
 }
 
