@@ -7,7 +7,7 @@ const STORY = {
     navDemo: "Ukázka", navPricing: "Ceník", navFaq: "Dotazy", navLogin: "Přihlásit se", navInstall: "Nainstalovat",
     kicker: "AI chatbot pro e-shopy", h1a: "Prodává,", h1b: "i když spíte.",
     heroSub: "Chatnelo odpovídá vašim zákazníkům 24/7 – podle skutečných produktů, cen a skladu. V jejich jazyce.",
-    ctaTry: "Vyzkoušet na mém e-shopu", ctaShopify: "Nainstalovat na Shopify", scroll: "Scrollujte",
+    ctaDemo: "Vyzkoušet živou ukázku", ctaTry: "Vyzkoušet na mém e-shopu", ctaShopify: "Nainstalovat na Shopify", scroll: "Scrollujte",
     c1: "Ve 2:47 v noci se zákazník ptá.", c2: "Vy spíte.", c2s: "Konkurence je o jedno kliknutí vedle.",
     c3: "Chatnelo ne.", c3s: "Odpověď za pár vteřin – přímo z vašeho skladu.",
     c4: "A zákazník nakoupí.", c4s: "Odpověď → karta produktu → košík → objednávka.",
@@ -22,7 +22,7 @@ const STORY = {
     navDemo: "Ukážka", navPricing: "Cenník", navFaq: "Otázky", navLogin: "Prihlásiť sa", navInstall: "Nainštalovať",
     kicker: "AI chatbot pre e-shopy", h1a: "Predáva,", h1b: "aj keď spíte.",
     heroSub: "Chatnelo odpovedá vašim zákazníkom 24/7 – podľa skutočných produktov, cien a skladu. V ich jazyku.",
-    ctaTry: "Vyskúšať na mojom e-shope", ctaShopify: "Nainštalovať na Shopify", scroll: "Scrollujte",
+    ctaDemo: "Vyskúšať živú ukážku", ctaTry: "Vyskúšať na mojom e-shope", ctaShopify: "Nainštalovať na Shopify", scroll: "Scrollujte",
     c1: "O 2:47 v noci sa zákazník pýta.", c2: "Vy spíte.", c2s: "Konkurencia je o jedno kliknutie vedľa.",
     c3: "Chatnelo nie.", c3s: "Odpoveď za pár sekúnd – priamo z vášho skladu.",
     c4: "A zákazník nakúpi.", c4s: "Odpoveď → karta produktu → košík → objednávka.",
@@ -37,7 +37,7 @@ const STORY = {
     navDemo: "Demo", navPricing: "Pricing", navFaq: "FAQ", navLogin: "Log in", navInstall: "Install",
     kicker: "AI chatbot for online stores", h1a: "It sells,", h1b: "while you sleep.",
     heroSub: "Chatnelo answers your customers 24/7 – from your real products, prices and stock. In their language.",
-    ctaTry: "Try it on my store", ctaShopify: "Install on Shopify", scroll: "Scroll",
+    ctaDemo: "Try the live demo", ctaTry: "Try it on my store", ctaShopify: "Install on Shopify", scroll: "Scroll",
     c1: "2:47 AM. A customer asks.", c2: "You're asleep.", c2s: "Your competitor is one click away.",
     c3: "Chatnelo isn't.", c3s: "An answer in seconds – straight from your stock.",
     c4: "And the customer buys.", c4s: "Answer → product card → cart → order.",
@@ -52,7 +52,7 @@ const STORY = {
     navDemo: "Demo", navPricing: "Preise", navFaq: "FAQ", navLogin: "Anmelden", navInstall: "Installieren",
     kicker: "KI-Chatbot für Onlineshops", h1a: "Er verkauft,", h1b: "während Sie schlafen.",
     heroSub: "Chatnelo beantwortet Kundenfragen rund um die Uhr – aus Ihren echten Produkten, Preisen und Beständen. In ihrer Sprache.",
-    ctaTry: "In meinem Shop testen", ctaShopify: "Auf Shopify installieren", scroll: "Scrollen",
+    ctaDemo: "Live-Demo testen", ctaTry: "In meinem Shop testen", ctaShopify: "Auf Shopify installieren", scroll: "Scrollen",
     c1: "2:47 Uhr nachts. Ein Kunde fragt.", c2: "Sie schlafen.", c2s: "Die Konkurrenz ist nur einen Klick entfernt.",
     c3: "Chatnelo nicht.", c3s: "Eine Antwort in Sekunden – direkt aus Ihrem Lager.",
     c4: "Und der Kunde kauft.", c4s: "Antwort → Produktkarte → Warenkorb → Bestellung.",
@@ -67,7 +67,7 @@ const STORY = {
     navDemo: "Demo", navPricing: "Cennik", navFaq: "FAQ", navLogin: "Zaloguj się", navInstall: "Zainstaluj",
     kicker: "Czatbot AI dla sklepów", h1a: "Sprzedaje,", h1b: "gdy Ty śpisz.",
     heroSub: "Chatnelo odpowiada Twoim klientom 24/7 – na podstawie prawdziwych produktów, cen i stanów. W ich języku.",
-    ctaTry: "Wypróbuj na moim sklepie", ctaShopify: "Zainstaluj na Shopify", scroll: "Przewiń",
+    ctaDemo: "Wypróbuj demo na żywo", ctaTry: "Wypróbuj na moim sklepie", ctaShopify: "Zainstaluj na Shopify", scroll: "Przewiń",
     c1: "2:47 w nocy. Klient pyta.", c2: "Ty śpisz.", c2s: "Konkurencja jest o jedno kliknięcie dalej.",
     c3: "Chatnelo nie.", c3s: "Odpowiedź w kilka sekund – prosto z Twojego magazynu.",
     c4: "I klient kupuje.", c4s: "Odpowiedź → karta produktu → koszyk → zamówienie.",
@@ -356,7 +356,8 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       <h1><span data-s="h1a"></span><span class="serif grad" data-s="h1b"></span></h1>
       <p class="sub" data-s="heroSub"></p>
       <div class="ctas">
-        <a class="pill glow big" href="#demo" data-s="ctaTry"></a>
+        <a class="pill glow big" href="#demo" data-cn-demo data-s="ctaDemo"></a>
+        <a class="pill big" href="#demo" data-s="ctaTry"></a>
         <a class="pill big" href="https://apps.shopify.com/chatnelo" target="_blank" rel="noopener" data-s="ctaShopify"></a>
       </div>
     </div>

@@ -6,6 +6,8 @@
 const dns = require("dns").promises;
 const net = require("net");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
 
 const UA = "Mozilla/5.0 (compatible; ChatneloDemo/1.0; +https://chatnelo.com)";
 const MAX_PRODUCTS = 250;
@@ -369,6 +371,7 @@ async function discoverStore(input, parseFeed) {
 // ------------------------------------------------------------------ UI texts
 const TRY_TEXT = {
   cs: {
+    demoBtn: "Nemáte e-shop po ruce? Vyzkoušet na ukázkovém obchodě", demoName: "Ukázkový obchod", demoHello: "Dobrý den 👋 Jsem Chatnelo v ukázkovém obchodě s oblečením a doplňky ({n} produktů). Zeptejte se mě na cokoli – třeba jako zákazník.",
     invite: "🎁 Máte pozvánku od známého: 30 dní zdarma místo 3. Na Shopify po instalaci zadejte kód {c}, jinde se stačí zaregistrovat.",
     title: "Vyzkoušejte Chatnelo na svém e-shopu", text: "Vložte adresu svého e-shopu. Chatnelo si za pár vteřin přečte vaše produkty a můžete si s ním rovnou psát – přesně jako vaši zákazníci.",
     placeholder: "vas-eshop.cz", button: "Vyzkoušet", note: "Bez registrace · Shopify, WooCommerce, Shoptet i další",
@@ -382,6 +385,7 @@ const TRY_TEXT = {
     error: "Tenhle web se nepodařilo otevřít. Zkontrolujte adresu a zkuste to znovu.", busy: "Teď je to přetížené, zkuste to prosím za chvíli.", limit: "Ukázka má limit zpráv. Pokračujte s 3 dny zdarma ↓",
   },
   sk: {
+    demoBtn: "Nemáte e-shop poruke? Vyskúšať na ukážkovom obchode", demoName: "Ukážkový obchod", demoHello: "Dobrý deň 👋 Som Chatnelo v ukážkovom obchode s oblečením a doplnkami ({n} produktov, katalóg v češtine). Opýtajte sa ma na čokoľvek – ako zákazník.",
     invite: "🎁 Máte pozvánku od známeho: 30 dní zdarma namiesto 3. Na Shopify po inštalácii zadajte kód {c}, inde sa stačí zaregistrovať.",
     title: "Vyskúšajte Chatnelo na svojom e-shope", text: "Vložte adresu svojho e-shopu. Chatnelo si za pár sekúnd prečíta vaše produkty a môžete si s ním hneď písať – presne ako vaši zákazníci.",
     placeholder: "vas-eshop.sk", button: "Vyskúšať", note: "Bez registrácie · Shopify, WooCommerce, Shoptet a ďalšie",
@@ -395,6 +399,7 @@ const TRY_TEXT = {
     error: "Tento web sa nepodarilo otvoriť. Skontrolujte adresu.", busy: "Teraz je to preťažené, skúste to o chvíľu.", limit: "Ukážka má limit správ. Pokračujte s 3 dňami zdarma ↓",
   },
   en: {
+    demoBtn: "No store at hand? Try the live demo store", demoName: "Demo store", demoHello: "Hi 👋 I'm Chatnelo in a sample clothing & accessories store ({n} products, Czech catalog). Ask me anything – like a customer would.",
     invite: "🎁 You were invited by a friend: 30 days free instead of 3. On Shopify enter code {c} after installing, elsewhere just sign up.",
     title: "Try Chatnelo on your own store", text: "Enter your store address. Chatnelo reads your products in seconds and you can chat with it right away – just like your customers would.",
     placeholder: "your-store.com", button: "Try it", note: "No sign-up · Shopify, WooCommerce, Shoptet and more",
@@ -408,6 +413,7 @@ const TRY_TEXT = {
     error: "We couldn't open this website. Please check the address.", busy: "It's busy right now, please try again in a moment.", limit: "The demo has a message limit. Continue with 3 days free ↓",
   },
   de: {
+    demoBtn: "Kein Shop zur Hand? Live-Demo im Beispielshop", demoName: "Demo-Shop", demoHello: "Hallo 👋 Ich bin Chatnelo in einem Beispielshop für Kleidung & Accessoires ({n} Produkte, tschechischer Katalog). Fragen Sie mich alles – wie ein Kunde.",
     invite: "🎁 Sie wurden eingeladen: 30 statt 3 Tage gratis. Auf Shopify nach der Installation Code {c} eingeben, sonst einfach registrieren.",
     title: "Testen Sie Chatnelo in Ihrem Shop", text: "Geben Sie Ihre Shop-Adresse ein. Chatnelo liest Ihre Produkte in Sekunden und Sie können sofort chatten – wie Ihre Kunden.",
     placeholder: "ihr-shop.de", button: "Testen", note: "Ohne Anmeldung · Shopify, WooCommerce, Shoptet und mehr",
@@ -421,6 +427,7 @@ const TRY_TEXT = {
     error: "Diese Website konnte nicht geöffnet werden. Bitte Adresse prüfen.", busy: "Gerade ausgelastet, bitte gleich nochmal.", limit: "Die Demo hat ein Nachrichtenlimit. Weiter mit 3 Tagen gratis ↓",
   },
   pl: {
+    demoBtn: "Nie masz sklepu pod ręką? Wypróbuj demo na sklepie przykładowym", demoName: "Sklep demo", demoHello: "Dzień dobry 👋 Jestem Chatnelo w przykładowym sklepie z odzieżą i dodatkami ({n} produktów, katalog po czesku). Zapytaj mnie o cokolwiek – jak klient.",
     invite: "🎁 Masz zaproszenie od znajomego: 30 dni za darmo zamiast 3. Na Shopify po instalacji wpisz kod {c}, gdzie indziej wystarczy rejestracja.",
     title: "Wypróbuj Chatnelo na swoim sklepie", text: "Wpisz adres swojego sklepu. Chatnelo w kilka sekund przeczyta Twoje produkty i od razu możesz z nim pisać – jak Twoi klienci.",
     placeholder: "twoj-sklep.pl", button: "Wypróbuj", note: "Bez rejestracji · Shopify, WooCommerce, Shoptet i inne",
@@ -464,6 +471,7 @@ function tryHtml(options = {}) {
     #cn-try .btn.ghost{background:#fff;color:#0f172a;border:1px solid #e2e8f0;box-shadow:none;font-weight:700}
     #cn-try .btn:disabled{opacity:.6;cursor:wait}
     #cn-try .note{margin:10px 0 0;color:#94a3b8;font-size:.85rem}
+    #cn-try .btn.demo{margin-top:14px;border-color:#d8b4fe;color:#6d28d9}
     #cn-try .steps{list-style:none;margin:18px 0 0;padding:0}
     #cn-try .steps li{display:flex;align-items:center;gap:10px;padding:6px 0;color:#94a3b8;font-weight:600;transition:color .3s}
     #cn-try .steps li.on{color:#0f172a}
@@ -513,6 +521,7 @@ function tryHtml(options = {}) {
       <button class="btn" type="submit" id="cn-go-btn" data-t="button"></button>
     </form>
     <p class="note" data-t="note"></p>
+    <button class="btn ghost demo" type="button" id="cn-demo-btn" data-t="demoBtn"></button>
     <ul class="steps" id="cn-steps" hidden></ul>
     <div class="msg" id="cn-msg" hidden></div>
     <div class="result" id="cn-result" hidden>
@@ -544,7 +553,7 @@ function tryHtml(options = {}) {
       $("cn-url").placeholder = t.placeholder; $("cn-q").placeholder = t.inputPh;
       var ref = ""; try { ref = localStorage.getItem("cn_ref") || ""; } catch (e) {}
       $("cn-invite").hidden = !ref; if (ref) $("cn-invite").textContent = fill(t.invite, { c: ref });
-      if (s.data) { $("cn-demo").textContent = fill(t.demo, { d: s.data.domain }); $("cn-cta").textContent = s.data.platform === "shopify" ? t.ctaShopify : t.ctaOther; chips(); }
+      if (s.data) { $("cn-demo").textContent = s.data.demo ? t.demoName : fill(t.demo, { d: s.data.domain }); if (s.data.demo) $("cn-name").textContent = "Chatnelo"; $("cn-cta").textContent = s.data.platform === "shopify" ? t.ctaShopify : t.ctaOther; chips(); }
     }
     document.addEventListener("chatnelo:langchange", texts);
     function add(text, who) { var el = document.createElement("div"); el.className = "m " + who; el.textContent = text; $("cn-log").appendChild(el); $("cn-log").scrollTop = 1e6; return el; }
@@ -572,19 +581,19 @@ function tryHtml(options = {}) {
       var t = L(), ul = $("cn-steps"); ul.hidden = false;
       ul.innerHTML = t.steps.map(function (x, i) { return '<li class="' + (i < n ? "done" : (i === n ? "on" : "")) + '"><i></i>' + x + "</li>"; }).join("");
     }
-    function load(url) {
-      var t = L(); if (!url) return;
-      $("cn-msg").hidden = true; $("cn-result").hidden = true; $("cn-go-btn").disabled = true;
-      var n = 0; steps(0); var timer = setInterval(function () { if (n < 2) steps(++n); }, 3200);
-      fetch("/try/load", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: url }) })
+    function load(url, demo) {
+      var t = L(); if (!url && !demo) return;
+      $("cn-msg").hidden = true; $("cn-result").hidden = true; $("cn-go-btn").disabled = true; $("cn-demo-btn").disabled = true;
+      var n = 0; steps(0); var timer = setInterval(function () { if (n < 2) steps(++n); }, demo ? 500 : 3200);
+      fetch(demo ? "/try/demo" : "/try/load", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(demo ? {} : { url: url }) })
         .then(function (r) { return r.json().then(function (d) { d.__status = r.status; return d; }); })
         .then(function (d) {
           clearInterval(timer); $("cn-steps").hidden = true;
           if (d.__status === 429) throw new Error(t.busy);
           if (d.__status >= 400) throw new Error(d.code === "no_products" ? t.none : t.error);
           s.token = d.token; s.data = d; s.history = [];
-          $("cn-name").textContent = d.name; $("cn-log").innerHTML = "";
-          add(fill(t.hello, { n: d.count, d: d.domain }), "bot");
+          $("cn-name").textContent = d.demo ? "Chatnelo" : d.name; $("cn-log").innerHTML = "";
+          add(fill(d.demo ? t.demoHello : t.hello, { n: d.count, d: d.domain }), "bot");
           var shop = d.platform === "shopify";
           $("cn-cta").href = shop ? "https://apps.shopify.com/chatnelo" : "/store/dashboard?next=install";
           if (shop) { $("cn-cta").target = "_blank"; $("cn-cta").rel = "noopener"; } else { $("cn-cta").removeAttribute("target"); }
@@ -593,8 +602,9 @@ function tryHtml(options = {}) {
           $("cn-result").scrollIntoView({ behavior: "smooth", block: "center" });
         })
         .catch(function (e) { clearInterval(timer); $("cn-steps").hidden = true; $("cn-msg").textContent = e.message || t.error; $("cn-msg").hidden = false; })
-        .finally(function () { $("cn-go-btn").disabled = false; });
+        .finally(function () { $("cn-go-btn").disabled = false; $("cn-demo-btn").disabled = false; });
     }
+    function loadDemo() { load("", true); }
     function ask(q) {
       var t = L(); q = String(q || "").trim(); if (!q || s.busy || !s.token) return;
       s.busy = true; $("cn-chips").innerHTML = ""; add(q, "me"); var typing = add("…", "bot typing");
@@ -612,6 +622,11 @@ function tryHtml(options = {}) {
         .finally(function () { s.busy = false; });
     }
     $("cn-go").addEventListener("submit", function (e) { e.preventDefault(); load($("cn-url").value.trim()); });
+    $("cn-demo-btn").addEventListener("click", loadDemo);
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("[data-cn-demo]"); if (!a) return;
+      e.preventDefault(); $("cn-try").scrollIntoView({ behavior: "smooth", block: "start" }); if (!s.busy) loadDemo();
+    });
     $("cn-ask").addEventListener("submit", function (e) { e.preventDefault(); var q = $("cn-q").value; $("cn-q").value = ""; ask(q); });
     $("cn-again").addEventListener("click", function () { $("cn-result").hidden = true; $("cn-url").value = ""; $("cn-url").focus(); });
     $("cn-share").addEventListener("click", function () {
@@ -624,7 +639,7 @@ function tryHtml(options = {}) {
       try { var r = new URLSearchParams(location.search).get("ref"); if (r && /^[A-Za-z0-9]{4,12}$/.test(r)) localStorage.setItem("cn_ref", r.toUpperCase()); } catch (e) {}
       texts();
       var pre = ""; try { pre = new URLSearchParams(location.search).get("try") || ""; } catch (e) {}
-      if (pre) { $("cn-url").value = pre; load(pre); }
+      if (pre === "demo") loadDemo(); else if (pre) { $("cn-url").value = pre; load(pre); }
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
   })();
@@ -878,6 +893,25 @@ function createGrowth(deps) {
       }
     });
 
+    // Live demo on the bundled sample feed (public/demo-feed.xml) for visitors
+    // without a store at hand. Same session/message caps as /try/chat, plus the
+    // marketing-chat per-IP and global hourly limits from server.js.
+    let demoProducts = null;
+    app.post("/try/demo", (req, res) => {
+      try {
+        if (limited(loadLimits, `demo:${req.ip}`, 20, 60 * 60 * 1000)) return res.status(429).json({ code: "busy" });
+        if (!demoProducts) demoProducts = deps.parseFeed(fs.readFileSync(path.join(__dirname, "public", "demo-feed.xml"), "utf8"));
+        const token = crypto.randomBytes(16).toString("hex");
+        sessions.set(token, { name: "Chatnelo demo store", domain: "demo", platform: "demo", products: demoProducts, demo: true, created: Date.now(), messages: 0 });
+        prune();
+        const sample = demoProducts.slice(0, 1).map((p) => p.nazev);
+        res.json({ token, demo: true, name: "Chatnelo demo store", domain: "demo", platform: "demo", count: demoProducts.length, sample, priceHint: "1 000 Kč" });
+      } catch (error) {
+        deps.logRouteError("Try demo", error);
+        res.status(500).json({ code: "error" });
+      }
+    });
+
     app.post("/try/chat", async (req, res) => {
       try {
         const token = String((req.body && req.body.token) || "");
@@ -885,6 +919,7 @@ function createGrowth(deps) {
         if (!session) return res.status(404).json({ code: "expired" });
         if (limited(chatLimits, req.ip, 60, 60 * 60 * 1000)) return res.status(429).json({ code: "busy" });
         if (session.messages >= MAX_MESSAGES) return res.status(410).json({ code: "limit" });
+        if (session.demo && deps.isDemoChatLimited && deps.isDemoChatLimited(req)) return res.status(429).json({ code: "busy" });
         const message = String((req.body && req.body.message) || "").trim().slice(0, 500);
         if (!message) return res.status(400).json({ code: "empty" });
         const history = Array.isArray(req.body.history) ? req.body.history.slice(-8)

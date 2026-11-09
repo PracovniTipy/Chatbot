@@ -309,6 +309,14 @@ async function initializeDatabase() {
   `);
 
   await database.query(`
+    CREATE TABLE IF NOT EXISTS shop_review_prompts (
+      shop TEXT PRIMARY KEY,
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      dismissed_until TIMESTAMPTZ
+    )
+  `);
+
+  await database.query(`
     CREATE TABLE IF NOT EXISTS generic_stores (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -635,6 +643,7 @@ async function deleteShopData(shop, deleteUsage) {
     await client.query("DELETE FROM shop_sessions WHERE shop = $1", [shop]);
     if (deleteUsage) {
       await client.query("DELETE FROM shop_settings WHERE shop = $1", [shop]);
+      await client.query("DELETE FROM shop_review_prompts WHERE shop = $1", [shop]);
       await insights.deleteForShop(client, shop);
     }
     await client.query("COMMIT");
@@ -2497,6 +2506,16 @@ td button:active{transform:translateY(0)}
 .ins-lead-actions{display:flex;gap:8px;flex:none}
 .ins-btn{border:1px solid #d8c8f5;background:#faf7ff;color:#5b21b6;font-weight:700;font-size:.82rem;padding:7px 12px;border-radius:8px;cursor:pointer}
 .ins-btn.primary{background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;border-color:transparent}
+.review-card{position:relative;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 0 0;padding:14px 44px 14px 16px;border-radius:14px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #ddd6fe}
+.review-card[hidden]{display:none}
+.review-card img{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:none}
+.review-card p{flex:1 1 260px;margin:0;color:#4c1d95;font-weight:600;font-size:.93rem;line-height:1.4}
+.review-actions{display:flex;gap:8px;align-items:center;flex:none}
+.review-btn{display:inline-block;background:linear-gradient(135deg,#7e22ce,#a855f7);color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;font-weight:700;font-size:.88rem}
+.review-btn:hover{box-shadow:0 4px 12px rgba(126,34,206,.35)}
+.review-later{background:none;border:1px solid #d8c8f5;color:#5b21b6;font-weight:600;font-size:.86rem;padding:7px 12px;border-radius:8px;cursor:pointer}
+.review-close{position:absolute;top:8px;right:10px;background:none;border:none;color:#8a94a6;font-size:1.3rem;line-height:1;cursor:pointer;padding:4px}
+.review-close:hover{color:#1c1f26}
   </style>
 </head>
 <body>
@@ -2507,6 +2526,15 @@ td button:active{transform:translateY(0)}
   <main>
     <h1>Chatnelo</h1>
     <p data-i18n="root.intro">Aplikace je připojená. Chat vpravo používá produkty a sklad tohoto obchodu.</p>
+    <section class="review-card" id="review-card" hidden aria-labelledby="review-text">
+      <img src="/mascot.png" alt="">
+      <p id="review-text">Enjoying Chatnelo? A short honest review on the Shopify App Store helps a small studio a lot.</p>
+      <div class="review-actions">
+        <a class="review-btn" id="review-write" href="https://apps.shopify.com/chatnelo#modal-show=ReviewListingModal" target="_blank" rel="noopener">Write a review</a>
+        <button type="button" class="review-later" id="review-later">Not now</button>
+      </div>
+      <button type="button" class="review-close" id="review-close" aria-label="Close">&times;</button>
+    </section>
     <section class="usage-card" id="insights" aria-live="polite">
       <h2 id="ins-title" style="margin:0 0 4px;font-size:1.3rem">What your customers ask</h2>
       <p class="muted" id="ins-sub" style="margin:0">Last 30 days</p>
@@ -2805,6 +2833,37 @@ td button:active{transform:translateY(0)}
           }, 2500);
         } catch (e) {}
       }
+      // Review card (see /api/review-prompt). Falls back to localStorage when
+      // the server has no persistent store.
+      var REVIEW_LS = "chatnelo-review-card";
+      function reviewLocal() { try { return JSON.parse(window.localStorage.getItem(REVIEW_LS) || "{}") || {}; } catch (e) { return {}; } }
+      function reviewLocalSave(v) { try { window.localStorage.setItem(REVIEW_LS, JSON.stringify(v)); } catch (e) {} }
+      function loadReviewCard() {
+        window.fetch("/api/review-prompt")
+          .then(function (response) { return response.json(); })
+          .then(function (data) {
+            var show = data && data.show;
+            if (data && data.stored === false) {
+              var local = reviewLocal(), now = Date.now();
+              if (!local.firstSeen) { local.firstSeen = now; reviewLocalSave(local); }
+              show = now - local.firstSeen >= 5 * 24 * 60 * 60 * 1000 && !(local.until > now);
+            }
+            byId("review-card").hidden = !show;
+          })
+          .catch(function () {});
+      }
+      function dismissReviewCard(action) {
+        byId("review-card").hidden = true;
+        var local = reviewLocal();
+        local.until = Date.now() + (action === "reviewed" ? 365 : 30) * 24 * 60 * 60 * 1000;
+        reviewLocalSave(local);
+        window.fetch("/api/review-prompt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: action }) }).catch(function () {});
+      }
+      document.addEventListener("click", function (event) {
+        var el = event.target.closest && event.target.closest("#review-write, #review-later, #review-close");
+        if (!el) return;
+        dismissReviewCard(el.id === "review-write" ? "reviewed" : "later");
+      });
       function loadInsights() {
         window.fetch("/api/insights?days=30")
           .then(function (response) { return response.json().then(function (data) { if (!response.ok) throw new Error(data.error); return data; }); })
@@ -2929,6 +2988,7 @@ td button:active{transform:translateY(0)}
         render();
         renderInsights();
         loadInsights();
+        loadReviewCard();
         window.fetch("/api/bootstrap", { method: "POST" })
           .then(readJson)
           .then(function (data) {
@@ -3038,7 +3098,10 @@ app.post("/api/referral/apply", async (req, res) => {
 });
 
 // "Try it on your store" demo, revenue calculator and Czech landing pages.
-const growth = createGrowth({ parseFeed, generateGenericAnswer, genericProductCards, logRouteError });
+const growth = createGrowth({
+  parseFeed, generateGenericAnswer, genericProductCards, logRouteError,
+  isDemoChatLimited: (req) => isMarketingChatRateLimited(clientIp(req)),
+});
 growth.register(app);
 
 app.get("/google562cd178b70f9ab1.html", (req, res) => res.type("text/html").send("google-site-verification: google562cd178b70f9ab1.html"));
@@ -5254,6 +5317,51 @@ app.put("/api/leads/:id", async (req, res) => {
     res.json({ ok: true });
   } catch (error) {
     logRouteError("Lead update", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+// In-app review card: shown to every merchant (no satisfaction filtering –
+// Shopify forbids review gating) once the app has been installed 5+ days.
+// "Not now" hides it for 30 days; clicking "Write a review" hides it for a year.
+const REVIEW_PROMPT_MIN_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+const REVIEW_PROMPT_SNOOZE_MS = { later: 30 * 24 * 60 * 60 * 1000, reviewed: 365 * 24 * 60 * 60 * 1000 };
+
+app.get("/api/review-prompt", async (req, res) => {
+  try {
+    const shop = adminShop(req);
+    res.set("Cache-Control", "no-store");
+    if (!database || !databaseReady) return res.json({ stored: false });
+    await database.query("INSERT INTO shop_review_prompts (shop) VALUES ($1) ON CONFLICT (shop) DO NOTHING", [shop]);
+    const result = await database.query(
+      `SELECT p.first_seen_at, p.dismissed_until, s.installed_at
+         FROM shop_review_prompts p LEFT JOIN shop_sessions s ON s.shop = p.shop
+        WHERE p.shop = $1`,
+      [shop],
+    );
+    const row = result.rows[0] || {};
+    const since = new Date(row.installed_at || row.first_seen_at || Date.now()).getTime();
+    const snoozed = row.dismissed_until && new Date(row.dismissed_until).getTime() > Date.now();
+    res.json({ stored: true, show: Date.now() - since >= REVIEW_PROMPT_MIN_AGE_MS && !snoozed });
+  } catch (error) {
+    logRouteError("Review prompt", error);
+    res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
+  }
+});
+
+app.post("/api/review-prompt", async (req, res) => {
+  try {
+    const shop = adminShop(req);
+    const snooze = REVIEW_PROMPT_SNOOZE_MS[req.body?.action] || REVIEW_PROMPT_SNOOZE_MS.later;
+    if (!database || !databaseReady) return res.json({ stored: false });
+    await database.query(
+      `INSERT INTO shop_review_prompts (shop, dismissed_until) VALUES ($1, $2)
+       ON CONFLICT (shop) DO UPDATE SET dismissed_until = EXCLUDED.dismissed_until`,
+      [shop, new Date(Date.now() + snooze)],
+    );
+    res.json({ stored: true });
+  } catch (error) {
+    logRouteError("Review prompt dismiss", error);
     res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
   }
 });
