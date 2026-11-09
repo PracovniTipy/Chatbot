@@ -8,6 +8,7 @@ const net = require("net");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { clientScript } = require("./affiliate");
 
 const UA = "Mozilla/5.0 (compatible; ChatneloDemo/1.0; +https://chatnelo.com)";
 const MAX_PRODUCTS = 250;
@@ -769,6 +770,7 @@ function seoPage(slug) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  ${clientScript()}
   <title>${esc(p.title)}</title>
   <meta name="description" content="${esc(p.description)}">
   <link rel="canonical" href="https://chatnelo.com/${slug}">

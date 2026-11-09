@@ -29,7 +29,10 @@ const { parseFeed, fetchFeed, validateFeedUrl, selectRelevantProducts } = requir
 const insights = require("./insights");
 const { createGrowth } = require("./growth");
 const referrals = require("./referrals");
+const affiliate = require("./affiliate");
 const { renderLanding, mascotSvg } = require("./landing");
+
+const AFF_CLIENT_SCRIPT = affiliate.clientScript();
 
 const app = express();
 app.set("trust proxy", true);
@@ -378,6 +381,7 @@ async function initializeDatabase() {
   `);
   await insights.ensureTables(database);
   await referrals.ensureTables(database);
+  await affiliate.ensureTables(database);
 
   databaseReady = true;
   console.log("Databáze Shopify připojení a spotřeby je připravená.");
@@ -2454,6 +2458,10 @@ td button:active{transform:translateY(0)}
 .ref-link{flex:1 1 220px;min-width:0;padding:9px 11px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;font-size:.88rem;color:#374151}
 .ref-row button{padding:9px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#a855f7);color:#fff;font-weight:700;cursor:pointer}
 .ref-count{margin-top:10px;font-size:.85rem;color:#6b7280}
+.aff-card{background:linear-gradient(135deg,#f0fdfa,#f8fafc);border-color:#a5f3fc}
+.aff-input{text-transform:uppercase;font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;max-width:260px}
+.aff-card .ref-count.ok{color:#047857;font-weight:600}
+.aff-card .ref-count.err{color:#b42318}
 .welcome-ref{margin:14px 0 0;font-size:.88rem}
 .welcome-ref button.link{background:none;border:none;color:#7c3aed;text-decoration:underline;cursor:pointer;font:inherit;padding:0}
 .welcome-ref form{display:inline-flex;gap:6px;margin-top:8px}
@@ -2584,6 +2592,12 @@ td button:active{transform:translateY(0)}
       <div class="ref-row"><span class="ref-code" id="ref-code"></span><input class="ref-link" id="ref-link" readonly><button type="button" id="ref-copy"></button></div>
       <div class="ref-count" id="ref-count"></div>
     </section>
+    <section class="ref-card aff-card" id="aff-card" hidden>
+      <h3 id="aff-title"></h3>
+      <p id="aff-text"></p>
+      <form class="ref-row" id="aff-form"><input class="ref-link aff-input" id="aff-input" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false"><button type="submit" id="aff-save"></button></form>
+      <div class="ref-count" id="aff-status" role="status" aria-live="polite"></div>
+    </section>
   </main>
   <div id="welcome" class="welcome-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="welcome-title">
     <div class="welcome-box">
@@ -2625,6 +2639,8 @@ td button:active{transform:translateY(0)}
       var WELCOME = {"cs": {"wTitle": "Vítejte v Chatnelo 👋", "wText": "Jak chcete začít? Vyberte si – nic se neplatí, dokud to sami nepotvrdíte.", "wTrialTitle": "Vyzkoušet 3 dny zdarma", "wTrialList": ["Plná verze bez omezení", "Bez platby a bez karty", "Po 3 dnech si vyberete tarif"], "wTrialBtn": "Začít 3 dny zdarma", "wPayTitle": "Vybrat tarif a zaplatit hned", "wPayList": ["Okamžitě plný tarif", "Platba bezpečně přes Shopify", "Kdykoli změníte nebo zrušíte"], "wPayBtn": "Vybrat tarif", "wNote": "Zkušební verzi lze využít jednou na obchod – kdykoli později, pokud ji teď nespustíte.", "trialOffer": "🎁 Máte k dispozici 3 dny plné verze zdarma – bez platby.", "trustChoice": "🔒 Zaplatit můžete hned, nebo nejdřív vyzkoušet 3 dny zdarma · platba přes Shopify · bez závazků", "trustPaid": "🔒 Platba bezpečně přes Shopify · bez závazků · kdykoli můžete změnit nebo zrušit", "startError": "Zkušební verzi se nepodařilo spustit. Zkuste to prosím znovu."}, "en": {"wTitle": "Welcome to Chatnelo 👋", "wText": "How would you like to start? Pick one – nothing is charged until you confirm it yourself.", "wTrialTitle": "Try 3 days free", "wTrialList": ["Full version, no limits", "No payment, no card", "Choose a plan after 3 days"], "wTrialBtn": "Start 3-day free trial", "wPayTitle": "Choose a plan and pay now", "wPayList": ["Full plan right away", "Billed securely through Shopify", "Change or cancel anytime"], "wPayBtn": "Choose a plan", "wNote": "The free trial can be used once per store – anytime later if you don't start it now.", "trialOffer": "🎁 You have 3 days of the full version free – no payment.", "trustChoice": "🔒 Pay now or try 3 days free first · billed through Shopify · no commitment", "trustPaid": "🔒 Billed securely through Shopify · no commitment · change or cancel anytime", "startError": "Could not start the free trial. Please try again."}, "sk": {"wTitle": "Vitajte v Chatnelo 👋", "wText": "Ako chcete začať? Vyberte si – nič sa neplatí, kým to sami nepotvrdíte.", "wTrialTitle": "Vyskúšať 3 dni zdarma", "wTrialList": ["Plná verzia bez obmedzení", "Bez platby a bez karty", "Po 3 dňoch si vyberiete tarif"], "wTrialBtn": "Začať 3 dni zdarma", "wPayTitle": "Vybrať tarif a zaplatiť hneď", "wPayList": ["Okamžite plný tarif", "Platba bezpečne cez Shopify", "Kedykoľvek zmeníte alebo zrušíte"], "wPayBtn": "Vybrať tarif", "wNote": "Skúšobnú verziu je možné využiť raz na obchod – kedykoľvek neskôr, ak ju teraz nespustíte.", "trialOffer": "🎁 Máte k dispozícii 3 dni plnej verzie zdarma – bez platby.", "trustChoice": "🔒 Zaplatiť môžete hneď, alebo najprv vyskúšať 3 dni zdarma · platba cez Shopify · bez záväzkov", "trustPaid": "🔒 Platba bezpečne cez Shopify · bez záväzkov · kedykoľvek zmeniť alebo zrušiť", "startError": "Skúšobnú verziu sa nepodarilo spustiť. Skúste to prosím znova."}, "de": {"wTitle": "Willkommen bei Chatnelo 👋", "wText": "Wie möchten Sie starten? Wählen Sie – es wird nichts berechnet, bevor Sie es selbst bestätigen.", "wTrialTitle": "3 Tage kostenlos testen", "wTrialList": ["Vollversion ohne Einschränkungen", "Keine Zahlung, keine Karte", "Tarif nach 3 Tagen wählen"], "wTrialBtn": "3 Tage kostenlos starten", "wPayTitle": "Tarif wählen und sofort zahlen", "wPayList": ["Sofort voller Tarif", "Sichere Abrechnung über Shopify", "Jederzeit änder- oder kündbar"], "wPayBtn": "Tarif wählen", "wNote": "Die Testphase kann einmal pro Shop genutzt werden – auch später, wenn Sie sie jetzt nicht starten.", "trialOffer": "🎁 Sie haben 3 Tage Vollversion kostenlos – ohne Zahlung.", "trustChoice": "🔒 Sofort zahlen oder zuerst 3 Tage kostenlos testen · Abrechnung über Shopify · keine Bindung", "trustPaid": "🔒 Sichere Abrechnung über Shopify · keine Bindung · jederzeit kündbar", "startError": "Die Testphase konnte nicht gestartet werden. Bitte erneut versuchen."}, "pl": {"wTitle": "Witaj w Chatnelo 👋", "wText": "Jak chcesz zacząć? Wybierz – nic nie zostanie pobrane, dopóki sam tego nie potwierdzisz.", "wTrialTitle": "Wypróbuj 3 dni za darmo", "wTrialList": ["Pełna wersja bez ograniczeń", "Bez płatności i bez karty", "Po 3 dniach wybierasz plan"], "wTrialBtn": "Rozpocznij 3 dni za darmo", "wPayTitle": "Wybierz plan i zapłać teraz", "wPayList": ["Od razu pełny plan", "Bezpieczna płatność przez Shopify", "Zmień lub anuluj w każdej chwili"], "wPayBtn": "Wybierz plan", "wNote": "Okres próbny można wykorzystać raz na sklep – także później, jeśli nie uruchomisz go teraz.", "trialOffer": "🎁 Masz 3 dni pełnej wersji za darmo – bez płatności.", "trustChoice": "🔒 Zapłać od razu lub najpierw wypróbuj 3 dni za darmo · płatność przez Shopify · bez zobowiązań", "trustPaid": "🔒 Bezpieczna płatność przez Shopify · bez zobowiązań · anuluj w każdej chwili", "startError": "Nie udało się uruchomić okresu próbnego. Spróbuj ponownie."}};
       var REF = {"cs": {"refToggle": "Máte kód od známého? Získejte 30 dní zdarma", "refApply": "Použít", "refOk": "✓ Kód přijat – máte 30 dní plné verze zdarma.", "refBad": "Tento kód neplatí.", "wTrialBtn30": "Začít 30 dní zdarma", "refTitle": "🎁 Doporučte Chatnelo – měsíc zdarma za každý e-shop", "refText": "Pošlete odkaz nebo kód známému s e-shopem. On dostane 30 dní zdarma místo 3 a vy měsíc Chatnela zdarma (při placeném tarifu jako kredit na další platbu).", "refCopy": "Kopírovat odkaz", "refCopied": "Zkopírováno ✓", "refCount": "Doporučeno e-shopů: {n}", "bonus": "🎁 Díky doporučení máte Chatnelo zdarma do {date}."}, "en": {"refToggle": "Got a code from a friend? Get 30 days free", "refApply": "Apply", "refOk": "✓ Code accepted – you get 30 days of the full version free.", "refBad": "This code is not valid.", "wTrialBtn30": "Start 30 days free", "refTitle": "🎁 Recommend Chatnelo – a month free for every store", "refText": "Send your link or code to a friend with an online store. They get 30 days free instead of 3, and you get a month of Chatnelo free (as credit on your next bill if you are on a paid plan).", "refCopy": "Copy link", "refCopied": "Copied ✓", "refCount": "Stores recommended: {n}", "bonus": "🎁 Thanks to a recommendation, Chatnelo is free for you until {date}."}, "sk": {"refToggle": "Máte kód od známeho? Získajte 30 dní zdarma", "refApply": "Použiť", "refOk": "✓ Kód prijatý – máte 30 dní plnej verzie zdarma.", "refBad": "Tento kód neplatí.", "wTrialBtn30": "Začať 30 dní zdarma", "refTitle": "🎁 Odporučte Chatnelo – mesiac zdarma za každý e-shop", "refText": "Pošlite odkaz alebo kód známemu s e-shopom. Dostane 30 dní zdarma namiesto 3 a vy mesiac Chatnela zdarma (pri platenom tarife ako kredit).", "refCopy": "Kopírovať odkaz", "refCopied": "Skopírované ✓", "refCount": "Odporučené e-shopy: {n}", "bonus": "🎁 Vďaka odporúčaniu máte Chatnelo zdarma do {date}."}, "de": {"refToggle": "Code von einem Bekannten? 30 Tage gratis", "refApply": "Anwenden", "refOk": "✓ Code akzeptiert – 30 Tage Vollversion gratis.", "refBad": "Dieser Code ist ungültig.", "wTrialBtn30": "30 Tage gratis starten", "refTitle": "🎁 Chatnelo empfehlen – ein Monat gratis pro Shop", "refText": "Senden Sie Ihren Link oder Code an Bekannte mit Onlineshop. Sie erhalten 30 statt 3 Tage gratis, Sie selbst einen Monat Chatnelo gratis (bei bezahltem Tarif als Guthaben).", "refCopy": "Link kopieren", "refCopied": "Kopiert ✓", "refCount": "Empfohlene Shops: {n}", "bonus": "🎁 Dank einer Empfehlung ist Chatnelo für Sie bis {date} gratis."}, "pl": {"refToggle": "Masz kod od znajomego? 30 dni za darmo", "refApply": "Użyj", "refOk": "✓ Kod przyjęty – 30 dni pełnej wersji za darmo.", "refBad": "Ten kod jest nieważny.", "wTrialBtn30": "Rozpocznij 30 dni za darmo", "refTitle": "🎁 Poleć Chatnelo – miesiąc gratis za każdy sklep", "refText": "Wyślij link lub kod znajomemu ze sklepem. Dostanie 30 dni za darmo zamiast 3, a Ty miesiąc Chatnelo gratis (przy płatnym planie jako kredyt).", "refCopy": "Kopiuj link", "refCopied": "Skopiowano ✓", "refCount": "Polecone sklepy: {n}", "bonus": "🎁 Dzięki poleceniu masz Chatnelo za darmo do {date}."}};
       Object.keys(REF).forEach(function (code) { Object.keys(REF[code]).forEach(function (key) { STRINGS[code][key] = REF[code][key]; }); });
+      var AFF = {"cs": {"affTitle": "Kód tvůrce", "affText": "Doporučil vám Chatnelo tvůrce obsahu (BrosWars Partner)? Zadejte jeho kód – podpoříte ho a vaše cena se nemění. Nejde o kód od známého na 30 dní zdarma.", "affSave": "Uložit", "affSaved": "✓ Kód tvůrce je uložený. Děkujeme!", "affAttached": "✓ Kód tvůrce je uložený. Nový kód nahradí ten předchozí.", "affUnknown": "Tento kód tvůrce neexistuje.", "affInvalid": "Zadejte kód tvůrce.", "affHub": "Kód teď nejde ověřit. Zkuste to prosím později.", "affBusy": "Příliš mnoho pokusů. Zkuste to prosím později.", "affError": "Kód se nepodařilo uložit. Zkuste to prosím znovu."}, "en": {"affTitle": "Creator code", "affText": "Did a content creator (BrosWars Partner) recommend Chatnelo to you? Enter their code to support them – your price stays the same. This is not the friend code for 30 days free.", "affSave": "Save", "affSaved": "✓ Creator code saved. Thank you!", "affAttached": "✓ A creator code is saved. A new code replaces the previous one.", "affUnknown": "This creator code does not exist.", "affInvalid": "Enter a creator code.", "affHub": "The code cannot be verified right now. Please try again later.", "affBusy": "Too many attempts. Please try again later.", "affError": "The code could not be saved. Please try again."}, "sk": {"affTitle": "Kód tvorcu", "affText": "Odporučil vám Chatnelo tvorca obsahu (BrosWars Partner)? Zadajte jeho kód – podporíte ho a vaša cena sa nemení. Nejde o kód od známeho na 30 dní zdarma.", "affSave": "Uložiť", "affSaved": "✓ Kód tvorcu je uložený. Ďakujeme!", "affAttached": "✓ Kód tvorcu je uložený. Nový kód nahradí ten predchádzajúci.", "affUnknown": "Tento kód tvorcu neexistuje.", "affInvalid": "Zadajte kód tvorcu.", "affHub": "Kód teraz nejde overiť. Skúste to prosím neskôr.", "affBusy": "Príliš veľa pokusov. Skúste to prosím neskôr.", "affError": "Kód sa nepodarilo uložiť. Skúste to prosím znova."}, "de": {"affTitle": "Creator-Code", "affText": "Hat Ihnen ein Content Creator (BrosWars Partner) Chatnelo empfohlen? Geben Sie seinen Code ein, um ihn zu unterstützen – Ihr Preis bleibt gleich. Das ist nicht der Empfehlungscode für 30 Tage gratis.", "affSave": "Speichern", "affSaved": "✓ Creator-Code gespeichert. Danke!", "affAttached": "✓ Ein Creator-Code ist gespeichert. Ein neuer Code ersetzt den vorherigen.", "affUnknown": "Dieser Creator-Code existiert nicht.", "affInvalid": "Geben Sie einen Creator-Code ein.", "affHub": "Der Code kann gerade nicht geprüft werden. Bitte versuchen Sie es später.", "affBusy": "Zu viele Versuche. Bitte versuchen Sie es später.", "affError": "Der Code konnte nicht gespeichert werden. Bitte erneut versuchen."}, "pl": {"affTitle": "Kod twórcy", "affText": "Czy Chatnelo polecił Ci twórca treści (BrosWars Partner)? Wpisz jego kod, aby go wesprzeć – Twoja cena się nie zmienia. To nie jest kod od znajomego na 30 dni za darmo.", "affSave": "Zapisz", "affSaved": "✓ Kod twórcy zapisany. Dziękujemy!", "affAttached": "✓ Kod twórcy jest zapisany. Nowy kod zastąpi poprzedni.", "affUnknown": "Ten kod twórcy nie istnieje.", "affInvalid": "Wpisz kod twórcy.", "affHub": "Nie można teraz zweryfikować kodu. Spróbuj później.", "affBusy": "Zbyt wiele prób. Spróbuj później.", "affError": "Nie udało się zapisać kodu. Spróbuj ponownie."}};
+      Object.keys(AFF).forEach(function (code) { Object.keys(AFF[code]).forEach(function (key) { STRINGS[code][key] = AFF[code][key]; }); });
       Object.keys(WELCOME).forEach(function (code) {
         Object.keys(WELCOME[code]).forEach(function (key) { STRINGS[code][key] = WELCOME[code][key]; });
       });
@@ -2688,6 +2704,15 @@ td button:active{transform:translateY(0)}
           byId("ref-link").value = ref.link;
           byId("ref-copy").textContent = t("refCopy");
           byId("ref-count").textContent = t("refCount").replace("{n}", ref.count);
+        }
+        byId("aff-card").hidden = !state.aff;
+        if (state.aff) {
+          byId("aff-title").textContent = t("affTitle");
+          byId("aff-text").textContent = t("affText");
+          byId("aff-save").textContent = t("affSave");
+          var affStatus = byId("aff-status");
+          affStatus.className = "ref-count" + (state.aff.message ? (state.aff.ok ? " ok" : " err") : (state.aff.attached ? " ok" : ""));
+          affStatus.textContent = state.aff.message ? t(state.aff.message) : (state.aff.attached ? t("affAttached") : "");
         }
         var counter = byId("usage-count");
         if (state.error) {
@@ -2960,6 +2985,25 @@ td button:active{transform:translateY(0)}
           else { try { document.execCommand("copy"); done(); } catch (e) {} }
         });
         window.fetch("/api/referral").then(readJson).then(function (data) { state.referral = data; render(); }).catch(function () {});
+        // BrosWars Partner creator code (separate from the referral above).
+        window.fetch("/api/aff/creator").then(readJson).then(function (data) { state.aff = { attached: Boolean(data.attached) }; render(); }).catch(function () {});
+        byId("aff-form").addEventListener("submit", function (event) {
+          event.preventDefault();
+          var code = byId("aff-input").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+          if (code.length < 2) { state.aff.message = "affInvalid"; state.aff.ok = false; render(); byId("aff-input").focus(); return; }
+          byId("aff-save").disabled = true;
+          window.fetch("/api/aff/creator", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: code }) })
+            .then(function (response) {
+              return response.json().catch(function () { return {}; }).then(function (data) {
+                if (response.ok) { state.aff = { attached: true, message: "affSaved", ok: true }; byId("aff-input").value = ""; return; }
+                var map = { unknown_code: "affUnknown", invalid_code: "affInvalid", hub_unavailable: "affHub" };
+                state.aff.message = response.status === 429 ? "affBusy" : (map[data.error] || "affError");
+                state.aff.ok = false;
+              });
+            })
+            .catch(function () { state.aff.message = "affError"; state.aff.ok = false; })
+            .finally(function () { byId("aff-save").disabled = false; render(); });
+        });
         byId("trial-offer-btn").addEventListener("click", function () { startTrial(this); });
         byId("w-pay-btn").addEventListener("click", function () {
           state.welcomeClosed = true;
@@ -3104,6 +3148,16 @@ const growth = createGrowth({
 });
 growth.register(app);
 
+// BrosWars Partner (creator affiliate program): click attribution and the
+// conversions feed for the hub. Separate from the referral program above.
+const aff = affiliate.createAffiliate({
+  getDb: () => (database && databaseReady ? database : null),
+  getShopToken, shopifyGraphql, getAdminAccess, clientIp,
+  getStripe: () => stripeClient,
+  logRouteError, errorStatus, publicErrorMessage, httpError,
+});
+aff.register(app);
+
 app.get("/google562cd178b70f9ab1.html", (req, res) => res.type("text/html").send("google-site-verification: google562cd178b70f9ab1.html"));
 
 app.get("/robots.txt", (req, res) => {
@@ -3157,7 +3211,8 @@ app.get("/marketing", (req, res) => {
     · <a href="/partneri">Partnerský program</a>
     ${process.env.PRIVACY_CONTACT_EMAIL ? ` · <a href="mailto:${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}">${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}</a>` : ""}
     <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>`;
-  const headExtra = `  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  const headExtra = `  ${AFF_CLIENT_SCRIPT}
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -3297,6 +3352,7 @@ app.get("/privacy", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  ${AFF_CLIENT_SCRIPT}
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -3447,6 +3503,10 @@ app.post("/store/signup", async (req, res) => {
       } catch (error) {
         console.warn("Doporučení při registraci:", error.message);
       }
+    }
+
+    if (req.body && affiliate.isValidClickId(req.body.bw)) {
+      aff.attachStore(id, req.body.bw).catch((error) => console.warn("Affiliate při registraci:", error.message));
     }
 
     const baseUrl = appBaseUrl(req);
@@ -3724,6 +3784,7 @@ app.get("/store/install", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  ${AFF_CLIENT_SCRIPT}
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -4238,6 +4299,7 @@ app.get("/store/dashboard", (req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  ${AFF_CLIENT_SCRIPT}
   <link rel="icon" href="/favicon.ico" sizes="48x48">
   <link rel="icon" type="image/png" sizes="96x96" href="/icon-96.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -4571,7 +4633,7 @@ app.get("/store/dashboard", (req, res) => {
       if (!byId("signup-consent").checked) { errorEl.textContent = L("errConsent"); return; }
       var button = byId("signup-btn");
       button.disabled = true;
-      fetch("/store/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name, email: email, password: password, ref: refCode() }) })
+      fetch("/store/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name, email: email, password: password, ref: refCode(), bw: window.bwClickId ? window.bwClickId() : "" }) })
         .then(readJson)
         .then(function (data) { return enter(data.storeId, data.adminKey, "signup-error"); })
         .catch(function (error) { if (!errorEl.textContent) errorEl.textContent = error.message; })
@@ -5366,9 +5428,14 @@ app.post("/api/review-prompt", async (req, res) => {
   }
 });
 
-// Partner program: public application form (submissions go to Supabase).
+// Partner program page (BrosWars Partner; applications on the studio site).
+let partneriHtml = null;
 app.get("/partneri", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "partneri.html"));
+  if (partneriHtml === null) {
+    partneriHtml = require("fs").readFileSync(path.join(__dirname, "public", "partneri.html"), "utf8")
+      .replace("</head>", `${AFF_CLIENT_SCRIPT}\n</head>`);
+  }
+  res.type("html").send(partneriHtml);
 });
 
 app.get("/health", (req, res) => {
@@ -5418,6 +5485,7 @@ initializeDatabase()
       console.log(`Chatnelo běží na portu ${port}`);
     });
     setInterval(pruneRateLimits, 10 * 60 * 1000).unref();
+    aff.start();
     const pruneInsights = () => {
       if (!database || !databaseReady) return;
       insights.pruneOld(database).catch((error) => console.error("Čištění přehledu dotazů:", error));
