@@ -3099,7 +3099,7 @@ app.post("/api/referral/apply", async (req, res) => {
 
 // "Try it on your store" demo, revenue calculator and Czech landing pages.
 const growth = createGrowth({
-  parseFeed, generateGenericAnswer, genericProductCards, logRouteError,
+  parseFeed, generateGenericAnswer, genericProductCards, logRouteError, database,
   isDemoChatLimited: (req) => isMarketingChatRateLimited(clientIp(req)),
 });
 growth.register(app);

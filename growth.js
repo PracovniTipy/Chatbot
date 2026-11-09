@@ -865,13 +865,53 @@ function createGrowth(deps) {
   }
   setInterval(prune, 10 * 60 * 1000).unref();
 
+  // Demo usage counter: only the store domain and the outcome, never visitor data.
+  let statsReady = null;
+  function track(kind, domain, platform, ok, products) {
+    const db = deps.database;
+    if (!db) return;
+    statsReady = statsReady || db.query(`CREATE TABLE IF NOT EXISTS demo_events (
+      id BIGSERIAL PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      kind TEXT NOT NULL, domain TEXT, platform TEXT, ok BOOLEAN, products INTEGER)`).catch((e) => { statsReady = null; throw e; });
+    statsReady.then(() => db.query("INSERT INTO demo_events (kind, domain, platform, ok, products) VALUES ($1,$2,$3,$4,$5)",
+      [kind, String(domain || "").slice(0, 200) || null, platform || null, !!ok, Number.isFinite(products) ? products : null]))
+      .catch((e) => deps.logRouteError("Demo stats", e));
+  }
+
+  async function demoStats() {
+    const db = deps.database;
+    if (!db) return { error: "no_database" };
+    await (statsReady || Promise.resolve());
+    await db.query(`CREATE TABLE IF NOT EXISTS demo_events (
+      id BIGSERIAL PRIMARY KEY, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      kind TEXT NOT NULL, domain TEXT, platform TEXT, ok BOOLEAN, products INTEGER)`);
+    const totals = await db.query(`SELECT
+      COUNT(*) FILTER (WHERE kind='load') AS loads,
+      COUNT(*) FILTER (WHERE kind='load' AND ok) AS loads_ok,
+      COUNT(*) FILTER (WHERE kind='chat') AS chats,
+      COUNT(DISTINCT domain) FILTER (WHERE kind='load' AND ok) AS stores,
+      COUNT(*) FILTER (WHERE kind='load' AND created_at > NOW() - INTERVAL '7 days') AS loads_7d
+      FROM demo_events`);
+    const recent = await db.query(`SELECT domain, platform, ok, products, MAX(created_at) AS last,
+      (SELECT COUNT(*) FROM demo_events c WHERE c.kind='chat' AND c.domain=e.domain) AS chats
+      FROM demo_events e WHERE kind='load' GROUP BY domain, platform, ok, products ORDER BY last DESC LIMIT 50`);
+    return { totals: totals.rows[0], recent: recent.rows };
+  }
+
   function register(app) {
+    app.get("/stats/demo", async (req, res) => {
+      const key = process.env.STATS_KEY || "";
+      if (!key || String(req.query.key || "") !== key) return res.status(404).send("Not found");
+      try { res.json(await demoStats()); } catch (error) { deps.logRouteError("Demo stats", error); res.status(500).json({ code: "error" }); }
+    });
+
     app.post("/try/load", async (req, res) => {
       try {
         if (limited(loadLimits, req.ip, 8, 60 * 60 * 1000)) return res.status(429).json({ code: "busy" });
         const store = await discoverStore(req.body && req.body.url, deps.parseFeed).catch((error) => {
           throw Object.assign(new Error(error.message), { statusCode: 400, code: ["bad_url", "not_found", "unreachable"].includes(error.message) ? error.message : "unreachable" });
         });
+        track("load", store.domain, store.platform, store.products.length > 0, store.products.length);
         if (!store.products.length) return res.status(422).json({ code: "no_products", name: store.name, domain: store.domain });
         const token = crypto.randomBytes(16).toString("hex");
         sessions.set(token, { ...store, created: Date.now(), messages: 0 });
@@ -889,6 +929,10 @@ function createGrowth(deps) {
         res.json({ token, name: store.name, domain: store.domain, platform: store.platform, count: store.products.length, sample, priceHint });
       } catch (error) {
         if (!error.code) deps.logRouteError("Try load", error);
+        if (error.code && error.code !== "busy") {
+          let host = ""; try { host = new URL(/^https?:/i.test(String(req.body.url)) ? String(req.body.url) : "https://" + String(req.body.url)).hostname; } catch (_) {}
+          track("load", host, null, false, 0);
+        }
         res.status(error.statusCode || 500).json({ code: error.code || "error" });
       }
     });
@@ -926,6 +970,7 @@ function createGrowth(deps) {
           .filter((item) => item && ["user", "assistant"].includes(item.role))
           .map((item) => ({ role: item.role, content: String(item.content || "").slice(0, 1500) })) : [];
         session.messages += 1;
+        track("chat", session.domain, session.platform, true, null);
         const reply = await deps.generateGenericAnswer({ name: session.name }, { products: session.products, rules: {} }, message, history);
         res.json({ reply, products: deps.genericProductCards(session.products, reply) });
       } catch (error) {
