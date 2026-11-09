@@ -241,7 +241,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     .pcard button{flex:1 0 100%;border:none;border-radius:12px;padding:9px 10px;font-weight:800;font-size:.74rem;color:#fff;background:linear-gradient(120deg,var(--c1),var(--c2));transform:scale(calc(1 - var(--press,0)*.12));box-shadow:0 0 0 calc(var(--press,0)*8px) rgba(168,85,247,calc(.35 - var(--press,0)*.35))}
     .cart{position:absolute;top:56px;left:20px;display:flex;align-items:center;gap:6px;font-weight:800;font-size:.8rem}
     .cart i{display:grid;place-items:center;min-width:20px;height:20px;border-radius:10px;font-style:normal;background:var(--c3);color:#fff;font-size:.72rem;transform:scale(var(--cartPop,1))}
-    .toast{position:absolute;left:50%;top:92px;transform:translate(-50%,calc((1 - var(--toast,0))*-30px));opacity:var(--toast,0);white-space:nowrap;padding:9px 14px;border-radius:999px;background:rgba(16,185,129,.16);border:1px solid rgba(52,211,153,.5);color:#a7f3d0;font-weight:800;font-size:.8rem;z-index:6}
+    .toast{position:absolute;left:50%;top:92px;transform:translate(-50%,calc((1 - var(--toast,0))*-30px));opacity:var(--toast,0);white-space:nowrap;padding:9px 14px;border-radius:999px;background:#064e3b;border:1px solid rgba(52,211,153,.6);box-shadow:0 12px 30px -8px rgba(0,0,0,.75);color:#a7f3d0;font-weight:800;font-size:.8rem;z-index:6}
     .langs{position:absolute;inset:0;pointer-events:none;opacity:var(--langs,0)}
     .langs span{position:absolute;padding:9px 14px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid var(--line);font-weight:700;font-size:clamp(.8rem,1.1vw,1rem);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transform:translate(calc(var(--lx)*var(--langs,0)*1px),calc(var(--ly)*var(--langs,0)*1px))}
     canvas#confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:7}
@@ -369,6 +369,8 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     <div class="scrollhint"><b></b><span data-s="scroll"></span></div>
   </header>
 
+  <section class="blk" id="demo"><div class="wrap">${tryHtml}</div></section>
+
   <section class="story" id="story">
     <div class="stage" id="stage">
       <div class="clock" id="clock">02:47</div>
@@ -410,7 +412,6 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
   </section>
 
   <main>
-    <section class="blk" id="demo"><div class="wrap">${tryHtml}</div></section>
     <section class="blk"><div class="wrap reveal">
       <div class="eyebrow">01</div>
       <h2 class="big" data-i18n="marketing.stepsHeading">Jak to funguje</h2>
