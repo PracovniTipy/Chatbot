@@ -372,6 +372,7 @@ async function discoverStore(input, parseFeed) {
 // ------------------------------------------------------------------ UI texts
 const TRY_TEXT = {
   cs: {
+    dTitle: "🎨 Upravte si vzhled", dColor: "Barva", dStyle: "Styl okna", dIcon: "Ikona / fotka", dName: "Název", dUpload: "Vlastní obrázek", dNote: "Totéž si pak nastavíte u sebe na webu.", dStyles: ["Klasik", "Minimal", "Sklo", "Výrazný", "Noc"],
     demoBtn: "Nemáte e-shop po ruce? Vyzkoušet na ukázkovém obchodě", demoName: "Ukázkový obchod", demoHello: "Dobrý den 👋 Jsem Chatnelo v ukázkovém obchodě s oblečením a doplňky ({n} produktů). Zeptejte se mě na cokoli – třeba jako zákazník.",
     invite: "🎁 Máte pozvánku od známého: 30 dní zdarma místo 3. Na Shopify po instalaci zadejte kód {c}, jinde se stačí zaregistrovat.",
     title: "Vyzkoušejte Chatnelo na svém e-shopu", text: "Vložte adresu svého e-shopu. Chatnelo si za pár vteřin přečte vaše produkty a můžete si s ním rovnou psát – přesně jako vaši zákazníci.",
@@ -386,6 +387,7 @@ const TRY_TEXT = {
     error: "Tenhle web se nepodařilo otevřít. Zkontrolujte adresu a zkuste to znovu.", busy: "Teď je to přetížené, zkuste to prosím za chvíli.", limit: "Ukázka má limit zpráv. Pokračujte s 3 dny zdarma ↓",
   },
   sk: {
+    dTitle: "🎨 Upravte si vzhľad", dColor: "Farba", dStyle: "Štýl okna", dIcon: "Ikona / fotka", dName: "Názov", dUpload: "Vlastný obrázok", dNote: "To isté si potom nastavíte na svojom webe.", dStyles: ["Klasik", "Minimal", "Sklo", "Výrazný", "Noc"],
     demoBtn: "Nemáte e-shop poruke? Vyskúšať na ukážkovom obchode", demoName: "Ukážkový obchod", demoHello: "Dobrý deň 👋 Som Chatnelo v ukážkovom obchode s oblečením a doplnkami ({n} produktov, katalóg v češtine). Opýtajte sa ma na čokoľvek – ako zákazník.",
     invite: "🎁 Máte pozvánku od známeho: 30 dní zdarma namiesto 3. Na Shopify po inštalácii zadajte kód {c}, inde sa stačí zaregistrovať.",
     title: "Vyskúšajte Chatnelo na svojom e-shope", text: "Vložte adresu svojho e-shopu. Chatnelo si za pár sekúnd prečíta vaše produkty a môžete si s ním hneď písať – presne ako vaši zákazníci.",
@@ -400,6 +402,7 @@ const TRY_TEXT = {
     error: "Tento web sa nepodarilo otvoriť. Skontrolujte adresu.", busy: "Teraz je to preťažené, skúste to o chvíľu.", limit: "Ukážka má limit správ. Pokračujte s 3 dňami zdarma ↓",
   },
   en: {
+    dTitle: "🎨 Make it yours", dColor: "Color", dStyle: "Window style", dIcon: "Icon / photo", dName: "Name", dUpload: "Your own image", dNote: "You'll set the same on your own site.", dStyles: ["Classic", "Minimal", "Glass", "Bold", "Midnight"],
     demoBtn: "No store at hand? Try the live demo store", demoName: "Demo store", demoHello: "Hi 👋 I'm Chatnelo in a sample clothing & accessories store ({n} products, Czech catalog). Ask me anything – like a customer would.",
     invite: "🎁 You were invited by a friend: 30 days free instead of 3. On Shopify enter code {c} after installing, elsewhere just sign up.",
     title: "Try Chatnelo on your own store", text: "Enter your store address. Chatnelo reads your products in seconds and you can chat with it right away – just like your customers would.",
@@ -414,6 +417,7 @@ const TRY_TEXT = {
     error: "We couldn't open this website. Please check the address.", busy: "It's busy right now, please try again in a moment.", limit: "The demo has a message limit. Continue with 3 days free ↓",
   },
   de: {
+    dTitle: "🎨 Aussehen anpassen", dColor: "Farbe", dStyle: "Fensterstil", dIcon: "Icon / Foto", dName: "Name", dUpload: "Eigenes Bild", dNote: "Dasselbe stellen Sie dann auf Ihrer Website ein.", dStyles: ["Klassisch", "Minimal", "Glas", "Kräftig", "Nacht"],
     demoBtn: "Kein Shop zur Hand? Live-Demo im Beispielshop", demoName: "Demo-Shop", demoHello: "Hallo 👋 Ich bin Chatnelo in einem Beispielshop für Kleidung & Accessoires ({n} Produkte, tschechischer Katalog). Fragen Sie mich alles – wie ein Kunde.",
     invite: "🎁 Sie wurden eingeladen: 30 statt 3 Tage gratis. Auf Shopify nach der Installation Code {c} eingeben, sonst einfach registrieren.",
     title: "Testen Sie Chatnelo in Ihrem Shop", text: "Geben Sie Ihre Shop-Adresse ein. Chatnelo liest Ihre Produkte in Sekunden und Sie können sofort chatten – wie Ihre Kunden.",
@@ -428,6 +432,7 @@ const TRY_TEXT = {
     error: "Diese Website konnte nicht geöffnet werden. Bitte Adresse prüfen.", busy: "Gerade ausgelastet, bitte gleich nochmal.", limit: "Die Demo hat ein Nachrichtenlimit. Weiter mit 3 Tagen gratis ↓",
   },
   pl: {
+    dTitle: "🎨 Dopasuj wygląd", dColor: "Kolor", dStyle: "Styl okna", dIcon: "Ikona / zdjęcie", dName: "Nazwa", dUpload: "Własny obrazek", dNote: "To samo ustawisz potem na swojej stronie.", dStyles: ["Klasyczny", "Minimalny", "Szkło", "Wyrazisty", "Noc"],
     demoBtn: "Nie masz sklepu pod ręką? Wypróbuj demo na sklepie przykładowym", demoName: "Sklep demo", demoHello: "Dzień dobry 👋 Jestem Chatnelo w przykładowym sklepie z odzieżą i dodatkami ({n} produktów, katalog po czesku). Zapytaj mnie o cokolwiek – jak klient.",
     invite: "🎁 Masz zaproszenie od znajomego: 30 dni za darmo zamiast 3. Na Shopify po instalacji wpisz kod {c}, gdzie indziej wystarczy rejestracja.",
     title: "Wypróbuj Chatnelo na swoim sklepie", text: "Wpisz adres swojego sklepu. Chatnelo w kilka sekund przeczyta Twoje produkty i od razu możesz z nim pisać – jak Twoi klienci.",
@@ -509,6 +514,57 @@ function tryHtml(options = {}) {
     #cn-try .cta p{margin:0 0 6px;color:#cbd5e1}
     #cn-try .cta .btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.3)}
     #cn-try .linkbtn{background:none;border:none;color:#a5b4fc;text-decoration:underline;cursor:pointer;font:inherit;font-size:.88rem;padding:0;align-self:flex-start}
+    #cn-try .chat{--cp:#6d28d9;--cp2:#4c1d95;--cpa:rgba(109,40,217,.18)}
+    body #cn-try .chat .chat-head{background:linear-gradient(135deg,var(--cp),var(--cp2));color:#fff}
+    body #cn-try .chat .m.me{background:linear-gradient(135deg,var(--cp),var(--cp2));color:#fff}
+    body #cn-try .chat form.ask button{background:linear-gradient(135deg,var(--cp),var(--cp2))}
+    #cn-try .av{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;overflow:hidden;background:rgba(255,255,255,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+    #cn-try .av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+    #cn-try .av svg{width:22px;height:22px}
+    body #cn-try .chat.st-minimal{background:#fff;border-color:#e2e8f0}
+    body #cn-try .chat.st-minimal .chat-head{background:#fff;color:#0f172a;border-bottom:1px solid #eef2f7}
+    body #cn-try .chat.st-minimal .av{background:var(--cp)}
+    body #cn-try .chat.st-minimal .m.bot{background:#f1f5f9;border-color:#f1f5f9;color:#0f172a}
+    body #cn-try .chat.st-minimal .m.me{background:var(--cp)}
+    body #cn-try .chat.st-minimal form.ask{background:#fff;border-color:#eef2f7}
+    body #cn-try .chat.st-minimal form.ask input{background:#f8fafc;border-color:#e2e8f0;color:#0f172a}
+    body #cn-try .chat.st-minimal .chips button{background:#fff;border-color:var(--cp);color:var(--cp)}
+    body #cn-try .chat.st-minimal .card{background:#fff;border-color:#e2e8f0;color:#0f172a}
+    body #cn-try .chat.st-glass{background:linear-gradient(160deg,var(--cpa),#f8fafc 55%,#fff);border-color:rgba(255,255,255,.6)}
+    body #cn-try .chat.st-glass .chat-head{background:rgba(255,255,255,.55);color:#0f172a;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.7)}
+    body #cn-try .chat.st-glass .av{background:var(--cp)}
+    body #cn-try .chat.st-glass .m.bot{background:rgba(255,255,255,.8);border-color:rgba(255,255,255,.9);color:#0f172a}
+    body #cn-try .chat.st-glass form.ask{background:rgba(255,255,255,.7);border-color:rgba(255,255,255,.8)}
+    body #cn-try .chat.st-glass form.ask input{background:#fff;border-color:#e2e8f0;color:#0f172a}
+    body #cn-try .chat.st-glass .chips button{background:rgba(255,255,255,.8);border-color:var(--cp);color:var(--cp)}
+    body #cn-try .chat.st-glass .card{background:#fff;border-color:#e2e8f0;color:#0f172a}
+    body #cn-try .chat.st-bold{border-radius:28px;border:3px solid var(--cp)}
+    body #cn-try .chat.st-bold .chat-head{background:var(--cp);padding:16px 18px}
+    body #cn-try .chat.st-bold .chat-head b{font-size:1.08rem;font-weight:900}
+    body #cn-try .chat.st-bold .m{border-radius:20px;font-weight:600}
+    body #cn-try .chat.st-bold .m.me{background:var(--cp)}
+    body #cn-try .chat.st-midnight{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
+    body #cn-try .chat.st-midnight .chat-head{background:linear-gradient(135deg,#0b1020,var(--cp2))}
+    body #cn-try .chat.st-midnight .m.bot{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.08);color:#e2e8f0}
+    body #cn-try .chat.st-midnight form.ask{background:#0b0d1d;border-color:rgba(255,255,255,.1)}
+    body #cn-try .chat.st-midnight form.ask input{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#fff}
+    body #cn-try .chat.st-midnight .card{background:#11132a;border-color:rgba(255,255,255,.1);color:#fff}
+    #cn-try .design{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);margin-bottom:6px}
+    #cn-try .design>b{font-size:1rem}
+    #cn-try .drow{display:flex;flex-direction:column;gap:6px}
+    #cn-try .drow>span{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:#a5b0c8;font-weight:700}
+    #cn-try .sw,#cn-try .opts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    #cn-try .sw button{width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.25);cursor:pointer;padding:0}
+    #cn-try .sw button.on,#cn-try .opts button.on,#cn-try .opts label.on{outline:2px solid #fff;outline-offset:2px}
+    #cn-try .sw label{position:relative;width:26px;height:26px;border-radius:50%;background:conic-gradient(#f43f5e,#f59e0b,#22c55e,#06b6d4,#6366f1,#d946ef,#f43f5e);cursor:pointer;border:2px solid rgba(255,255,255,.25)}
+    #cn-try .sw input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+    #cn-try .opts button{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:5px 11px;font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
+    #cn-try .opts .ic,#cn-try .opts label{width:34px;height:34px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;background:var(--cp,#6d28d9);border:1px solid rgba(255,255,255,.2);cursor:pointer;font-size:15px}
+    #cn-try .opts .ic svg{width:20px;height:20px}
+    #cn-try .opts .ic img{width:100%;height:100%;object-fit:cover}
+    #cn-try .opts label input{display:none}
+    #cn-try .design input[type=text]{padding:8px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font:inherit;font-size:.9rem}
+    #cn-try .design small{color:#94a3b8;font-size:.78rem}
     #cn-try [hidden]{display:none!important}
     #cn-try .invite{margin:0 0 16px;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,#faf5ff,#ecfeff);border:1px solid #d8b4fe;color:#4c1d95;font-weight:600;font-size:.93rem}
     @media (max-width:760px){#cn-try .result{grid-template-columns:1fr}#cn-try .chat{height:430px}#cn-try .box{padding:20px}}
@@ -526,13 +582,21 @@ function tryHtml(options = {}) {
     <ul class="steps" id="cn-steps" hidden></ul>
     <div class="msg" id="cn-msg" hidden></div>
     <div class="result" id="cn-result" hidden>
-      <div class="chat">
-        <div class="chat-head"><img src="/mascot.png" alt=""><div><b id="cn-name"></b><span id="cn-demo"></span></div></div>
+      <div class="chat" id="cn-chat">
+        <div class="chat-head"><span class="av" id="cn-av"><img src="/mascot.png" alt=""></span><div><b id="cn-name"></b><span id="cn-demo"></span></div></div>
         <div class="log" id="cn-log"></div>
         <div class="chips" id="cn-chips"></div>
         <form class="ask" id="cn-ask"><input id="cn-q" autocomplete="off" maxlength="500"><button type="submit" data-t="send"></button></form>
       </div>
       <div class="cta">
+        <div class="design" id="cn-design">
+          <b data-t="dTitle"></b>
+          <div class="drow"><span data-t="dColor"></span><div class="sw" id="cn-sw"></div></div>
+          <div class="drow"><span data-t="dStyle"></span><div class="opts" id="cn-st"></div></div>
+          <div class="drow"><span data-t="dIcon"></span><div class="opts" id="cn-ic"></div></div>
+          <div class="drow"><span data-t="dName"></span><input type="text" id="cn-title" maxlength="40"></div>
+          <small data-t="dNote"></small>
+        </div>
         <h3 data-t="ctaTitle"></h3>
         <p data-t="ctaText"></p>
         <a class="btn" id="cn-cta" href="/store/dashboard?next=install"></a>
@@ -556,7 +620,7 @@ function tryHtml(options = {}) {
       $("cn-invite").hidden = !ref; if (ref) $("cn-invite").textContent = fill(t.invite, { c: ref });
       if (s.data) { $("cn-demo").textContent = s.data.demo ? t.demoName : fill(t.demo, { d: s.data.domain }); if (s.data.demo) $("cn-name").textContent = "Chatnelo"; $("cn-cta").textContent = s.data.platform === "shopify" ? t.ctaShopify : t.ctaOther; chips(); }
     }
-    document.addEventListener("chatnelo:langchange", texts);
+    document.addEventListener("chatnelo:langchange", function () { texts(); if (s.data) design(); });
     function add(text, who) { var el = document.createElement("div"); el.className = "m " + who; el.textContent = text; $("cn-log").appendChild(el); $("cn-log").scrollTop = 1e6; return el; }
     function cards(list) {
       if (!list || !list.length) return;
@@ -578,6 +642,42 @@ function tryHtml(options = {}) {
       if (d.priceHint) list.push(fill(t.q3, { x: d.priceHint }));
       list.forEach(function (q) { var b = document.createElement("button"); b.type = "button"; b.textContent = q; b.onclick = function () { ask(q); }; box.appendChild(b); });
     }
+    var ICONS = {chat: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M4 6.5A3.5 3.5 0 0 1 7.5 3h9A3.5 3.5 0 0 1 20 6.5v6A3.5 3.5 0 0 1 16.5 16H11l-4.3 3.6c-.6.5-1.7.1-1.7-.8V16A3.5 3.5 0 0 1 4 12.5v-6Z" fill="#fff"/><circle cx="8.5" cy="9.5" r="1.2" fill="var(--cp)"/><circle cx="12" cy="9.5" r="1.2" fill="var(--cp)"/><circle cx="15.5" cy="9.5" r="1.2" fill="var(--cp)"/></svg>', sparkle: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M10 3.5c.4 3.8 2.2 5.6 6 6-3.8.4-5.6 2.2-6 6-.4-3.8-2.2-5.6-6-6 3.8-.4 5.6-2.2 6-6Z" fill="#fff"/><path d="M17.5 13.5c.2 1.8 1 2.6 2.8 2.8-1.8.2-2.6 1-2.8 2.8-.2-1.8-1-2.6-2.8-2.8 1.8-.2 2.6-1 2.8-2.8Z" fill="#fff" opacity=".85"/><path d="M18 3c.1 1.1.6 1.6 1.7 1.7-1.1.1-1.6.6-1.7 1.7-.1-1.1-.6-1.6-1.7-1.7 1.1-.1 1.6-.6 1.7-1.7Z" fill="#fff" opacity=".7"/></svg>', headset: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M4.5 13v-1.5a7.5 7.5 0 0 1 15 0V13" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><rect x="3.5" y="12" width="4" height="6" rx="2" fill="#fff"/><rect x="16.5" y="12" width="4" height="6" rx="2" fill="#fff"/><path d="M18.5 18v.5a2.5 2.5 0 0 1-2.5 2.5h-3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="21" r="1.3" fill="#fff"/></svg>', bag: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M5.2 8h13.6l-.9 11.1A2 2 0 0 1 15.9 21H8.1a2 2 0 0 1-2-1.9L5.2 8Z" fill="#fff"/><path d="M9 10V7a3 3 0 0 1 6 0v3" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M9.5 14.5c.6 1 1.4 1.5 2.5 1.5s1.9-.5 2.5-1.5" stroke="var(--cp)" stroke-width="1.6" stroke-linecap="round"/></svg>', smile: '<svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M12 3a8.5 8.5 0 0 0-7.4 12.7L3.5 20l4.4-1.1A8.5 8.5 0 1 0 12 3Z" fill="#fff"/><circle cx="9" cy="10.5" r="1.2" fill="var(--cp)"/><circle cx="15" cy="10.5" r="1.2" fill="var(--cp)"/><path d="M8.8 13.8c.8 1.2 1.9 1.8 3.2 1.8s2.4-.6 3.2-1.8" stroke="var(--cp)" stroke-width="1.6" stroke-linecap="round"/></svg>'};
+    var LOOK = { color: "#6d28d9", style: "classic", icon: "mascot", img: "" };
+    var STYLES = ["classic", "minimal", "glass", "bold", "midnight"];
+    function hex2(h, p) { var n = parseInt(h.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; var f = function (c) { c = Math.max(0, Math.min(255, Math.round(c + 2.55 * p))); return ("0" + c.toString(16)).slice(-2); }; return "#" + f(r) + f(g) + f(b); }
+    function rgba(h, a) { var n = parseInt(h.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
+    function iconHtml(k) { if (k === "custom" && LOOK.img) return '<img src="' + LOOK.img + '" alt="">'; if (k === "mascot") return '<img src="/mascot.png" alt="">'; return ICONS[k] || ""; }
+    function look() {
+      var c = $("cn-chat"); if (!c) return;
+      c.style.setProperty("--cp", LOOK.color); c.style.setProperty("--cp2", hex2(LOOK.color, -16)); c.style.setProperty("--cpa", rgba(LOOK.color, .2));
+      $("cn-design").style.setProperty("--cp", LOOK.color);
+      STYLES.forEach(function (x) { c.classList.toggle("st-" + x, x === LOOK.style); });
+      $("cn-av").innerHTML = iconHtml(LOOK.icon);
+      var sw = $("cn-sw").querySelectorAll("button"); for (var i = 0; i < sw.length; i++) sw[i].classList.toggle("on", sw[i].getAttribute("data-c") === LOOK.color);
+      var st = $("cn-st").querySelectorAll("button"); for (var j = 0; j < st.length; j++) st[j].classList.toggle("on", st[j].getAttribute("data-s") === LOOK.style);
+      var ic = $("cn-ic").querySelectorAll("[data-i]"); for (var k = 0; k < ic.length; k++) ic[k].classList.toggle("on", ic[k].getAttribute("data-i") === LOOK.icon);
+    }
+    function design() {
+      var t = L();
+      var sw = $("cn-sw"); sw.innerHTML = "";
+      ["#6d28d9", "#2563eb", "#0891b2", "#059669", "#e11d48", "#f59e0b", "#0f172a"].forEach(function (c) {
+        var b = document.createElement("button"); b.type = "button"; b.style.background = c; b.setAttribute("data-c", c); b.setAttribute("aria-label", c);
+        b.onclick = function () { LOOK.color = c; look(); }; sw.appendChild(b);
+      });
+      var pick = document.createElement("label"); pick.title = t.dColor; var inp = document.createElement("input"); inp.type = "color"; inp.value = LOOK.color;
+      inp.oninput = function () { LOOK.color = inp.value; look(); }; pick.appendChild(inp); sw.appendChild(pick);
+      var st = $("cn-st"); st.innerHTML = "";
+      STYLES.forEach(function (x, i) { var b = document.createElement("button"); b.type = "button"; b.textContent = (t.dStyles || [])[i] || x; b.setAttribute("data-s", x); b.onclick = function () { LOOK.style = x; look(); }; st.appendChild(b); });
+      var ic = $("cn-ic"); ic.innerHTML = "";
+      ["mascot", "chat", "sparkle", "headset", "bag", "smile"].forEach(function (k) { var b = document.createElement("button"); b.type = "button"; b.className = "ic"; b.setAttribute("data-i", k); b.setAttribute("aria-label", k); b.innerHTML = iconHtml(k); b.onclick = function () { LOOK.icon = k; look(); }; ic.appendChild(b); });
+      var up = document.createElement("label"); up.title = t.dUpload; up.setAttribute("data-i", "custom"); up.innerHTML = LOOK.img ? iconHtml("custom") : "📷";
+      var file = document.createElement("input"); file.type = "file"; file.accept = "image/*";
+      file.onchange = function () { var f = file.files && file.files[0]; if (!f || f.type.indexOf("image/") !== 0 || f.size > 5e6) return; var r = new FileReader(); r.onload = function () { LOOK.img = String(r.result); LOOK.icon = "custom"; design(); }; r.readAsDataURL(f); };
+      up.appendChild(file); ic.appendChild(up);
+      look();
+    }
+    $("cn-title").addEventListener("input", function () { $("cn-name").textContent = this.value || (s.data ? s.data.name : ""); });
     function steps(n) {
       var t = L(), ul = $("cn-steps"); ul.hidden = false;
       ul.innerHTML = t.steps.map(function (x, i) { return '<li class="' + (i < n ? "done" : (i === n ? "on" : "")) + '"><i></i>' + x + "</li>"; }).join("");
@@ -593,12 +693,12 @@ function tryHtml(options = {}) {
           if (d.__status === 429) throw new Error(t.busy);
           if (d.__status >= 400) throw new Error(d.code === "no_products" ? t.none : t.error);
           s.token = d.token; s.data = d; s.history = [];
-          $("cn-name").textContent = d.demo ? "Chatnelo" : d.name; $("cn-log").innerHTML = "";
+          $("cn-name").textContent = d.demo ? "Chatnelo" : d.name; $("cn-title").value = $("cn-name").textContent; $("cn-log").innerHTML = "";
           add(fill(d.demo ? t.demoHello : t.hello, { n: d.count, d: d.domain }), "bot");
           var shop = d.platform === "shopify";
           $("cn-cta").href = shop ? "https://apps.shopify.com/chatnelo" : "/store/dashboard?next=install";
           if (shop) { $("cn-cta").target = "_blank"; $("cn-cta").rel = "noopener"; } else { $("cn-cta").removeAttribute("target"); }
-          $("cn-result").hidden = false; texts();
+          $("cn-result").hidden = false; texts(); design();
           try { history.replaceState(null, "", location.pathname + "?try=" + encodeURIComponent(d.domain) + "#cn-try"); } catch (e) {}
           $("cn-result").scrollIntoView({ behavior: "smooth", block: "center" });
         })
