@@ -410,6 +410,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
   </section>
 
   <main>
+    <section class="blk" id="demo"><div class="wrap">${tryHtml}</div></section>
     <section class="blk"><div class="wrap reveal">
       <div class="eyebrow">01</div>
       <h2 class="big" data-i18n="marketing.stepsHeading">Jak to funguje</h2>
@@ -429,7 +430,6 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       <h2 class="big" data-i18n="marketing.faqHeading">Časté dotazy</h2>
       ${faqHtml}
     </div></section>
-    <section class="blk" id="demo"><div class="wrap">${tryHtml}</div></section>
     <section class="final"><div class="wrap reveal">
       ${mascotSvg("fn")}
       <h2><span data-s="finalTitle"></span></h2>
