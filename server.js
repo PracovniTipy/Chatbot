@@ -3147,6 +3147,7 @@ const growth = createGrowth({
   isDemoChatLimited: (req) => isMarketingChatRateLimited(clientIp(req)),
 });
 growth.register(app);
+require("./audit").register(app, { database, logRouteError });
 
 // BrosWars Partner (creator affiliate program): click attribution and the
 // conversions feed for the hub. Separate from the referral program above.
@@ -3168,7 +3169,7 @@ app.get("/sitemap.xml", (req, res) => {
   res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://chatnelo.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-${growth.seoPaths.map((p) => `  <url><loc>https://chatnelo.com${p}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>`).join("\n")}
+${[...growth.seoPaths, ...require("./audit").paths].map((p) => `  <url><loc>https://chatnelo.com${p}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>`).join("\n")}
   <url><loc>https://chatnelo.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>`);
 });

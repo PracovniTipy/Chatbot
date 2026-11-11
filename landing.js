@@ -4,7 +4,7 @@
 
 const STORY = {
   cs: {
-    navDemo: "Ukázka", navPricing: "Ceník", navFaq: "Dotazy", navLogin: "Přihlásit se", navInstall: "Nainstalovat",
+    navDemo: "Ukázka", navPricing: "Ceník", navFaq: "Dotazy", navAudit: "Kontrola e-shopu", navLogin: "Přihlásit se", navInstall: "Nainstalovat",
     kicker: "AI chatbot pro e-shopy", h1a: "Prodává,", h1b: "i když spíte.",
     heroSub: "Chatnelo odpovídá vašim zákazníkům 24/7 – podle skutečných produktů, cen a skladu. V jejich jazyce.",
     ctaDemo: "Vyzkoušet živou ukázku", ctaTry: "Vyzkoušet na mém e-shopu", ctaShopify: "Nainstalovat na Shopify", scroll: "Scrollujte",
@@ -19,7 +19,7 @@ const STORY = {
     other: "Jiný web? Registrace zdarma",
   },
   sk: {
-    navDemo: "Ukážka", navPricing: "Cenník", navFaq: "Otázky", navLogin: "Prihlásiť sa", navInstall: "Nainštalovať",
+    navDemo: "Ukážka", navPricing: "Cenník", navFaq: "Otázky", navAudit: "Kontrola e-shopu", navLogin: "Prihlásiť sa", navInstall: "Nainštalovať",
     kicker: "AI chatbot pre e-shopy", h1a: "Predáva,", h1b: "aj keď spíte.",
     heroSub: "Chatnelo odpovedá vašim zákazníkom 24/7 – podľa skutočných produktov, cien a skladu. V ich jazyku.",
     ctaDemo: "Vyskúšať živú ukážku", ctaTry: "Vyskúšať na mojom e-shope", ctaShopify: "Nainštalovať na Shopify", scroll: "Scrollujte",
@@ -34,7 +34,7 @@ const STORY = {
     other: "Iný web? Registrácia zdarma",
   },
   en: {
-    navDemo: "Demo", navPricing: "Pricing", navFaq: "FAQ", navLogin: "Log in", navInstall: "Install",
+    navDemo: "Demo", navPricing: "Pricing", navFaq: "FAQ", navAudit: "Store check", navLogin: "Log in", navInstall: "Install",
     kicker: "AI chatbot for online stores", h1a: "It sells,", h1b: "while you sleep.",
     heroSub: "Chatnelo answers your customers 24/7 – from your real products, prices and stock. In their language.",
     ctaDemo: "Try the live demo", ctaTry: "Try it on my store", ctaShopify: "Install on Shopify", scroll: "Scroll",
@@ -49,7 +49,7 @@ const STORY = {
     other: "Other website? Sign up free",
   },
   de: {
-    navDemo: "Demo", navPricing: "Preise", navFaq: "FAQ", navLogin: "Anmelden", navInstall: "Installieren",
+    navDemo: "Demo", navPricing: "Preise", navFaq: "FAQ", navAudit: "Shop-Check", navLogin: "Anmelden", navInstall: "Installieren",
     kicker: "KI-Chatbot für Onlineshops", h1a: "Er verkauft,", h1b: "während Sie schlafen.",
     heroSub: "Chatnelo beantwortet Kundenfragen rund um die Uhr – aus Ihren echten Produkten, Preisen und Beständen. In ihrer Sprache.",
     ctaDemo: "Live-Demo testen", ctaTry: "In meinem Shop testen", ctaShopify: "Auf Shopify installieren", scroll: "Scrollen",
@@ -64,7 +64,7 @@ const STORY = {
     other: "Andere Website? Gratis registrieren",
   },
   pl: {
-    navDemo: "Demo", navPricing: "Cennik", navFaq: "FAQ", navLogin: "Zaloguj się", navInstall: "Zainstaluj",
+    navDemo: "Demo", navPricing: "Cennik", navFaq: "FAQ", navAudit: "Audyt sklepu", navLogin: "Zaloguj się", navInstall: "Zainstaluj",
     kicker: "Czatbot AI dla sklepów", h1a: "Sprzedaje,", h1b: "gdy Ty śpisz.",
     heroSub: "Chatnelo odpowiada Twoim klientom 24/7 – na podstawie prawdziwych produktów, cen i stanów. W ich języku.",
     ctaDemo: "Wypróbuj demo na żywo", ctaTry: "Wypróbuj na moim sklepie", ctaShopify: "Zainstaluj na Shopify", scroll: "Przewiń",
@@ -345,6 +345,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
       <a class="hide-m" href="#demo" data-s="navDemo"></a>
       <a class="hide-m" href="#pricing" data-s="navPricing"></a>
       <a class="hide-m" href="#faq" data-s="navFaq"></a>
+      <a class="hide-m" href="/kontrola-eshopu" data-s="navAudit"></a>
       <a href="/store/dashboard#login" data-s="navLogin"></a>
       <div id="chatnelo-lang-switcher"></div>
     </div>
