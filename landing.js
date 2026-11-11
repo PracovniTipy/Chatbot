@@ -135,6 +135,10 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
   <style>
     :root{--bg:#04050d;--ink:#f8fafc;--mut:#a5b0c8;--c1:#22d3ee;--c2:#a855f7;--c3:#f472b6;--line:rgba(255,255,255,.1)}
     *{box-sizing:border-box}
+    :root{color-scheme:dark}
+    :focus-visible{outline:2px solid #c4b5fd;outline-offset:3px}
+    h1,h2,h3{text-wrap:balance}
+    .skip{position:absolute;left:-9999px;top:8px;z-index:99;padding:8px 14px;border-radius:10px;background:#fff;color:#000;font-weight:700}.skip:focus{left:8px}
     html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
     body{margin:0;background:var(--bg);color:var(--ink);font-family:"SF Pro Display",-apple-system,"Segoe UI Variable Display","Segoe UI",Inter,Roboto,system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden}
     a{color:inherit}
@@ -341,6 +345,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
   </style>
 </head>
 <body>
+  <a class="skip" href="#demo">Přeskočit na ukázku</a>
   <div class="aurora" id="aurora"></div>
   <div class="grain"></div>
   <nav class="top" id="nav">
@@ -417,7 +422,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     </div>
   </section>
 
-  <main>
+  <main id="main">
     <section class="blk"><div class="wrap reveal">
       <div class="eyebrow">01</div>
       <h2 class="big" data-i18n="marketing.stepsHeading">Jak to funguje</h2>

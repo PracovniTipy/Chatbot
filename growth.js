@@ -574,19 +574,19 @@ function tryHtml(options = {}) {
     <h2 id="cn-try-title" data-t="title"></h2>
     <p class="lead" data-t="text"></p>
     <form class="go" id="cn-go">
-      <input id="cn-url" type="text" inputmode="url" autocomplete="url" spellcheck="false" required>
+      <input id="cn-url" name="url" aria-label="URL e-shopu / store URL" type="text" inputmode="url" autocomplete="url" spellcheck="false" required>
       <button class="btn" type="submit" id="cn-go-btn" data-t="button"></button>
     </form>
     <p class="note" data-t="note"></p>
     <button class="btn ghost demo" type="button" id="cn-demo-btn" data-t="demoBtn"></button>
     <ul class="steps" id="cn-steps" hidden></ul>
-    <div class="msg" id="cn-msg" hidden></div>
+    <div class="msg" id="cn-msg" hidden role="alert"></div>
     <div class="result" id="cn-result" hidden>
       <div class="chat" id="cn-chat">
-        <div class="chat-head"><span class="av" id="cn-av"><img src="/mascot.png" alt=""></span><div><b id="cn-name"></b><span id="cn-demo"></span></div></div>
+        <div class="chat-head"><span class="av" id="cn-av"><img src="/mascot.png" alt="" width="36" height="36"></span><div><b id="cn-name"></b><span id="cn-demo"></span></div></div>
         <div class="log" id="cn-log"></div>
         <div class="chips" id="cn-chips"></div>
-        <form class="ask" id="cn-ask"><input id="cn-q" autocomplete="off" maxlength="500"><button type="submit" data-t="send"></button></form>
+        <form class="ask" id="cn-ask"><input id="cn-q" name="q" aria-label="Dotaz / Question" autocomplete="off" maxlength="500"><button type="submit" data-t="send"></button></form>
       </div>
       <div class="cta">
         <div class="design" id="cn-design">
@@ -594,7 +594,7 @@ function tryHtml(options = {}) {
           <div class="drow"><span data-t="dColor"></span><div class="sw" id="cn-sw"></div></div>
           <div class="drow"><span data-t="dStyle"></span><div class="opts" id="cn-st"></div></div>
           <div class="drow"><span data-t="dIcon"></span><div class="opts" id="cn-ic"></div></div>
-          <div class="drow"><span data-t="dName"></span><input type="text" id="cn-title" maxlength="40"></div>
+          <div class="drow"><span data-t="dName"></span><input type="text" id="cn-title" name="title" aria-label="Název / Name" maxlength="40"></div>
           <small data-t="dNote"></small>
         </div>
         <h3 data-t="ctaTitle"></h3>

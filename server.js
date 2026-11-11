@@ -2382,7 +2382,7 @@ app.get("/", (req, res) => {
   <title>Chatnelo</title>
   <style>
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;margin:0;background:#f4f5f9;color:#1c1f26}
-*{box-sizing:border-box}
+*{box-sizing:border-box}:focus-visible{outline:2px solid #a855f7;outline-offset:2px}
 .brand-header{background:linear-gradient(120deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 32px;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.18)}
 .brand-header-left{display:flex;align-items:center;gap:14px}
 .brand-header img{width:44px;height:44px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
@@ -2589,7 +2589,7 @@ td button:active{transform:translateY(0)}
     <section class="ref-card" id="ref-card" hidden>
       <h3 id="ref-title"></h3>
       <p id="ref-text"></p>
-      <div class="ref-row"><span class="ref-code" id="ref-code"></span><input class="ref-link" id="ref-link" readonly><button type="button" id="ref-copy"></button></div>
+      <div class="ref-row"><span class="ref-code" id="ref-code"></span><input class="ref-link" aria-label="Referral link" id="ref-link" readonly><button type="button" id="ref-copy"></button></div>
       <div class="ref-count" id="ref-count"></div>
     </section>
     <section class="ref-card aff-card" id="aff-card" hidden>
@@ -3221,7 +3221,7 @@ app.get("/marketing", (req, res) => {
   <meta name="description" content="Chatnelo is an AI chatbot for online stores. It answers your customers 24/7 from your real products, stock and shipping info, in their language. Install on Shopify – 3 days free.">
   <link rel="canonical" href="https://chatnelo.com/">
   <link rel="manifest" href="/site.webmanifest">
-  <meta name="theme-color" content="#1e1b4b">
+  <meta name="theme-color" content="#04050d">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Chatnelo">
   <meta property="og:url" content="https://chatnelo.com/">
@@ -3793,7 +3793,7 @@ app.get("/store/install", (req, res) => {
   <title>Chatnelo</title>
   <style>
     :root{--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f6f7fb;--b1:#22d3ee;--b2:#a855f7;--brand:#7c3aed}
-    *{box-sizing:border-box}
+    *{box-sizing:border-box}:focus-visible{outline:2px solid #a855f7;outline-offset:2px}
     body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
     a{color:var(--brand)}
     code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.86em;background:#f1f5f9;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
@@ -4308,7 +4308,7 @@ app.get("/store/dashboard", (req, res) => {
   <meta name="robots" content="noindex">
   <title>Chatnelo — Přihlášení a registrace</title>
   <style>
-    *{box-sizing:border-box}
+    *{box-sizing:border-box}:focus-visible{outline:2px solid #a855f7;outline-offset:2px}
     body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;margin:0;background:#f5f6fa;color:#111827}
     a{color:#7e22ce}
     .brand-header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 28px;color:#fff}

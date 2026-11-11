@@ -251,6 +251,7 @@ function page(lang) {
 <link rel="canonical" href="https://chatnelo.com${p.path}">
 <link rel="alternate" hreflang="${lang}" href="https://chatnelo.com${p.path}">
 <link rel="alternate" hreflang="${lang === "cs" ? "en" : "cs"}" href="https://chatnelo.com${p.other}">
+<meta name="theme-color" content="#04050d">
 <link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta property="og:title" content="${esc(p.title)}"><meta property="og:description" content="${esc(p.description)}">
 <meta property="og:image" content="https://chatnelo.com/icon-512.png"><meta property="og:url" content="https://chatnelo.com${p.path}">
@@ -258,7 +259,7 @@ function page(lang) {
 <script type="application/ld+json">${JSON.stringify(appLd).replace(/</g, "\\u003c")}</script>
 <style>
 *{box-sizing:border-box}
-:root{--bg:#04050d;--mut:#a5b0c8;--line:rgba(255,255,255,.12)}
+:root{color-scheme:dark;--bg:#04050d;--mut:#a5b0c8;--line:rgba(255,255,255,.12)}
 body{margin:0;background:radial-gradient(1000px 520px at 80% -10%,rgba(168,85,247,.35),transparent 60%),radial-gradient(800px 420px at 0% 20%,rgba(34,211,238,.16),transparent 60%),var(--bg);color:#f8fafc;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
 a{color:#c4b5fd}
 .top{max-width:1040px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:18px 22px}
@@ -298,18 +299,24 @@ details{border:1px solid var(--line);border-radius:14px;padding:13px 16px;margin
 summary{cursor:pointer;font-weight:700}details p{margin:8px 0 0;color:var(--mut)}
 footer{text-align:center;color:#64748b;font-size:.86rem;padding:10px 18px 40px}footer a{color:#94a3b8}
 [hidden]{display:none!important}
+:focus-visible{outline:2px solid #c4b5fd;outline-offset:3px}
+input:focus-visible{outline:none}
+.skip{position:absolute;left:-9999px;top:8px;padding:8px 14px;border-radius:10px;background:#fff;color:#000;font-weight:700;z-index:9}.skip:focus{left:8px}
+h1,h2,h3{text-wrap:balance}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 @media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.top nav a.hide-m{display:none}}
 </style>
 </head>
 <body>
-<div class="top"><a class="brand" href="/"><img src="/mascot.png" alt="">Chatnelo</a><nav><a class="hide-m" href="/">chatnelo.com</a><a href="${p.other}">${p.otherLabel}</a></nav></div>
-<main>
+<a class="skip" href="#f">${lang === "cs" ? "Přeskočit na kontrolu" : "Skip to the check"}</a>
+<div class="top"><a class="brand" href="/"><img src="/mascot.png" alt="" width="38" height="38">Chatnelo</a><nav><a class="hide-m" href="/">chatnelo.com</a><a href="${p.other}">${p.otherLabel}</a></nav></div>
+<main id="main">
   <span class="kick">${esc(p.kicker)}</span>
   <h1>${esc(p.h1a)}<span>${esc(p.h1b)}</span></h1>
   <p class="lead">${esc(p.lead)}</p>
-  <form id="f"><input id="u" type="text" inputmode="url" autocomplete="url" spellcheck="false" placeholder="${esc(p.ph)}" required><button class="btn" id="go" type="submit">${esc(p.btn)}</button></form>
-  <ul class="steps" id="st" hidden></ul>
-  <div class="msg" id="msg" hidden></div>
+  <form id="f"><input id="u" name="url" type="text" inputmode="url" autocomplete="url" spellcheck="false" aria-label="${esc(p.btn)} – URL" placeholder="${esc(p.ph)}" required><button class="btn" id="go" type="submit">${esc(p.btn)}</button></form>
+  <ul class="steps" id="st" hidden aria-live="polite"></ul>
+  <div class="msg" id="msg" hidden role="alert"></div>
   <section class="res" id="res" hidden>
     <div class="head"><div class="ring" id="ring"><div><b id="sc">0</b><small>${esc(p.of)}</small></div></div><div><h2 id="nm"></h2><p id="vd"></p></div></div>
     <ul class="items" id="it"></ul>
@@ -350,7 +357,7 @@ footer{text-align:center;color:#64748b;font-size:.86rem;padding:10px 18px 40px}f
     $("it").innerHTML="";
     d.checks.forEach(function(c){ var li=document.createElement("li"); var i=document.createElement("i"); i.textContent=icon[c.status]; var w=document.createElement("div"); var b=document.createElement("b"); b.textContent=c.title; var s=document.createElement("span"); s.textContent=c.detail; w.appendChild(b); w.appendChild(s); li.appendChild(i); li.appendChild(w); $("it").appendChild(li); });
     $("try").href="/?try="+encodeURIComponent(d.domain)+"&utm_source=store-check#cn-try";
-    $("res").hidden=false; $("res").scrollIntoView({behavior:"smooth",block:"start"});
+    $("res").hidden=false; $("res").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
   }
   $("f").addEventListener("submit",function(e){e.preventDefault();run($("u").value.trim());});
   $("ag").addEventListener("click",function(){$("res").hidden=true;$("u").value="";$("u").focus();window.scrollTo({top:0,behavior:"smooth"});});
