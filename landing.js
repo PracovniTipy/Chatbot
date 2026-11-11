@@ -7,7 +7,7 @@ const STORY = {
     navDemo: "Ukázka", navPricing: "Ceník", navFaq: "Dotazy", navAudit: "Kontrola e-shopu", navLogin: "Přihlásit se", navInstall: "Nainstalovat",
     kicker: "AI chatbot pro e-shopy", h1a: "Prodává,", h1b: "i když spíte.",
     heroSub: "Chatnelo odpovídá vašim zákazníkům 24/7 – podle skutečných produktů, cen a skladu. V jejich jazyce.",
-    ctaDemo: "Vyzkoušet živou ukázku", ctaTry: "Vyzkoušet na mém e-shopu", ctaShopify: "Nainstalovat na Shopify", scroll: "Scrollujte",
+    ctaDemo: "Vyzkoušet živou ukázku", ctaTry: "Vyzkoušet na mém e-shopu", ctaShopify: "Nainstalovat na Shopify", scroll: "Scrollujte", more: "Pokračujte dolů",
     c1: "Ve 2:47 v noci se zákazník ptá.", c2: "Vy spíte.", c2s: "Konkurence je o jedno kliknutí vedle.",
     c3: "Chatnelo ne.", c3s: "Odpověď za pár vteřin – přímo z vašeho skladu.",
     c4: "A zákazník nakoupí.", c4s: "Odpověď → karta produktu → košík → objednávka.",
@@ -22,7 +22,7 @@ const STORY = {
     navDemo: "Ukážka", navPricing: "Cenník", navFaq: "Otázky", navAudit: "Kontrola e-shopu", navLogin: "Prihlásiť sa", navInstall: "Nainštalovať",
     kicker: "AI chatbot pre e-shopy", h1a: "Predáva,", h1b: "aj keď spíte.",
     heroSub: "Chatnelo odpovedá vašim zákazníkom 24/7 – podľa skutočných produktov, cien a skladu. V ich jazyku.",
-    ctaDemo: "Vyskúšať živú ukážku", ctaTry: "Vyskúšať na mojom e-shope", ctaShopify: "Nainštalovať na Shopify", scroll: "Scrollujte",
+    ctaDemo: "Vyskúšať živú ukážku", ctaTry: "Vyskúšať na mojom e-shope", ctaShopify: "Nainštalovať na Shopify", scroll: "Scrollujte", more: "Pokračujte nižšie",
     c1: "O 2:47 v noci sa zákazník pýta.", c2: "Vy spíte.", c2s: "Konkurencia je o jedno kliknutie vedľa.",
     c3: "Chatnelo nie.", c3s: "Odpoveď za pár sekúnd – priamo z vášho skladu.",
     c4: "A zákazník nakúpi.", c4s: "Odpoveď → karta produktu → košík → objednávka.",
@@ -37,7 +37,7 @@ const STORY = {
     navDemo: "Demo", navPricing: "Pricing", navFaq: "FAQ", navAudit: "Store check", navLogin: "Log in", navInstall: "Install",
     kicker: "AI chatbot for online stores", h1a: "It sells,", h1b: "while you sleep.",
     heroSub: "Chatnelo answers your customers 24/7 – from your real products, prices and stock. In their language.",
-    ctaDemo: "Try the live demo", ctaTry: "Try it on my store", ctaShopify: "Install on Shopify", scroll: "Scroll",
+    ctaDemo: "Try the live demo", ctaTry: "Try it on my store", ctaShopify: "Install on Shopify", scroll: "Scroll", more: "Keep scrolling",
     c1: "2:47 AM. A customer asks.", c2: "You're asleep.", c2s: "Your competitor is one click away.",
     c3: "Chatnelo isn't.", c3s: "An answer in seconds – straight from your stock.",
     c4: "And the customer buys.", c4s: "Answer → product card → cart → order.",
@@ -52,7 +52,7 @@ const STORY = {
     navDemo: "Demo", navPricing: "Preise", navFaq: "FAQ", navAudit: "Shop-Check", navLogin: "Anmelden", navInstall: "Installieren",
     kicker: "KI-Chatbot für Onlineshops", h1a: "Er verkauft,", h1b: "während Sie schlafen.",
     heroSub: "Chatnelo beantwortet Kundenfragen rund um die Uhr – aus Ihren echten Produkten, Preisen und Beständen. In ihrer Sprache.",
-    ctaDemo: "Live-Demo testen", ctaTry: "In meinem Shop testen", ctaShopify: "Auf Shopify installieren", scroll: "Scrollen",
+    ctaDemo: "Live-Demo testen", ctaTry: "In meinem Shop testen", ctaShopify: "Auf Shopify installieren", scroll: "Scrollen", more: "Weiter scrollen",
     c1: "2:47 Uhr nachts. Ein Kunde fragt.", c2: "Sie schlafen.", c2s: "Die Konkurrenz ist nur einen Klick entfernt.",
     c3: "Chatnelo nicht.", c3s: "Eine Antwort in Sekunden – direkt aus Ihrem Lager.",
     c4: "Und der Kunde kauft.", c4s: "Antwort → Produktkarte → Warenkorb → Bestellung.",
@@ -67,7 +67,7 @@ const STORY = {
     navDemo: "Demo", navPricing: "Cennik", navFaq: "FAQ", navAudit: "Audyt sklepu", navLogin: "Zaloguj się", navInstall: "Zainstaluj",
     kicker: "Czatbot AI dla sklepów", h1a: "Sprzedaje,", h1b: "gdy Ty śpisz.",
     heroSub: "Chatnelo odpowiada Twoim klientom 24/7 – na podstawie prawdziwych produktów, cen i stanów. W ich języku.",
-    ctaDemo: "Wypróbuj demo na żywo", ctaTry: "Wypróbuj na moim sklepie", ctaShopify: "Zainstaluj na Shopify", scroll: "Przewiń",
+    ctaDemo: "Wypróbuj demo na żywo", ctaTry: "Wypróbuj na moim sklepie", ctaShopify: "Zainstaluj na Shopify", scroll: "Przewiń", more: "Przewiń dalej",
     c1: "2:47 w nocy. Klient pyta.", c2: "Ty śpisz.", c2s: "Konkurencja jest o jedno kliknięcie dalej.",
     c3: "Chatnelo nie.", c3s: "Odpowiedź w kilka sekund – prosto z Twojego magazynu.",
     c4: "I klient kupuje.", c4s: "Odpowiedź → karta produktu → koszyk → zamówienie.",
@@ -203,6 +203,10 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
     .chap.on .w{opacity:1;transform:none;filter:none}
     .chap p{opacity:0;transform:translateY(14px);transition:opacity .6s .25s,transform .6s .25s}
     .chap.on p{opacity:1;transform:none}
+    .story-hint{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 18px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(10,12,28,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font:inherit;font-size:.8rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;box-shadow:0 12px 30px -14px rgba(168,85,247,.8)}
+    .story-hint i{display:block;width:14px;height:14px;border-right:2.5px solid #c4b5fd;border-bottom:2.5px solid #c4b5fd;transform:rotate(45deg);animation:hintbob 1.4s ease-in-out infinite}
+    @keyframes hintbob{0%,100%{transform:translateY(-3px) rotate(45deg);opacity:.6}50%{transform:translateY(4px) rotate(45deg);opacity:1}}
+    @media (max-width:900px){.story-hint{bottom:46px;font-size:.72rem;padding:8px 14px}}
     .progress{position:absolute;left:clamp(18px,6vw,90px);bottom:34px;display:flex;align-items:center;gap:14px;color:var(--mut);font-size:.82rem;font-variant-numeric:tabular-nums;letter-spacing:.12em}
     .progress .bar{width:160px;height:2px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden}
     .progress .bar i{display:block;height:100%;width:calc(var(--p,0)*100%);background:linear-gradient(90deg,var(--c1),var(--c2),var(--c3))}
@@ -408,6 +412,7 @@ function renderLanding({ stepsHtml, pricingHtml, faqHtml, tryHtml, calcHtml, foo
         <span style="left:58%;top:6%;--lx:-3;--ly:-20">Bonjour 🇫🇷</span><span style="right:8%;bottom:6%;--lx:10;--ly:25">Ciao 🇮🇹</span>
         <span style="right:5%;top:46%;--lx:21;--ly:0">Hola 🇪🇸</span>
       </div>
+      <button class="story-hint" type="button" onclick="window.scrollBy({top:window.innerHeight*0.9,behavior:'smooth'})"><span data-s="more"></span><i></i></button>
       <div class="progress"><span id="chapN">01 / 05</span><span class="bar"><i></i></span></div>
     </div>
   </section>
