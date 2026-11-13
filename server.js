@@ -5387,7 +5387,9 @@ app.put("/api/leads/:id", async (req, res) => {
 // In-app review card: shown to every merchant (no satisfaction filtering –
 // Shopify forbids review gating) once the app has been installed 5+ days.
 // "Not now" hides it for 30 days; clicking "Write a review" hides it for a year.
-const REVIEW_PROMPT_MIN_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+const REVIEW_PROMPT_MIN_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+// Ask for a review only once the chat has really helped some customers.
+const REVIEW_PROMPT_MIN_CASES = 3;
 const REVIEW_PROMPT_SNOOZE_MS = { later: 30 * 24 * 60 * 60 * 1000, reviewed: 365 * 24 * 60 * 60 * 1000 };
 
 app.get("/api/review-prompt", async (req, res) => {
@@ -5405,7 +5407,12 @@ app.get("/api/review-prompt", async (req, res) => {
     const row = result.rows[0] || {};
     const since = new Date(row.installed_at || row.first_seen_at || Date.now()).getTime();
     const snoozed = row.dismissed_until && new Date(row.dismissed_until).getTime() > Date.now();
-    res.json({ stored: true, show: Date.now() - since >= REVIEW_PROMPT_MIN_AGE_MS && !snoozed });
+    let used = false;
+    if (Date.now() - since >= REVIEW_PROMPT_MIN_AGE_MS && !snoozed) {
+      const cases = await database.query("SELECT COUNT(*)::int AS n FROM usage_events WHERE shop = $1", [shop]);
+      used = (cases.rows[0]?.n || 0) >= REVIEW_PROMPT_MIN_CASES;
+    }
+    res.json({ stored: true, show: used });
   } catch (error) {
     logRouteError("Review prompt", error);
     res.status(errorStatus(error)).json({ error: publicErrorMessage(error) });
