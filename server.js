@@ -3195,9 +3195,15 @@ app.get("/marketing", (req, res) => {
           </div>
         </li>`).join("");
 
-  const pricingHtml = publicPlans().map((plan) => `
+  const freeRowHtml = FREE_PLAN_LIMIT ? `
         <tr>
-          <td>${escapeHtml(plan.name)}</td>
+          <td><strong>Free</strong></td>
+          <td>${FREE_PLAN_LIMIT.toLocaleString("cs-CZ")}</td>
+          <td><strong>0 Kč</strong> <span style="color:#637381">($0)</span></td>
+        </tr>` : "";
+  const pricingHtml = freeRowHtml + publicPlans().map((plan) => `
+        <tr>
+          <td>${escapeHtml(plan.name)}${plan.limit === FIRST_MONTH_OFFER.limit ? ` <span style="color:#22d3ee;font-size:.85em">🎁 1. měsíc ${FIRST_MONTH_OFFER.priceCzk} Kč (≈ $${FIRST_MONTH_OFFER.priceUsd})</span>` : ""}</td>
           <td>${plan.limit.toLocaleString("cs-CZ")}</td>
           <td>${plan.priceCzk.toLocaleString("cs-CZ")} Kč${Number.isFinite(plan.priceUsd) ? ` <span style="color:#637381">(≈ $${plan.priceUsd})</span>` : ""}</td>
         </tr>`).join("");

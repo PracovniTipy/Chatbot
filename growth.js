@@ -839,7 +839,7 @@ const SEO_PAGES = {
     faq: [["Musím něco nastavovat?", "Skoro nic. Produkty, varianty, sklad i stránky o dopravě a vrácení si Chatnelo načte přímo ze Shopify."],
       ["Jak se platí?", "Bezpečně přes Shopify spolu s vaším předplatným Shopify. Zrušit můžete kdykoli."],
       ["Umí česky?", "Ano – a také slovensky, anglicky, německy, polsky a v dalších jazycích podle zákazníka."],
-      ["Kolik to stojí?", "3 dny zdarma, potom od $16.99 měsíčně. Je i tarif zdarma s 30 konverzacemi měsíčně."]],
+      ["Kolik to stojí?", "3 dny zdarma, potom od $16.99 měsíčně. Je i tarif zdarma s 20 konverzacemi měsíčně."]],
   },
   "ai-chatbot-pro-eshop": {
     platform: "", title: "AI chatbot pro e-shop – odpovídá zákazníkům 24/7 | Chatnelo",
