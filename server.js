@@ -3785,6 +3785,12 @@ app.post("/store/:id/verify-install", async (req, res) => {
   }
 });
 
+// Friendly URLs for people who open the signup/login link directly (the forms live on the dashboard).
+app.get(["/store/signup", "/store/login", "/store/register", "/signup"], (req, res) => {
+  const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
+  res.redirect(302, "/store/dashboard" + qs);
+});
+
 app.get("/store/install", (req, res) => {
   res.type("html").send(`<!doctype html>
 <html lang="cs">
