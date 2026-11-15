@@ -3263,7 +3263,7 @@ app.post("/marketing/chat", async (req, res) => {
 
 // BrosWars Studio website assistant ("Ask us" on the studio site).
 function studioSystemPrompt() {
-  const contact = process.env.PRIVACY_CONTACT_EMAIL || "dudypetr1@seznam.cz";
+  const contact = process.env.PRIVACY_CONTACT_EMAIL || "broswars@chatnelo.com";
   return `You are the friendly assistant of BrosWars Studio, a small independent Czech studio that makes games and AI tools.
 ${LANGUAGE_RULE}
 Facts you may use (do not invent anything else):
