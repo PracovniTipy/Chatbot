@@ -3148,6 +3148,7 @@ const growth = createGrowth({
 });
 growth.register(app);
 require("./audit").register(app, { database, logRouteError });
+try { require("./wix").register(app, { database, logRouteError }); } catch (error) { console.error("Wix module failed to load", error); }
 
 // BrosWars Partner (creator affiliate program): click attribution and the
 // conversions feed for the hub. Separate from the referral program above.
