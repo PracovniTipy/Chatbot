@@ -3171,6 +3171,7 @@ app.get("/sitemap.xml", (req, res) => {
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://chatnelo.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
 ${[...growth.seoPaths, ...require("./audit").paths].map((p) => `  <url><loc>https://chatnelo.com${p}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>`).join("\n")}
+  <url><loc>https://chatnelo.com/terms</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://chatnelo.com/privacy</loc><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>`);
 });
@@ -3216,6 +3217,7 @@ app.get("/marketing", (req, res) => {
         </details>`).join("");
 
   const footerHtml = `<a href="/privacy" data-i18n="common.privacyLink">Zásady ochrany osobních údajů</a>
+    · <a href="/terms">Obchodní podmínky</a>
     · <a href="/partneri">Partnerský program</a>
     ${process.env.PRIVACY_CONTACT_EMAIL ? ` · <a href="mailto:${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}">${escapeHtml(process.env.PRIVACY_CONTACT_EMAIL)}</a>` : ""}
     <div style="margin-top:8px">Chatnelo · © ${new Date().getFullYear()} ${STUDIO_NAME}</div>`;
@@ -3399,6 +3401,24 @@ app.get("/privacy", (req, res) => {
   <script src="/i18n.js?v=${ASSET_VERSION}"></script>
 </body>
 </html>`);
+});
+
+app.get("/terms", (req, res) => {
+  const name = studioOperatorName(process.env.PRIVACY_OPERATOR_NAME || OPERATOR_PLACEHOLDER.name);
+  const email = process.env.PRIVACY_CONTACT_EMAIL || OPERATOR_PLACEHOLDER.contactEmail;
+  const address = process.env.PRIVACY_OPERATOR_ADDRESS || OPERATOR_PLACEHOLDER.address;
+  const cs = [
+    ["Provozovatel", `Chatnelo provozuje ${name}, ${address}. Kontakt: ${email}.`],
+    ["Služba", "Chatnelo je chatbot pro e-shopy, který odpovídá zákazníkům podle produktů a informací obchodu. Odpovědi tvoří umělá inteligence, a proto mohou být občas nepřesné; obchod odpovídá za informace, které o svých produktech a podmínkách zveřejňuje."],
+    ["Tarify a platby", "Ceny a počty odpovědí jednotlivých tarifů jsou uvedené v ceníku před objednávkou. Předplatné se platí měsíčně přes Shopify, nebo kartou přes Stripe, a obnovuje se, dokud ho nezrušíte. Zrušit ho můžete kdykoli; služba poběží do konce zaplaceného období."],
+    ["Pro koho", "Služba je určena podnikatelům (provozovatelům e-shopů). Pokud ji objednáváte jako spotřebitel, máte právo odstoupit do 14 dnů; když službu na vlastní žádost začnete používat dřív, vrátíme částku poníženou o poměrnou část."],
+    ["Osobní údaje", "Jak zpracováváme údaje obchodů i jejich zákazníků, popisují Zásady ochrany osobních údajů na chatnelo.com/privacy."],
+    ["Reklamace a spory", `Problémy řešte na ${email}; ozveme se co nejdříve, nejpozději do 30 dnů. Spotřebitel může spor řešit i u České obchodní inspekce (www.coi.cz).`],
+  ];
+  const sec = cs.map(([h, b]) => `<section><h2>${escapeHtml(h)}</h2><p>${escapeHtml(b)}</p></section>`).join("");
+  res.type("html").send(`<!doctype html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chatnelo — Obchodní podmínky</title><link rel="icon" href="/favicon.ico" sizes="48x48">
+<style>body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f6f7;color:#202223;line-height:1.6}header{background:linear-gradient(135deg,#0b1020 0%,#1e1b4b 55%,#312e81 100%);color:#fff;padding:36px 24px;text-align:center}header h1{margin:0;font-size:1.6rem}main{max-width:760px;margin:0 auto;padding:32px 24px 60px}section{background:#fff;border-radius:12px;box-shadow:0 1px 4px #00000012;padding:20px 24px;margin-bottom:16px;border-left:3px solid #a855f7}h2{font-size:1.1rem;margin-top:0;color:#4c1d95}p{margin:0;color:#3c4149}.updated{text-align:center;color:#637381;font-size:.85rem;margin-bottom:24px}</style></head>
+<body><header><h1>Obchodní podmínky</h1></header><main><p class="updated">Platné od 26. 11. 2026</p>${sec}</main></body></html>`);
 });
 
 // Appearance options can be tried on the preview page through the query
